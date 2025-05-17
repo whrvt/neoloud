@@ -185,8 +185,6 @@ namespace SoLoud
 		for (i = 0; i < mVoiceGroupCount; i++)
 			delete[] mVoiceGroup[i];
 		delete[] mVoiceGroup;
-		delete[] mResampleData;
-		delete[] mResampleDataOwner;
 	}
 
 	void Soloud::deinit()
@@ -202,6 +200,11 @@ namespace SoLoud
 		if (mAudioThreadMutex)
 			Thread::destroyMutex(mAudioThreadMutex);
 		mAudioThreadMutex = NULL;
+
+		delete[] mResampleData;
+		mResampleData = NULL;
+		delete[] mResampleDataOwner;
+		mResampleDataOwner = NULL;
 	}
 
 	result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aChannels)
