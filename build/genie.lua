@@ -2,6 +2,7 @@ local WITH_SDL = 0
 local WITH_SDL2 = 0
 local WITH_SDL_STATIC = 0
 local WITH_SDL2_STATIC = 0
+local WITH_SDL3_STATIC = 0
 local WITH_PORTAUDIO = 0
 local WITH_OPENAL = 0
 local WITH_XAUDIO2 = 0
@@ -30,6 +31,7 @@ end
 
 local sdl_root       = "/libraries/sdl"
 local sdl2_root      = "/libraries/sdl2"
+local sdl3_root      = "/libraries/sdl3"
 local dxsdk_root     = os.getenv("DXSDK_DIR") and os.getenv("DXSDK_DIR") or "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)"
 local portaudio_root = "/libraries/portaudio"
 local openal_root    = "/libraries/openal"
@@ -40,6 +42,9 @@ local sdl_include       = sdl_root .. "/include"
 local sdl2_include      = sdl2_root .. "/include"
 local sdl2_lib_x86      = sdl2_root .. "/lib/x86"
 local sdl2_lib_x64      = sdl2_root .. "/lib/x64"
+local sdl3_include      = sdl3_root .. "/include"
+local sdl3_lib_x86      = sdl3_root .. "/lib/x86"
+local sdl3_lib_x64      = sdl3_root .. "/lib/x64"
 local dxsdk_include     = dxsdk_root .. "/include"
 local portaudio_include = portaudio_root .. "/include"
 local openal_include    = openal_root .. "/include"
@@ -107,6 +112,11 @@ newoption {
 newoption {
 	trigger		  = "with-sdl2static-only",
 	description = "Only include sdl2 that doesn't use dyndll in build"
+}
+
+newoption {
+	trigger		  = "with-sdl3static-only",
+	description = "Only include sdl3 that doesn't use dyndll in build"
 }
 
 newoption {
@@ -288,11 +298,12 @@ if _OPTIONS["with-sdl2static-only"] then
 	WITH_MINIAUDIO = 0
 end
 
-if _OPTIONS["with-sdl2static-only"] then
+if _OPTIONS["with-sdl3static-only"] then
 	WITH_SDL = 0
 	WITH_SDL2 = 0
 	WITH_SDL_STATIC = 0
-	WITH_SDL2_STATIC = 1
+	WITH_SDL2_STATIC = 0
+	WITH_SDL3_STATIC = 1
 	WITH_PORTAUDIO = 0
 	WITH_OPENAL = 0
 	WITH_XAUDIO2 = 0
@@ -400,6 +411,7 @@ print ("")
 print ("Active options:")
 print ("WITH_SDL        = ", WITH_SDL)
 print ("WITH_SDL2       = ", WITH_SDL2)
+print ("WITH_SDL3_STATIC= ", WITH_SDL3_STATIC)
 print ("WITH_PORTAUDIO  = ", WITH_PORTAUDIO)
 print ("WITH_OPENAL     = ", WITH_OPENAL)
 print ("WITH_XAUDIO2    = ", WITH_XAUDIO2)
@@ -737,6 +749,17 @@ if (WITH_SDL2_STATIC == 1) then
 	}
 end
 
+if (WITH_SDL3_STATIC == 1) then
+		defines { "WITH_SDL3_STATIC" }
+	files {
+	  "../src/backend/sdl3_static/**.c*"
+	  }
+	includedirs {
+	  "../include",
+	  sdl3_include
+	}
+end
+
 if (WITH_WASAPI == 1) then
 		defines { "WITH_WASAPI" }
 	files {
@@ -964,6 +987,58 @@ end
 		implibname("soloud")
 
 -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
+
+if (WITH_SDL3STATIC) then
+
+function sdl3_lib()
+    configuration { "x32" } 
+        libdirs { sdl3_lib_x86 }
+    configuration { "x64" } 
+        libdirs { sdl3_lib_x64 }
+    configuration {}
+end
+
+function CommonDemo(_name)
+  project(_name)
+	kind "WindowedApp"
+	language "C++"
+	files {
+	  "../demos/" .. _name .. "/**.c*"
+	  }
+	includedirs {
+	  "../include",
+	  "../demos/common",
+	  "../demos/common/imgui",
+	  "../demos/common/glew",
+	  sdl3_include
+	}
+	sdl3_lib()
+
+	defines { "GLEW_STATIC" }
+
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
+if (WITH_JACK == 1) then
+	links { "jack" }
+end
+if (WITH_COREAUDIO == 1) then
+	links {"AudioToolbox.framework"}
+end
+
+		links {"SoloudStatic", "SoloudDemoCommon", "SDL3main", "SDL3"}
+if (os.is("Windows")) then
+        links {"opengl32"}
+end
+		if (not os.is("windows")) then
+		  links { "pthread" }
+		  links { "dl" }
+		  links { "GL" }
+		end
+
+		targetname (_name)
+end
+end
 
 --
 --  The rest of the projects require SDL

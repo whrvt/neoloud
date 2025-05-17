@@ -50,13 +50,13 @@ freely, subject to the following restrictions:
 #ifdef WITH_SDL
 #undef WITH_SDL2
 #undef WITH_SDL1
-#define WITH_SDL1
-#define WITH_SDL2
+#define WITH_SDL3_STATIC
 #endif
 
 #ifdef WITH_SDL_STATIC
 #undef WITH_SDL1_STATIC
-#define WITH_SDL1_STATIC
+#undef WITH_SDL2_STATIC
+#define WITH_SDL3_STATIC
 #endif
 
 #ifndef M_PI
@@ -180,6 +180,7 @@ namespace SoLoud
 			AUTO = 0,
 			SDL1,
 			SDL2,
+			SDL3,
 			PORTAUDIO,
 			WINMM,
 			XAUDIO2,
