@@ -34,6 +34,8 @@ struct drflac;
 #endif
 #ifndef dr_mp3_h
 struct drmp3;
+struct drmp3_seek_point;
+typedef unsigned int drmp3_uint32;
 #endif
 #ifndef dr_wav_h
 struct drwav;
@@ -62,6 +64,7 @@ namespace SoLoud
 	public:
 		WavStreamInstance(WavStream *aParent);
 		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
+		virtual result seek(double aSeconds, float* mScratch, unsigned int mScratchSize);
 		virtual result rewind();
 		virtual bool hasEnded();
 		virtual ~WavStreamInstance();
@@ -88,13 +91,17 @@ namespace SoLoud
 		File *mStreamFile;
 		unsigned int mSampleCount;
 
+		// mp3 seek tables
+		drmp3_seek_point* mMp3SeekPoints;
+		drmp3_uint32 mMp3SeekPointCount;
+
 		WavStream();
 		virtual ~WavStream();
 		result load(const char *aFilename);
 		result loadMem(const unsigned char *aData, unsigned int aDataLen, bool aCopy = false, bool aTakeOwnership = true);
 		result loadToMem(const char *aFilename);
 		result loadFile(File *aFile);
-		result loadFileToMem(File *aFile);		
+		result loadFileToMem(File *aFile);
 		virtual AudioSourceInstance *createInstance();
 		time getLength();
 
