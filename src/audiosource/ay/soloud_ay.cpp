@@ -47,6 +47,8 @@ namespace SoLoud
 
 	unsigned int AyInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 	{
+		if (aBuffer == NULL)
+			return 0;
 		int samples = mChip->play(aBuffer, aSamplesToRead);
 		return samples;
 	}

@@ -47,7 +47,7 @@ namespace SoLoud
 
 	unsigned int OpenmptInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize)
 	{
-		if (mModfile == NULL)
+		if (aBuffer == NULL || mModfile == NULL)
 			return 0;
 		int s = aSamplesToRead;
 		unsigned int outofs = 0;

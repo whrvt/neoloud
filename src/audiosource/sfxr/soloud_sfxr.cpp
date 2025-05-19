@@ -44,6 +44,8 @@ namespace SoLoud
 
 	unsigned int SfxrInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 	{
+		if (aBuffer == NULL)
+			return 0;
 		float *buffer = aBuffer;
 		unsigned int i;
 		for (i = 0; i < aSamplesToRead; i++)

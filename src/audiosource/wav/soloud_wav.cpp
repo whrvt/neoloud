@@ -43,7 +43,7 @@ namespace SoLoud
 
 	unsigned int WavInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize)
 	{		
-		if (mParent->mData == NULL)
+		if (aBuffer == NULL || mParent->mData == NULL)
 			return 0;
 
 		unsigned int dataleft = mParent->mSampleCount - mOffset;

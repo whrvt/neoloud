@@ -54,6 +54,8 @@ namespace SoLoud
 
 	unsigned int SpeechInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 	{
+		if (aBuffer == NULL)
+			return 0;
 		mSynth.init(mParent->mBaseFrequency, mParent->mBaseSpeed, mParent->mBaseDeclination, mParent->mBaseWaveform);
 		unsigned int samples_out = 0;
 		if (mSampleCount > mOffset)

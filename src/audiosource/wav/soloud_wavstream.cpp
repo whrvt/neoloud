@@ -245,7 +245,7 @@ namespace SoLoud
 	{
 		unsigned int offset = 0;
 		float tmp[512 * MAX_CHANNELS];
-		if (mFile == NULL)
+		if (aBuffer == NULL || mFile == NULL)
 			return 0;
 		switch (mParent->mFiletype)
 		{

@@ -57,6 +57,8 @@ namespace SoLoud
 	unsigned int TedSidInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 	{
 		unsigned int i;
+		if (aBuffer == NULL)
+			return 0;
 		for (i = 0; i < aSamplesToRead; i++)
 		{
 		    tick();

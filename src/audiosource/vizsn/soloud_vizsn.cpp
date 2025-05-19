@@ -236,6 +236,8 @@ namespace SoLoud
 	{
 		unsigned int idx = 0;
 		int i, j;
+		if (aBuffer == NULL)
+			return 0;
 		if (mBufwrite > mBufread)
 		{
 			for (; mBufwrite > mBufread && idx < aSamplesToRead; mBufread++)

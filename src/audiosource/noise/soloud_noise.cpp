@@ -45,6 +45,8 @@ namespace SoLoud
 
 	unsigned int NoiseInstance::getAudio(float* aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 	{
+		if (aBuffer == NULL)
+			return 0;
 		int octavestep[10];
 		float octavevalue[10];
 		float totalscale = 0;
