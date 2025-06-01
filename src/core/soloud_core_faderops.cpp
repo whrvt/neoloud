@@ -95,7 +95,9 @@ namespace SoLoud
 
 	void Soloud::fadeGlobalVolume(float aTo, time aTime)
 	{
+		lockAudioMutex_internal();
 		float from = getGlobalVolume();
+		unlockAudioMutex_internal();
 		if (aTime <= 0 || aTo == from)
 		{
 			setGlobalVolume(aTo);

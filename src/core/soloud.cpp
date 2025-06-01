@@ -2138,14 +2138,15 @@ namespace SoLoud
 		mStreamTime += buffertime;
 		mLastClockedTime = 0;
 
+		lockAudioMutex_internal();
+
+		// Read and update global volume inside mutex
 		globalVolume[0] = mGlobalVolume;
 		if (mGlobalVolumeFader.mActive)
 		{
 			mGlobalVolume = mGlobalVolumeFader.get(mStreamTime);
 		}
 		globalVolume[1] = mGlobalVolume;
-
-		lockAudioMutex_internal();
 
 		// Process faders. May change scratch size.
 		int i;
@@ -2214,7 +2215,7 @@ namespace SoLoud
 
 		if (mActiveVoiceDirty)
 			calcActiveVoices_internal();
-	
+
 		mixBus_internal(mOutputScratch.mData, aSamples, aStride, mScratch.mData, 0, (float)mSamplerate, mChannels, mResampler);
 
 		for (i = 0; i < FILTERS_PER_STREAM; i++)

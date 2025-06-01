@@ -41,9 +41,11 @@ namespace SoLoud
 
 	void Soloud::setGlobalVolume(float aVolume)
 	{
+		lockAudioMutex_internal();
 		mGlobalVolumeFader.mActive = 0;
 		mGlobalVolume = aVolume;
-	}		
+		unlockAudioMutex_internal();
+	}
 
 	result Soloud::setRelativePlaySpeed(handle aVoiceHandle, float aSpeed)
 	{
