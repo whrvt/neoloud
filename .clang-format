@@ -1,0 +1,35 @@
+Language: C
+BasedOnStyle: Microsoft
+UseTab: ForIndentation
+IndentWidth: 4
+ColumnLimit: 165
+AllowShortFunctionsOnASingleLine: Inline
+IndentAccessModifiers: false
+AccessModifierOffset: -4
+AllowShortBlocksOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+BraceWrapping:
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+AlignEscapedNewlines: DontAlign
+---
+Language: Cpp
+BasedOnStyle: Microsoft
+UseTab: ForIndentation
+IndentWidth: 4
+ColumnLimit: 165
+AllowShortFunctionsOnASingleLine: Inline
+IndentAccessModifiers: false
+AccessModifierOffset: -4
+AllowShortBlocksOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AlignArrayOfStructures: Left
+ExperimentalAutoDetectBinPacking: true
+BreakBeforeConceptDeclarations: Always
+BreakTemplateDeclarations: Yes
+BreakBeforeBraces: Custom
+BraceWrapping:
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+AlignEscapedNewlines: DontAlign
+PackConstructorInitializers: Never
