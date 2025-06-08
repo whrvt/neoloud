@@ -41,73 +41,82 @@ typedef unsigned int drmp3_uint32;
 struct drwav;
 #endif
 
+
 namespace SoLoud
 {
-	class WavStream;
-	class File;
+namespace FFmpeg
+{
+	struct FFmpegDecoder;
+}
+class WavStream;
+class File;
 
-	class WavStreamInstance : public AudioSourceInstance
-	{
-		WavStream *mParent;
-		unsigned int mOffset;
-		File *mFile;
-		union codec
-		{
-			stb_vorbis *mOgg;
-			drflac *mFlac;
-			drmp3 *mMp3;
-			drwav *mWav;
-		} mCodec;
-		unsigned int mOggFrameSize;
-		unsigned int mOggFrameOffset;
-		float **mOggOutputs;
-	public:
-		WavStreamInstance(WavStream *aParent);
-		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
-		virtual result seek(double aSeconds, float* mScratch, unsigned int mScratchSize);
-		virtual result rewind();
-		virtual bool hasEnded();
-		virtual ~WavStreamInstance();
-	};
+class WavStreamInstance : public AudioSourceInstance
+{
+	WavStream *mParent;
+	unsigned int mOffset;
+	File *mFile;
+	union codec {
+		stb_vorbis *mOgg;
+		drflac *mFlac;
+		drmp3 *mMp3;
+		drwav *mWav;
+		FFmpeg::FFmpegDecoder *mFfmpeg;
+	} mCodec;
+	unsigned int mOggFrameSize;
+	unsigned int mOggFrameOffset;
+	float **mOggOutputs;
 
-	enum WAVSTREAM_FILETYPE
-	{
-		WAVSTREAM_WAV = 0,
-		WAVSTREAM_OGG = 1,
-		WAVSTREAM_FLAC = 2,
-		WAVSTREAM_MP3 = 3
-	};
-
-	class WavStream : public AudioSource
-	{
-		result loadwav(File *fp);
-		result loadogg(File *fp);
-		result loadflac(File *fp);
-		result loadmp3(File *fp);
-	public:
-		int mFiletype;
-		char *mFilename;
-		File *mMemFile;
-		File *mStreamFile;
-		unsigned int mSampleCount;
-
-		// mp3 seek tables
-		drmp3_seek_point* mMp3SeekPoints;
-		drmp3_uint32 mMp3SeekPointCount;
-
-		WavStream();
-		virtual ~WavStream();
-		result load(const char *aFilename);
-		result loadMem(const unsigned char *aData, unsigned int aDataLen, bool aCopy = false, bool aTakeOwnership = true);
-		result loadToMem(const char *aFilename);
-		result loadFile(File *aFile);
-		result loadFileToMem(File *aFile);
-		virtual AudioSourceInstance *createInstance();
-		time getLength();
-
-	public:
-		result parse(File *aFile);
-	};
+public:
+	WavStreamInstance(WavStream *aParent);
+	virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
+	virtual result seek(double aSeconds, float *mScratch, unsigned int mScratchSize);
+	virtual result rewind();
+	virtual bool hasEnded();
+	virtual ~WavStreamInstance();
 };
+
+enum WAVSTREAM_FILETYPE
+{
+	WAVSTREAM_WAV = 0,
+	WAVSTREAM_OGG = 1,
+	WAVSTREAM_FLAC = 2,
+	WAVSTREAM_MP3 = 3,
+	WAVSTREAM_FFMPEG = 4
+};
+
+class WavStream : public AudioSource
+{
+	result loadwav(File *fp);
+	result loadogg(File *fp);
+	result loadflac(File *fp);
+	result loadmp3(File *fp);
+	result loadffmpeg(File *fp);
+
+public:
+	int mFiletype;
+	char *mFilename;
+	File *mMemFile;
+	File *mStreamFile;
+	unsigned int mSampleCount;
+
+	// mp3 seek tables
+	drmp3_seek_point *mMp3SeekPoints;
+	drmp3_uint32 mMp3SeekPointCount;
+
+	WavStream();
+	virtual ~WavStream();
+	result load(const char *aFilename);
+	result loadMem(const unsigned char *aData, unsigned int aDataLen, bool aCopy = false, bool aTakeOwnership = true);
+	result loadToMem(const char *aFilename);
+	result loadFile(File *aFile);
+	result loadFileToMem(File *aFile);
+	virtual AudioSourceInstance *createInstance();
+	time getLength();
+
+public:
+	result parse(File *aFile);
+};
+}; // namespace SoLoud
 
 #endif
