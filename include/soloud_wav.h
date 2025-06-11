@@ -56,11 +56,12 @@ class Wav : public AudioSource
 	result loadffmpeg(MemoryFile *aReader);
 	result testAndLoadFile(MemoryFile *aReader);
 
+	bool mPreferFFmpeg;
 public:
 	float *mData;
 	unsigned int mSampleCount;
 
-	Wav();
+	Wav(bool preferFFmpeg = false);
 	virtual ~Wav();
 	result load(const char *aFilename);
 	result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);

@@ -82,10 +82,11 @@ bool WavInstance::hasEnded()
 	return 0;
 }
 
-Wav::Wav()
+Wav::Wav(bool preferFFmpeg)
 {
 	mData = NULL;
 	mSampleCount = 0;
+	mPreferFFmpeg = preferFFmpeg;
 }
 
 Wav::~Wav()
@@ -309,6 +310,12 @@ result Wav::testAndLoadFile(MemoryFile *aReader)
 	mData = 0;
 	mSampleCount = 0;
 	mChannels = 1;
+
+	if (mPreferFFmpeg && loadffmpeg(aReader) == SO_NO_ERROR)
+	{
+		return SO_NO_ERROR;
+	}
+
 	int tag = aReader->read32();
 	if (tag == MAKEDWORD('O', 'g', 'g', 'S'))
 	{
@@ -326,7 +333,7 @@ result Wav::testAndLoadFile(MemoryFile *aReader)
 	{
 		return SO_NO_ERROR;
 	}
-	else if (loadffmpeg(aReader) == SO_NO_ERROR)
+	else if (!mPreferFFmpeg && loadffmpeg(aReader) == SO_NO_ERROR)
 	{
 		return SO_NO_ERROR;
 	}

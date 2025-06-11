@@ -499,7 +499,7 @@ bool WavStreamInstance::hasEnded()
 	return 0;
 }
 
-WavStream::WavStream()
+WavStream::WavStream(bool preferFFmpeg)
 {
 	mFilename = 0;
 	mSampleCount = 0;
@@ -508,6 +508,7 @@ WavStream::WavStream()
 	mStreamFile = 0;
 	mMp3SeekPoints = nullptr;
 	mMp3SeekPointCount = 0;
+	mPreferFFmpeg = preferFFmpeg;
 }
 
 WavStream::~WavStream()
@@ -602,6 +603,29 @@ result WavStream::loadmp3(File *fp)
 	}
 
 	drmp3_uint64 samples = drmp3_get_pcm_frame_count(&decoder);
+
+	if (!samples)
+	{
+		drmp3_uninit(&decoder);
+		return FILE_LOAD_FAILED;
+	}
+
+	// validate by trying to decode a couple (2) frames, so that we can actually report an error and fall back to ffmpeg if it fails
+	float temp_buffer[2304 * 2];
+	drmp3_seek_to_pcm_frame(&decoder, 0);
+
+	int successful_frames = 0;
+	for (int i = 0; i < 2; i++)
+	{
+		if (drmp3_read_pcm_frames_f32(&decoder, 1152, &temp_buffer[0]) > 0)
+			successful_frames++;
+	}
+
+	if (successful_frames < 2)
+	{
+		drmp3_uninit(&decoder);
+		return FILE_LOAD_FAILED;
+	}
 
 	mBaseSamplerate = (float)decoder.sampleRate;
 	mSampleCount = (unsigned int)samples;
@@ -803,8 +827,14 @@ result WavStream::loadFileToMem(File *aFile)
 
 result WavStream::parse(File *aFile)
 {
-	int tag = aFile->read32();
+	if (mPreferFFmpeg && loadffmpeg(aFile) == SO_NO_ERROR)
+	{
+		return SO_NO_ERROR;
+	}
+
 	int res = SO_NO_ERROR;
+	int tag = aFile->read32();
+
 	if (tag == MAKEDWORD('O', 'g', 'g', 'S'))
 	{
 		res = loadogg(aFile);
@@ -821,7 +851,7 @@ result WavStream::parse(File *aFile)
 	{
 		res = SO_NO_ERROR;
 	}
-	else if (loadffmpeg(aFile) == SO_NO_ERROR)
+	else if (!mPreferFFmpeg && loadffmpeg(aFile) == SO_NO_ERROR)
 	{
 		res = SO_NO_ERROR;
 	}

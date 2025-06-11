@@ -82,7 +82,8 @@ enum WAVSTREAM_FILETYPE
 	WAVSTREAM_OGG = 1,
 	WAVSTREAM_FLAC = 2,
 	WAVSTREAM_MP3 = 3,
-	WAVSTREAM_FFMPEG = 4
+	WAVSTREAM_FFMPEG = 4,
+	WAVSTREAM_AUTO
 };
 
 class WavStream : public AudioSource
@@ -93,6 +94,7 @@ class WavStream : public AudioSource
 	result loadmp3(File *fp);
 	result loadffmpeg(File *fp);
 
+	bool mPreferFFmpeg;
 public:
 	int mFiletype;
 	char *mFilename;
@@ -104,7 +106,7 @@ public:
 	drmp3_seek_point *mMp3SeekPoints;
 	drmp3_uint32 mMp3SeekPointCount;
 
-	WavStream();
+	WavStream(bool preferFFmpeg = false);
 	virtual ~WavStream();
 	result load(const char *aFilename);
 	result loadMem(const unsigned char *aData, unsigned int aDataLen, bool aCopy = false, bool aTakeOwnership = true);
