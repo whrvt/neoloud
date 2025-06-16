@@ -71,9 +71,23 @@ drflac_bool32 drflac_seek_func(void *pUserData, int offset, drflac_seek_origin o
 drmp3_bool32 drmp3_seek_func(void *pUserData, int offset, drmp3_seek_origin origin)
 {
 	File *fp = (File *)pUserData;
-	if (origin != drmp3_seek_origin_start)
+
+	if (origin == drmp3_seek_origin_current)
 		offset += fp->pos();
+	else if (origin == drmp3_seek_origin_end)
+		offset += fp->length();
+
 	fp->seek(offset);
+	return 1;
+}
+
+drmp3_bool32 drmp3_tell_func(void *pUserData, drmp3_int64 *pCursor)
+{
+	File *fp = (File *)pUserData;
+	if (pCursor == NULL)
+		return 0;
+
+	*pCursor = (drmp3_int64)fp->pos();
 	return 1;
 }
 
@@ -163,7 +177,7 @@ WavStreamInstance::WavStreamInstance(WavStream *aParent)
 		else if (mParent->mFiletype == WAVSTREAM_MP3)
 		{
 			mCodec.mMp3 = new drmp3;
-			if (!drmp3_init(mCodec.mMp3, drmp3_read_func, drmp3_seek_func, NULL, NULL, (void *)mFile, NULL))
+			if (!drmp3_init(mCodec.mMp3, drmp3_read_func, drmp3_seek_func, drmp3_tell_func, NULL, (void *)mFile, NULL))
 			{
 				delete mCodec.mMp3;
 				mCodec.mMp3 = 0;
@@ -593,7 +607,7 @@ result WavStream::loadmp3(File *fp)
 {
 	fp->seek(0);
 	drmp3 decoder;
-	if (!drmp3_init(&decoder, drmp3_read_func, drmp3_seek_func, NULL, NULL, (void *)fp, NULL))
+	if (!drmp3_init(&decoder, drmp3_read_func, drmp3_seek_func, drmp3_tell_func, NULL, (void *)fp, NULL))
 		return FILE_LOAD_FAILED;
 
 	mChannels = decoder.channels;
