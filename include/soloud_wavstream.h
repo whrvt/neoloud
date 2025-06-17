@@ -25,8 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_WAVSTREAM_H
 #define SOLOUD_WAVSTREAM_H
 
-#include <stdio.h>
 #include "soloud.h"
+#include <stdio.h>
 
 struct stb_vorbis;
 #ifndef dr_flac_h
@@ -41,12 +41,15 @@ typedef unsigned int drmp3_uint32;
 struct drwav;
 #endif
 
-
 namespace SoLoud
 {
 namespace FFmpeg
 {
-	struct FFmpegDecoder;
+struct FFmpegDecoder;
+}
+namespace MPG123
+{
+struct MPG123Decoder;
 }
 class WavStream;
 class File;
@@ -59,7 +62,8 @@ class WavStreamInstance : public AudioSourceInstance
 	union codec {
 		stb_vorbis *mOgg;
 		drflac *mFlac;
-		drmp3 *mMp3;
+		MPG123::MPG123Decoder *mMpg123;
+		drmp3 *mDrmp3;
 		drwav *mWav;
 		FFmpeg::FFmpegDecoder *mFfmpeg;
 	} mCodec;
@@ -81,8 +85,9 @@ enum WAVSTREAM_FILETYPE
 	WAVSTREAM_WAV = 0,
 	WAVSTREAM_OGG = 1,
 	WAVSTREAM_FLAC = 2,
-	WAVSTREAM_MP3 = 3,
-	WAVSTREAM_FFMPEG = 4,
+	WAVSTREAM_MPG123 = 3,
+	WAVSTREAM_DRMP3 = 4,
+	WAVSTREAM_FFMPEG = 5,
 	WAVSTREAM_AUTO
 };
 
@@ -91,10 +96,12 @@ class WavStream : public AudioSource
 	result loadwav(File *fp);
 	result loadogg(File *fp);
 	result loadflac(File *fp);
-	result loadmp3(File *fp);
+	result loadmpg123(File *fp);
+	result loaddrmp3(File *fp);
 	result loadffmpeg(File *fp);
 
 	bool mPreferFFmpeg;
+
 public:
 	int mFiletype;
 	char *mFilename;

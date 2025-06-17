@@ -32,6 +32,8 @@ freely, subject to the following restrictions:
 #include "dr_wav.h"
 #include "stb_vorbis.h"
 
+#include "soloud_mpg123.h"
+
 #include "soloud_ffmpeg.h"
 #include "soloud_ffmpeg_load.h"
 
@@ -108,7 +110,8 @@ WavStreamInstance::WavStreamInstance(WavStream *aParent)
 	mCodec.mOgg = 0;
 	mCodec.mFlac = 0;
 	mCodec.mWav = 0;
-	mCodec.mMp3 = 0;
+	mCodec.mMpg123 = 0;
+	mCodec.mDrmp3 = 0;
 	mCodec.mFfmpeg = 0;
 	mFile = 0;
 
@@ -174,20 +177,30 @@ WavStreamInstance::WavStreamInstance(WavStream *aParent)
 				mFile = 0;
 			}
 		}
-		else if (mParent->mFiletype == WAVSTREAM_MP3)
+		else if (mParent->mFiletype == WAVSTREAM_MPG123)
 		{
-			mCodec.mMp3 = new drmp3;
-			if (!drmp3_init(mCodec.mMp3, drmp3_read_func, drmp3_seek_func, drmp3_tell_func, NULL, (void *)mFile, NULL))
+			mCodec.mMpg123 = MPG123::open(mFile);
+			if (!mCodec.mMpg123)
 			{
-				delete mCodec.mMp3;
-				mCodec.mMp3 = 0;
+				if (mFile != mParent->mStreamFile)
+					delete mFile;
+				mFile = 0;
+			}
+		}
+		else if (mParent->mFiletype == WAVSTREAM_DRMP3)
+		{
+			mCodec.mDrmp3 = new drmp3;
+			if (!drmp3_init(mCodec.mDrmp3, drmp3_read_func, drmp3_seek_func, drmp3_tell_func, NULL, (void *)mFile, NULL))
+			{
+				delete mCodec.mDrmp3;
+				mCodec.mDrmp3 = 0;
 				if (mFile != mParent->mStreamFile)
 					delete mFile;
 				mFile = 0;
 			}
 			else if (mParent->mMp3SeekPointCount > 0 && mParent->mMp3SeekPoints != nullptr)
 			{
-				drmp3_bind_seek_table(mCodec.mMp3, mParent->mMp3SeekPointCount, mParent->mMp3SeekPoints);
+				drmp3_bind_seek_table(mCodec.mDrmp3, mParent->mMp3SeekPointCount, mParent->mMp3SeekPoints);
 			}
 		}
 		else if (mParent->mFiletype == WAVSTREAM_FFMPEG)
@@ -226,12 +239,18 @@ WavStreamInstance::~WavStreamInstance()
 			drflac_close(mCodec.mFlac);
 		}
 		break;
-	case WAVSTREAM_MP3:
-		if (mCodec.mMp3)
+	case WAVSTREAM_MPG123:
+		if (mCodec.mMpg123)
 		{
-			drmp3_uninit(mCodec.mMp3);
-			delete mCodec.mMp3;
-			mCodec.mMp3 = 0;
+			MPG123::close(mCodec.mMpg123);
+		}
+		break;
+	case WAVSTREAM_DRMP3:
+		if (mCodec.mDrmp3)
+		{
+			drmp3_uninit(mCodec.mDrmp3);
+			delete mCodec.mDrmp3;
+			mCodec.mDrmp3 = 0;
 		}
 		break;
 	case WAVSTREAM_WAV:
@@ -303,19 +322,43 @@ unsigned int WavStreamInstance::getAudio(float *aBuffer, unsigned int aSamplesTo
 		return offset;
 	}
 	break;
-	case WAVSTREAM_MP3: {
+	case WAVSTREAM_MPG123: {
 		unsigned int i, j, k;
 
 		for (i = 0; i < aSamplesToRead; i += 512)
 		{
 			unsigned int blockSize = (aSamplesToRead - i) > 512 ? 512 : aSamplesToRead - i;
-			offset += (unsigned int)drmp3_read_pcm_frames_f32(mCodec.mMp3, blockSize, tmp);
+			size_t framesRead = MPG123::readFrames(mCodec.mMpg123, blockSize, tmp);
+			offset += (unsigned int)framesRead;
+
+			for (j = 0; j < framesRead; j++)
+			{
+				for (k = 0; k < mChannels; k++)
+				{
+					aBuffer[k * aSamplesToRead + i + j] = tmp[j * MPG123::getChannels(mCodec.mMpg123) + k];
+				}
+			}
+
+			if (framesRead < blockSize)
+				break;
+		}
+		mOffset += offset;
+		return offset;
+	}
+	break;
+	case WAVSTREAM_DRMP3: {
+		unsigned int i, j, k;
+
+		for (i = 0; i < aSamplesToRead; i += 512)
+		{
+			unsigned int blockSize = (aSamplesToRead - i) > 512 ? 512 : aSamplesToRead - i;
+			offset += (unsigned int)drmp3_read_pcm_frames_f32(mCodec.mDrmp3, blockSize, tmp);
 
 			for (j = 0; j < blockSize; j++)
 			{
 				for (k = 0; k < mChannels; k++)
 				{
-					aBuffer[k * aSamplesToRead + i + j] = tmp[j * mCodec.mMp3->channels + k];
+					aBuffer[k * aSamplesToRead + i + j] = tmp[j * mCodec.mDrmp3->channels + k];
 				}
 			}
 		}
@@ -384,15 +427,28 @@ unsigned int WavStreamInstance::getAudio(float *aBuffer, unsigned int aSamplesTo
 
 result WavStreamInstance::seek(double aSeconds, float *mScratch, unsigned int mScratchSize)
 {
-	if (mParent->mFiletype == WAVSTREAM_MP3 && mCodec.mMp3)
+	if (mParent->mFiletype == WAVSTREAM_DRMP3 && mCodec.mDrmp3)
 	{
-		drmp3_uint64 targetFrame = (drmp3_uint64)floor(aSeconds * mCodec.mMp3->sampleRate);
-		if (drmp3_seek_to_pcm_frame(mCodec.mMp3, targetFrame))
+		drmp3_uint64 targetFrame = (drmp3_uint64)floor(aSeconds * mCodec.mDrmp3->sampleRate);
+		if (drmp3_seek_to_pcm_frame(mCodec.mDrmp3, targetFrame))
 		{
 			// Since the position that we just sought to might not be *exactly*
 			// the position we asked for, we're re-calculating the position just
 			// for the sake of correctness.
-			mOffset = (unsigned int)mCodec.mMp3->currentPCMFrame;
+			mOffset = (unsigned int)mCodec.mDrmp3->currentPCMFrame;
+			double newPosition = static_cast<double>(mOffset) / mBaseSamplerate;
+			mStreamPosition = newPosition;
+			return SO_NO_ERROR;
+		}
+		return UNKNOWN_ERROR;
+	}
+	else if (mParent->mFiletype == WAVSTREAM_MPG123 && mCodec.mMpg123)
+	{
+		off_t targetFrame = (off_t)floor(aSeconds * mBaseSamplerate);
+		off_t seekResult = MPG123::seekToFrame(mCodec.mMpg123, targetFrame);
+		if (seekResult >= 0)
+		{
+			mOffset = (unsigned int)seekResult; // libmpg123 helpfully returns the actual position seeked to
 			double newPosition = static_cast<double>(mOffset) / mBaseSamplerate;
 			mStreamPosition = newPosition;
 			return SO_NO_ERROR;
@@ -475,10 +531,16 @@ result WavStreamInstance::rewind()
 			drflac_seek_to_pcm_frame(mCodec.mFlac, 0);
 		}
 		break;
-	case WAVSTREAM_MP3:
-		if (mCodec.mMp3)
+	case WAVSTREAM_MPG123:
+		if (mCodec.mMpg123)
 		{
-			drmp3_seek_to_pcm_frame(mCodec.mMp3, 0);
+			MPG123::seekToFrame(mCodec.mMpg123, 0);
+		}
+		break;
+	case WAVSTREAM_DRMP3:
+		if (mCodec.mDrmp3)
+		{
+			drmp3_seek_to_pcm_frame(mCodec.mDrmp3, 0);
 		}
 		break;
 	case WAVSTREAM_WAV:
@@ -505,7 +567,7 @@ bool WavStreamInstance::hasEnded()
 	{
 		return 1;
 	}
-	else if (mParent->mFiletype == WAVSTREAM_MP3 && mCodec.mMp3 && mCodec.mMp3->atEnd)
+	else if (mParent->mFiletype == WAVSTREAM_DRMP3 && mCodec.mDrmp3 && mCodec.mDrmp3->atEnd)
 	{
 		mOffset = mParent->mSampleCount;
 		return 1;
@@ -603,7 +665,37 @@ result WavStream::loadflac(File *fp)
 	return SO_NO_ERROR;
 }
 
-result WavStream::loadmp3(File *fp)
+result WavStream::loadmpg123(File *fp)
+{
+	fp->seek(0);
+	MPG123::MPG123Decoder *decoder = MPG123::open(fp);
+
+	if (!decoder)
+		return FILE_LOAD_FAILED;
+
+	mChannels = MPG123::getChannels(decoder);
+	if (mChannels > MAX_CHANNELS)
+	{
+		mChannels = MAX_CHANNELS;
+	}
+
+	mBaseSamplerate = (float)MPG123::getSampleRate(decoder);
+	off_t totalFrames = MPG123::getTotalFrameCount(decoder);
+
+	if (totalFrames <= 0)
+	{
+		MPG123::close(decoder);
+		return FILE_LOAD_FAILED;
+	}
+
+	mSampleCount = (unsigned int)totalFrames;
+	mFiletype = WAVSTREAM_MPG123;
+
+	MPG123::close(decoder);
+	return SO_NO_ERROR;
+}
+
+result WavStream::loaddrmp3(File *fp)
 {
 	fp->seek(0);
 	drmp3 decoder;
@@ -643,7 +735,7 @@ result WavStream::loadmp3(File *fp)
 
 	mBaseSamplerate = (float)decoder.sampleRate;
 	mSampleCount = (unsigned int)samples;
-	mFiletype = WAVSTREAM_MP3;
+	mFiletype = WAVSTREAM_DRMP3;
 
 	delete[] mMp3SeekPoints;
 	mMp3SeekPoints = nullptr;
@@ -861,7 +953,11 @@ result WavStream::parse(File *aFile)
 	{
 		res = loadflac(aFile);
 	}
-	else if (loadmp3(aFile) == SO_NO_ERROR)
+	else if (loadmpg123(aFile) == SO_NO_ERROR)
+	{
+		res = SO_NO_ERROR;
+	}
+	else if (loaddrmp3(aFile) == SO_NO_ERROR)
 	{
 		res = SO_NO_ERROR;
 	}
