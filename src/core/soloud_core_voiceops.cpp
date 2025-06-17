@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud.h"
+#include <string.h>
 
 // Direct voice operations (no mutexes - called from other functions)
 
@@ -62,6 +63,12 @@ void Soloud::setVoicePause_internal(unsigned int aVoice, int aPause)
 		else
 		{
 			mVoice[aVoice]->mFlags &= ~AudioSourceInstance::PAUSED;
+
+			// clear resample buffer contents when unpausing to avoid playing stale audio data
+			for (unsigned int ch = 0; ch < mVoice[aVoice]->mChannels && ch < MAX_CHANNELS; ch++)
+			{
+				memset(mVoice[aVoice]->mResampleBuffer[ch], 0, mVoice[aVoice]->mResampleBufferFill * sizeof(float));
+			}
 		}
 	}
 }
