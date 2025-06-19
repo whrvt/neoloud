@@ -12,24 +12,21 @@ Here's some guidelines on contributing to the SoLoud project.
 - Try to follow the coding convention of the surrounding code.
   If stand alone (such as platform or output device specific),
   this isn't as important.
-  
-- All optimized code (such as SSE or assembler) must be 
+
+- All optimized code (such as SSE or assembler) must be
   accompanied by plain 'c' version, because:
   a) optimizations come and go, porting 30 years from now
      can be really painful.
   b) plain 'c' version works as documentation of the
      optimized code.
-     
+
 - When doing platform specific code or otherwise optionally
   compiled code, it's often better to have some duplicate
   code inside large ifdef block than to have tons of hard
   to follow small ifdef blocks.
 
-- Unless there's a really, really good reason, no templates,
-  including funkycast<foobar>. foo = (int)bar works fine.
-  
 - Unless performance critical, always try to write for readability.
- 
+
 Coding convention in brief:
 
 - On naming:

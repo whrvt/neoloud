@@ -3,7 +3,7 @@ SoLoud
 
 SoLoud is an easy to use, free, portable c/c++ audio engine for games.
 
-![ScreenShot](https://raw.github.com/jarikomppa/soloud/master/soloud.png)
+![ScreenShot](https://raw.github.com/whrvt/soloud/master/soloud.png)
 
 Zlib/LibPng licensed. Portable. Easy.
 
