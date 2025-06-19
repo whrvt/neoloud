@@ -291,8 +291,8 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	else
 	{
 		config.periodSizeInFrames = 0;
-#if defined(_WIN32) || defined(_WIN64) || defined(_MSC_VER)
-		config.periodSizeInMilliseconds = 1; // probably redundant with the define above
+#if defined(_WIN32) || defined(_WIN64) || defined(_MSC_VER) || defined(__linux__)
+		config.periodSizeInMilliseconds = 1; // negotiate the lowest possible period size
 #endif
 	}
 
