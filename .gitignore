@@ -37,6 +37,8 @@ glue/rpgmaker_soloud.rb
 *.lastcodeanalysissucceeded
 *.bak
 
+build-*/
+
 temp/
 .temp/
 .clangd

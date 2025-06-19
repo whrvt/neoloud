@@ -177,6 +177,42 @@ endif()
 # installation
 include(GNUInstallDirs)
 
+# .pc generation
+set(SOLOUD_PC_REQUIRES "")
+set(SOLOUD_PC_REQUIRES_PRIVATE "")
+set(SOLOUD_PC_LIBS_PRIVATE "")
+
+# add optional dependencies to requires
+if(SOLOUD_WITH_SDL3)
+    set(SOLOUD_PC_REQUIRES_PRIVATE "${SOLOUD_PC_REQUIRES_PRIVATE} sdl3")
+endif()
+
+if(SOLOUD_WITH_LIBMPG123)
+    set(SOLOUD_PC_REQUIRES_PRIVATE "${SOLOUD_PC_REQUIRES_PRIVATE} libmpg123")
+endif()
+
+# only add libraries that are actually linked
+if(UNIX AND NOT APPLE)
+    # only -ldl is actually linked on unix systems
+    set(SOLOUD_PC_LIBS_PRIVATE "${SOLOUD_PC_LIBS_PRIVATE} -ldl")
+endif()
+
+# trim leading spaces
+string(STRIP "${SOLOUD_PC_REQUIRES}" SOLOUD_PC_REQUIRES)
+string(STRIP "${SOLOUD_PC_REQUIRES_PRIVATE}" SOLOUD_PC_REQUIRES_PRIVATE)
+string(STRIP "${SOLOUD_PC_LIBS_PRIVATE}" SOLOUD_PC_LIBS_PRIVATE)
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/soloud.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/soloud.pc"
+    @ONLY
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/soloud.pc"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+)
+
 install(TARGETS soloud
     EXPORT SoLoudTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
