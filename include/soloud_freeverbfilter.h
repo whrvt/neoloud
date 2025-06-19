@@ -37,26 +37,28 @@ namespace SoLoud
 
 	class FreeverbFilterInstance : public FilterInstance
 	{
-		enum FILTERPARAM {
+		enum FILTERPARAM
+		{
 			WET = 0,
 			FREEZE,
 			ROOMSIZE,
 			DAMP,
 			WIDTH
-		};		
+		};
 
 		FreeverbFilter *mParent;
 		FreeverbImpl::Revmodel *mModel;
 	public:
-		virtual void filter(float* aBuffer, unsigned int aSamples, unsigned int aBufferSize, unsigned int aChannels, float aSamplerate, time aTime);
+		virtual void filter(float *aBuffer, unsigned int aSamples, unsigned int aBufferSize, unsigned int aChannels, float aSamplerate, time aTime);
 		virtual ~FreeverbFilterInstance();
-		FreeverbFilterInstance(FreeverbFilter *aParent);
+		FreeverbFilterInstance(FreeverbFilter * aParent);
 	};
 
 	class FreeverbFilter : public Filter
 	{
 	public:
-		enum FILTERPARAM {
+		enum FILTERPARAM
+		{
 			WET = 0,
 			FREEZE,
 			ROOMSIZE,
@@ -64,7 +66,7 @@ namespace SoLoud
 			WIDTH
 		};
 		virtual int getParamCount();
-		virtual const char* getParamName(unsigned int aParamIndex);
+		virtual const char *getParamName(unsigned int aParamIndex);
 		virtual unsigned int getParamType(unsigned int aParamIndex);
 		virtual float getParamMax(unsigned int aParamIndex);
 		virtual float getParamMin(unsigned int aParamIndex);

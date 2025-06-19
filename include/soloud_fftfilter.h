@@ -46,12 +46,12 @@ namespace SoLoud
 		virtual void fftFilterChannel(float *aFFTBuffer, unsigned int aSamples, float aSamplerate, time aTime, unsigned int aChannel, unsigned int aChannels);
 		virtual void filterChannel(float *aBuffer, unsigned int aSamples, float aSamplerate, time aTime, unsigned int aChannel, unsigned int aChannels);
 		virtual ~FFTFilterInstance();
-		FFTFilterInstance(FFTFilter *aParent);
+		FFTFilterInstance(FFTFilter * aParent);
 		FFTFilterInstance();
-		void comp2MagPhase(float* aFFTBuffer, unsigned int aSamples);
-		void magPhase2MagFreq(float* aFFTBuffer, unsigned int aSamples, float aSamplerate, unsigned int aChannel);
-		void magFreq2MagPhase(float* aFFTBuffer, unsigned int aSamples, float aSamplerate, unsigned int aChannel);
-		void magPhase2Comp(float* aFFTBuffer, unsigned int aSamples);
+		void comp2MagPhase(float *aFFTBuffer, unsigned int aSamples);
+		void magPhase2MagFreq(float *aFFTBuffer, unsigned int aSamples, float aSamplerate, unsigned int aChannel);
+		void magFreq2MagPhase(float *aFFTBuffer, unsigned int aSamples, float aSamplerate, unsigned int aChannel);
+		void magPhase2Comp(float *aFFTBuffer, unsigned int aSamples);
 		void init();
 	};
 

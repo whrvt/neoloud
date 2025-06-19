@@ -34,12 +34,12 @@ namespace SoLoud
 	class DuckFilterInstance : public FilterInstance
 	{
 		handle mListenTo;
-		Soloud* mSoloud;
+		Soloud *mSoloud;
 		float mCurrentLevel;
 	public:
 		virtual void filter(float *aBuffer, unsigned int aSamples, unsigned int aBufferSize, unsigned int aChannels, float aSamplerate, time aTime);
 		virtual ~DuckFilterInstance();
-		DuckFilterInstance(DuckFilter *aParent);
+		DuckFilterInstance(DuckFilter * aParent);
 	};
 
 	class DuckFilter : public Filter
@@ -52,19 +52,19 @@ namespace SoLoud
 			OFFRAMP,
 			LEVEL
 		};
-		Soloud* mSoloud;
+		Soloud *mSoloud;
 		float mOnRamp;
 		float mOffRamp;
 		float mLevel;
 		handle mListenTo;
 		virtual int getParamCount();
-		virtual const char* getParamName(unsigned int aParamIndex);
+		virtual const char *getParamName(unsigned int aParamIndex);
 		virtual unsigned int getParamType(unsigned int aParamIndex);
 		virtual float getParamMax(unsigned int aParamIndex);
 		virtual float getParamMin(unsigned int aParamIndex);
 		virtual FilterInstance *createInstance();
 		DuckFilter();
-		result setParams(Soloud* aSoloud, handle aListenTo, float aOnRamp = 0.1f, float aOffRamp = 0.5f, float aLevel = 0.1f);
+		result setParams(Soloud * aSoloud, handle aListenTo, float aOnRamp = 0.1f, float aOffRamp = 0.5f, float aLevel = 0.1f);
 	};
 }
 

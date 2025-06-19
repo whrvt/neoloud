@@ -56,7 +56,7 @@ namespace SoLoud
 	public:
 		virtual void filterChannel(float *aBuffer, unsigned int aSamples, float aSamplerate, time aTime, unsigned int aChannel, unsigned int aChannels);
 		virtual ~BiquadResonantFilterInstance();
-		BiquadResonantFilterInstance(BiquadResonantFilter *aParent);
+		BiquadResonantFilterInstance(BiquadResonantFilter * aParent);
 	};
 
 	class BiquadResonantFilter : public Filter
@@ -79,7 +79,7 @@ namespace SoLoud
 		float mFrequency;
 		float mResonance;
 		virtual int getParamCount();
-		virtual const char* getParamName(unsigned int aParamIndex);
+		virtual const char *getParamName(unsigned int aParamIndex);
 		virtual unsigned int getParamType(unsigned int aParamIndex);
 		virtual float getParamMax(unsigned int aParamIndex);
 		virtual float getParamMin(unsigned int aParamIndex);

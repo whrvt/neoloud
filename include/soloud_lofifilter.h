@@ -46,12 +46,12 @@ namespace SoLoud
 			BITDEPTH
 		};
 		LofiChannelData mChannelData[2];
-		
+
 		LofiFilter *mParent;
 	public:
 		virtual void filterChannel(float *aBuffer, unsigned int aSamples, float aSamplerate, time aTime, unsigned int aChannel, unsigned int aChannels);
 		virtual ~LofiFilterInstance();
-		LofiFilterInstance(LofiFilter *aParent);
+		LofiFilterInstance(LofiFilter * aParent);
 	};
 
 	class LofiFilter : public Filter
@@ -67,7 +67,7 @@ namespace SoLoud
 		float mBitdepth;
 		virtual LofiFilterInstance *createInstance();
 		virtual int getParamCount();
-		virtual const char* getParamName(unsigned int aParamIndex);
+		virtual const char *getParamName(unsigned int aParamIndex);
 		virtual unsigned int getParamType(unsigned int aParamIndex);
 		virtual float getParamMax(unsigned int aParamIndex);
 		virtual float getParamMin(unsigned int aParamIndex);

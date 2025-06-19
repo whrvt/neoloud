@@ -21,8 +21,7 @@ namespace SoLoud
 
 	struct VizsnResonator
 	{
-	public:
-		float a, b, c, p1, p2;
+		public : float a, b, c, p1, p2;
 
 		float resonate(float i);
 		float antiresonate(float i);
@@ -40,14 +39,14 @@ namespace SoLoud
 	class VizsnInstance : public AudioSourceInstance
 	{
 	public:
-		VizsnInstance(Vizsn *aParent);
+		VizsnInstance(Vizsn * aParent);
 		~VizsnInstance();
 
 		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
 		virtual bool hasEnded();
 
-    public:
-        Vizsn *mParent;
+	public:
+		Vizsn *mParent;
 		VizsnBank mBank0, mBank1, mBank0to1;
 		int mNper, mNmod, mNopen;
 		int mEchobuf[1024], mPtr;
@@ -60,7 +59,7 @@ namespace SoLoud
 		float vcsrc(int aPitch, int aVoicetype);
 		float noisrc();
 		float genwave();
-		void setphone(VizsnBank *aB, char aP, float aPitch);
+		void setphone(VizsnBank * aB, char aP, float aPitch);
 		void slidePrepare(int aNumtix);
 		void slideTick();
 		int mA;

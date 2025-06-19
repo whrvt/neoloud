@@ -52,16 +52,16 @@ namespace SoLoud
 	class VicInstance : public AudioSourceInstance
 	{
 	public:
-		VicInstance(Vic *aParent);
+		VicInstance(Vic * aParent);
 		~VicInstance();
 
 		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
 		virtual bool hasEnded();
 
 	public:
-		Vic*			m_parent;
-		unsigned int	m_phase[4];
-		unsigned int	m_noisePos;
+		Vic *m_parent;
+		unsigned int m_phase[4];
+		unsigned int m_noisePos;
 	};
 
 	class Vic : public AudioSource
@@ -70,7 +70,7 @@ namespace SoLoud
 		// VIC model
 		enum
 		{
-			PAL	= 0,
+			PAL = 0,
 			NTSC
 		};
 
@@ -87,7 +87,7 @@ namespace SoLoud
 		Vic();
 
 		virtual ~Vic();
-		
+
 		void setModel(int model);
 
 		int getModel() const;
@@ -98,10 +98,10 @@ namespace SoLoud
 
 	public:
 		virtual AudioSourceInstance *createInstance();
-		int				m_model;
-		float			m_clocks[4];		// base clock frequencies for oscillators, dependent on VIC model
-		unsigned char	m_regs[MAX_REGS];		
-		unsigned char 	m_noise[8192];
+		int m_model;
+		float m_clocks[4]; // base clock frequencies for oscillators, dependent on VIC model
+		unsigned char m_regs[MAX_REGS];
+		unsigned char m_noise[8192];
 	};
 };
 

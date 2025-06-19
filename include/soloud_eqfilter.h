@@ -49,7 +49,7 @@ namespace SoLoud
 		EqFilter *mParent;
 	public:
 		virtual void fftFilterChannel(float *aFFTBuffer, unsigned int aSamples, float aSamplerate, time aTime, unsigned int aChannel, unsigned int aChannels);
-		EqFilterInstance(EqFilter *aParent);
+		EqFilterInstance(EqFilter * aParent);
 	};
 
 	class EqFilter : public FFTFilter
@@ -68,7 +68,7 @@ namespace SoLoud
 			BAND8 = 8
 		};
 		virtual int getParamCount();
-		virtual const char* getParamName(unsigned int aParamIndex);
+		virtual const char *getParamName(unsigned int aParamIndex);
 		virtual unsigned int getParamType(unsigned int aParamIndex);
 		virtual float getParamMax(unsigned int aParamIndex);
 		virtual float getParamMin(unsigned int aParamIndex);

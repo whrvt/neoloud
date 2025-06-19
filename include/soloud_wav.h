@@ -31,48 +31,49 @@ struct stb_vorbis;
 
 namespace SoLoud
 {
-class Wav;
-class File;
-class MemoryFile;
+	class Wav;
+	class File;
+	class MemoryFile;
 
-class WavInstance : public AudioSourceInstance
-{
-	Wav *mParent;
-	unsigned int mOffset;
+	class WavInstance : public AudioSourceInstance
+	{
+		Wav *mParent;
+		unsigned int mOffset;
 
-public:
-	WavInstance(Wav *aParent);
-	virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
-	virtual result rewind();
-	virtual bool hasEnded();
-};
+	public:
+		WavInstance(Wav * aParent);
+		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
+		virtual result rewind();
+		virtual bool hasEnded();
+	};
 
-class Wav : public AudioSource
-{
-	result loadwav(MemoryFile *aReader);
-	result loadogg(MemoryFile *aReader);
-	result loadmp3(MemoryFile *aReader);
-	result loadflac(MemoryFile *aReader);
-	result loadffmpeg(MemoryFile *aReader);
-	result testAndLoadFile(MemoryFile *aReader);
+	class Wav : public AudioSource
+	{
+		result loadwav(MemoryFile * aReader);
+		result loadogg(MemoryFile * aReader);
+		result loadmp3(MemoryFile * aReader);
+		result loadflac(MemoryFile * aReader);
+		result loadffmpeg(MemoryFile * aReader);
+		result testAndLoadFile(MemoryFile * aReader);
 
-	bool mPreferFFmpeg;
-public:
-	float *mData;
-	unsigned int mSampleCount;
+		bool mPreferFFmpeg;
+	public:
+		float *mData;
+		unsigned int mSampleCount;
 
-	Wav(bool preferFFmpeg = false);
-	virtual ~Wav();
-	result load(const char *aFilename);
-	result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);
-	result loadFile(File *aFile);
-	result loadRawWave8(unsigned char *aMem, unsigned int aLength, float aSamplerate = 44100.0f, unsigned int aChannels = 1);
-	result loadRawWave16(short *aMem, unsigned int aLength, float aSamplerate = 44100.0f, unsigned int aChannels = 1);
-	result loadRawWave(float *aMem, unsigned int aLength, float aSamplerate = 44100.0f, unsigned int aChannels = 1, bool aCopy = false, bool aTakeOwnership = true);
+		Wav(bool preferFFmpeg = false);
+		virtual ~Wav();
+		result load(const char *aFilename);
+		result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);
+		result loadFile(File * aFile);
+		result loadRawWave8(unsigned char *aMem, unsigned int aLength, float aSamplerate = 44100.0f, unsigned int aChannels = 1);
+		result loadRawWave16(short *aMem, unsigned int aLength, float aSamplerate = 44100.0f, unsigned int aChannels = 1);
+		result loadRawWave(float *aMem, unsigned int aLength, float aSamplerate = 44100.0f, unsigned int aChannels = 1, bool aCopy = false,
+		                   bool aTakeOwnership = true);
 
-	virtual AudioSourceInstance *createInstance();
-	time getLength();
-};
+		virtual AudioSourceInstance *createInstance();
+		time getLength();
+	};
 }; // namespace SoLoud
 
 #endif

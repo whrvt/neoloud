@@ -38,7 +38,6 @@ namespace SoLoud
 		unsigned int mParamChanged;
 		float *mParam;
 		Fader *mParamFader;
-		
 
 		FilterInstance();
 		virtual result initParams(int aNumParams);
@@ -63,7 +62,7 @@ namespace SoLoud
 		};
 		Filter();
 		virtual int getParamCount();
-		virtual const char* getParamName(unsigned int aParamIndex);
+		virtual const char *getParamName(unsigned int aParamIndex);
 		virtual unsigned int getParamType(unsigned int aParamIndex);
 		virtual float getParamMax(unsigned int aParamIndex);
 		virtual float getParamMin(unsigned int aParamIndex);

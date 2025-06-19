@@ -43,7 +43,7 @@ namespace SoLoud
 		// Mono-mixed wave data for visualization and for visualization FFT input
 		float mVisualizationWaveData[256];
 
-		BusInstance(Bus *aParent);
+		BusInstance(Bus * aParent);
 		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
 		virtual bool hasEnded();
 		virtual ~BusInstance();
@@ -57,20 +57,22 @@ namespace SoLoud
 		// Set filter. Set to NULL to clear the filter.
 		virtual void setFilter(unsigned int aFilterId, Filter *aFilter);
 		// Play sound through the bus
-		handle play(AudioSource &aSound, float aVolume = 1.0f, float aPan = 0.0f, bool aPaused = 0);
+		handle play(AudioSource & aSound, float aVolume = 1.0f, float aPan = 0.0f, bool aPaused = 0);
 		// Play sound through the bus, delayed in relation to other sounds called via this function.
-		handle playClocked(time aSoundTime, AudioSource &aSound, float aVolume = 1.0f, float aPan = 0.0f);
+		handle playClocked(time aSoundTime, AudioSource & aSound, float aVolume = 1.0f, float aPan = 0.0f);
 		// Start playing a 3d audio source through the bus
-		handle play3d(AudioSource &aSound, float aPosX, float aPosY, float aPosZ, float aVelX = 0.0f, float aVelY = 0.0f, float aVelZ = 0.0f, float aVolume = 1.0f, bool aPaused = 0);
+		handle play3d(AudioSource & aSound, float aPosX, float aPosY, float aPosZ, float aVelX = 0.0f, float aVelY = 0.0f, float aVelZ = 0.0f, float aVolume = 1.0f,
+		              bool aPaused = 0);
 		// Start playing a 3d audio source through the bus, delayed in relation to other sounds called via this function.
-		handle play3dClocked(time aSoundTime, AudioSource &aSound, float aPosX, float aPosY, float aPosZ, float aVelX = 0.0f, float aVelY = 0.0f, float aVelZ = 0.0f, float aVolume = 1.0f);
+		handle play3dClocked(time aSoundTime, AudioSource & aSound, float aPosX, float aPosY, float aPosZ, float aVelX = 0.0f, float aVelY = 0.0f,
+		                     float aVelZ = 0.0f, float aVolume = 1.0f);
 		// Set number of channels for the bus (default 2)
 		result setChannels(unsigned int aChannels);
 		// Enable or disable visualization data gathering
 		void setVisualizationEnable(bool aEnable);
 		// Move a live sound to this bus
 		void annexSound(handle aVoiceHandle);
-		
+
 		// Calculate and get 256 floats of FFT data for visualization. Visualization has to be enabled before use.
 		float *calcFFT();
 

@@ -47,7 +47,7 @@ namespace SoLoud
 
 	struct MonotoneChannel
 	{
-		int mEnabled; 
+		int mEnabled;
 		int mActive;
 		int mFreq[3];
 		int mPortamento;
@@ -70,7 +70,7 @@ namespace SoLoud
 
 	class MonotoneInstance : public AudioSourceInstance
 	{
-		Monotone *mParent;		
+		Monotone *mParent;
 	public:
 		MonotoneChannel mChannel[12];
 		MonotoneHardwareChannel mOutput[12];
@@ -81,7 +81,7 @@ namespace SoLoud
 		int mSampleCount;
 		int mRowTick;
 
-		MonotoneInstance(Monotone *aParent);
+		MonotoneInstance(Monotone * aParent);
 		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamples, unsigned int aBufferSize);
 		virtual bool hasEnded();
 	};
@@ -89,7 +89,7 @@ namespace SoLoud
 	class Monotone : public AudioSource
 	{
 	public:
-		
+
 		int mNotesHz[800];
 		int mVibTable[32];
 		int mHardwareChannels;
@@ -100,7 +100,7 @@ namespace SoLoud
 		result setParams(int aHardwareChannels, int aWaveform = Soloud::WAVE_SQUARE);
 		result load(const char *aFilename);
 		result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);
-		result loadFile(File *aFile);
+		result loadFile(File * aFile);
 		virtual AudioSourceInstance *createInstance();
 	public:
 		void clear();

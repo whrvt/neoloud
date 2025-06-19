@@ -35,7 +35,7 @@ namespace SoLoud
 	class NoiseInstance : public AudioSourceInstance
 	{
 	public:
-		NoiseInstance(Noise *aParent);
+		NoiseInstance(Noise * aParent);
 		~NoiseInstance();
 
 		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
@@ -43,7 +43,7 @@ namespace SoLoud
 
 	public:
 		float mOctaveScale[10];
-	    Misc::Prg mPrg;
+		Misc::Prg mPrg;
 	};
 
 	class Noise : public AudioSource
@@ -64,7 +64,7 @@ namespace SoLoud
 		void setType(int aType);
 
 		virtual ~Noise();
-		
+
 	public:
 		virtual AudioSourceInstance *createInstance();
 		float mOctaveScale[10];

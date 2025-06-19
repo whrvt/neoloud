@@ -36,7 +36,7 @@ namespace SoLoud
 
 		// Perform 256 unit FFT. Buffer must have 256 floats, and will be overwritten
 		void fft256(float *aBuffer);
-		
+
 		// Perform 256 unit IFFT. Buffer must have 256 floats, and will be overwritten
 		void ifft256(float *aBuffer);
 

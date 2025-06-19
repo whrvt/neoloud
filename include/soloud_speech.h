@@ -24,10 +24,10 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_SPEECH_H
 #define SOLOUD_SPEECH_H
 
-#include "soloud.h"
 #include "../src/audiosource/speech/darray.h"
 #include "../src/audiosource/speech/klatt.h"
 #include "../src/audiosource/speech/tts.h"
+#include "soloud.h"
 
 namespace SoLoud
 {
@@ -68,8 +68,8 @@ namespace SoLoud
 		int mSampleCount;
 		int mOffset;
 	public:
-		SpeechInstance(Speech *aParent);
-        virtual ~SpeechInstance();
+		SpeechInstance(Speech * aParent);
+		virtual ~SpeechInstance();
 		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
 		virtual result rewind();
 		virtual bool hasEnded();

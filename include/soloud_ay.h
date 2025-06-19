@@ -31,7 +31,7 @@ class ChipPlayer;
 
 namespace SoLoud
 {
-    class Ay;
+	class Ay;
 	class File;
 	class AyInstance : public AudioSourceInstance
 	{
@@ -40,7 +40,7 @@ namespace SoLoud
 		ChipPlayer *mChip;
 		int mPos;
 
-		AyInstance(Ay *aParent);
+		AyInstance(Ay * aParent);
 		~AyInstance();
 		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
 		virtual bool hasEnded();
@@ -56,13 +56,13 @@ namespace SoLoud
 		int mCpuspeed;
 		int mLooppos;
 		int mLength;
-		unsigned short* mOps;
+		unsigned short *mOps;
 	public:
 		Ay();
 		~Ay();
 		result load(const char *aFilename);
-		result loadFile(File *aFile);
-		result loadMem(const unsigned char* aMem, unsigned int aLength, bool aCopy, bool aTakeOwnership);
+		result loadFile(File * aFile);
+		result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy, bool aTakeOwnership);
 		virtual AudioSourceInstance *createInstance();
 	};
 };
