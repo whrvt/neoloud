@@ -70,6 +70,8 @@ namespace SoLoud
         config.sampleRate         = aSamplerate;
         config.dataCallback       = soloud_miniaudio_audiomixer;
         config.pUserData          = (void *)aSoloud;
+        config.noPreSilencedOutputBuffer = true;
+        config.noClip = true;
 
         if (ma_device_init(NULL, &config, &gDevice) != MA_SUCCESS)
         {
