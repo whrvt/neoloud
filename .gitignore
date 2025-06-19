@@ -38,5 +38,6 @@ glue/rpgmaker_soloud.rb
 *.bak
 
 temp/
+.temp/
 .clangd
 .vscode
