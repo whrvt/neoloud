@@ -29,6 +29,9 @@ freely, subject to the following restrictions:
 #else
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
+#if defined(__MINGW32__) || defined(__MINGW64__)
+#include <pthread.h>
+#endif
 #else
 #include <inttypes.h>
 #include <pthread.h>
