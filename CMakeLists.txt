@@ -106,10 +106,16 @@ if(MSVC)
     target_compile_definitions(soloud PRIVATE
         _CRT_SECURE_NO_WARNINGS
         _HAS_EXCEPTIONS=0
+        WINDOWS_VERSION
     )
     # remove default cmake exceptions setting
     string(REGEX REPLACE "/EH[a-z]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 else()
+    if(WIN32)
+        target_compile_definitions(soloud PRIVATE
+            WINDOWS_VERSION
+        )
+    endif()
     # disable exceptions for gcc/clang
     target_compile_options(soloud PRIVATE -fno-exceptions)
     set(CMAKE_THREAD_PREFER_PTHREAD ON)
