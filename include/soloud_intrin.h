@@ -27,22 +27,47 @@ freely, subject to the following restrictions:
 
 #include "soloud_config.h"
 
-#ifdef SOLOUD_SSE_INTRINSICS
+#ifdef SOLOUD_AVX_INTRINSICS
+#include <immintrin.h>
+#elif defined(SOLOUD_SSE_INTRINSICS)
 #include <xmmintrin.h>
-
-#include <cstddef>
 #ifdef _M_IX86
 #include <emmintrin.h>
 #endif
+#else
+#include <cstddef>
 #endif
 
 namespace SoLoud
 {
+	// SIMD configuration constants - adjust based on available instruction sets
+#ifdef SOLOUD_AVX_INTRINSICS
+	// AVX2 configuration
+	static constexpr size_t SIMD_ALIGNMENT_BYTES = 32;    // 32-byte alignment for AVX2
+	static constexpr size_t SIMD_ALIGNMENT_MASK = 31;     // Mask for 32-byte alignment check
+	static constexpr size_t OPTIMAL_CHUNK_SAMPLES = 8;    // 8 floats per AVX2 register
+	static constexpr size_t MEMORY_ALIGNMENT_MASK = 7;    // Align to 8-float boundaries
+	static constexpr size_t TINY_BUFFER_FLOAT_COUNT = 32; // Buffer space for temporary operations
+#elif defined(SOLOUD_SSE_INTRINSICS)
+	// SSE configuration
+	static constexpr size_t SIMD_ALIGNMENT_BYTES = 16;    // 16-byte alignment for SSE
+	static constexpr size_t SIMD_ALIGNMENT_MASK = 15;     // Mask for 16-byte alignment check (0xf)
+	static constexpr size_t OPTIMAL_CHUNK_SAMPLES = 4;    // 4 floats per SSE register
+	static constexpr size_t MEMORY_ALIGNMENT_MASK = 3;    // Align to 4-float boundaries
+	static constexpr size_t TINY_BUFFER_FLOAT_COUNT = 16; // Buffer space for temporary operations
+#else
+	// Scalar fallback configuration
+	static constexpr size_t SIMD_ALIGNMENT_BYTES = 4;     // Basic float alignment
+	static constexpr size_t SIMD_ALIGNMENT_MASK = 3;      // Mask for 4-byte alignment check
+	static constexpr size_t OPTIMAL_CHUNK_SAMPLES = 4;    // Still process 4 samples at a time even for scalar
+	static constexpr size_t MEMORY_ALIGNMENT_MASK = 3;    // Align to 4-byte boundaries
+	static constexpr size_t TINY_BUFFER_FLOAT_COUNT = 16; // Buffer space for temporary operations (keeping this the same as SSE, this is how it was before)
+#endif
 	// Class that handles aligned allocations to support vectorized operations
 	class AlignedFloatBuffer
 	{
 	public:
-		float *mData;            // 16-byte aligned pointer for SIMD operations
+		float *mData;            // SIMD-aligned pointer for vectorized operations
 		unsigned char *mBasePtr; // Raw allocated pointer (for delete)
 		int mFloats;             // Size of buffer in floats (without padding)
 
@@ -60,14 +85,14 @@ namespace SoLoud
 	};
 
 	// Lightweight class that handles small aligned buffer to support vectorized operations
-	// Used for temporary SIMD register-sized data (4 floats)
+	// Used for temporary SIMD register-sized data
 	class TinyAlignedFloatBuffer
 	{
 	public:
-		float *mData;                                       // 16-byte aligned pointer
-		unsigned char mActualData[sizeof(float) * 16 + 16]; // Space for 16 floats + alignment padding
+		float *mData;                                                                              // SIMD-aligned pointer
+		unsigned char mActualData[sizeof(float) * TINY_BUFFER_FLOAT_COUNT + SIMD_ALIGNMENT_BYTES]; // Space for appropriate number of floats + alignment padding
 
-		// Constructor - automatically aligns mData to 16-byte boundary
+		// Constructor - automatically aligns mData to proper boundary
 		TinyAlignedFloatBuffer();
 	};
 
@@ -88,7 +113,9 @@ namespace SoLoud
 	 * - Hard clipping: Simple [-1,1] bounds
 	 * - Roundoff clipping: Smooth saturation curve that approaches limits asymptotically
 	 *
-	 * Uses SSE intrinsics when available for 4x performance improvement
+	 * Uses AVX2 intrinsics when available for 8x performance improvement,
+	 * falls back to SSE intrinsics for 4x performance improvement,
+	 * or scalar fallback for compatibility
 	 */
 	void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1);
 
@@ -111,7 +138,8 @@ namespace SoLoud
 	 *
 	 * Provides smooth volume ramping to avoid audio artifacts.
 	 * Uses intelligent downmixing coefficients to preserve perceived loudness.
-	 * Optimized with SSE intrinsics for stereo output paths.
+	 * Optimized with AVX2 intrinsics for stereo output paths when available,
+	 * falls back to SSE intrinsics or scalar implementation.
 	 */
 	void panAndExpand(AudioSourceInstance * aVoice, float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize, float *aScratch, unsigned int aChannels);
 }

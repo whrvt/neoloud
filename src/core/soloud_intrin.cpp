@@ -51,9 +51,6 @@ constexpr float ROUNDOFF_CUBIC_SCALE = -0.1f;
 // Hard clipping bounds
 constexpr float HARD_CLIP_MIN = -1.0f;
 constexpr float HARD_CLIP_MAX = 1.0f;
-
-// SIMD processing parameters
-constexpr unsigned int SAMPLES_PER_SIMD_REGISTER = 4;
 } // namespace ClippingConstants
 
 // Channel mixing coefficients for downmixing operations
@@ -84,17 +81,12 @@ result AlignedFloatBuffer::init(unsigned int aFloats)
 	mBasePtr = nullptr;
 	mData = nullptr;
 	mFloats = aFloats;
-#ifndef SOLOUD_SSE_INTRINSICS
-	mBasePtr = new unsigned char[aFloats * sizeof(float)];
-	if (mBasePtr == NULL)
-		return OUT_OF_MEMORY;
-	mData = (float *)mBasePtr;
-#else
-	mBasePtr = new unsigned char[aFloats * sizeof(float) + 16];
+
+	mBasePtr = new unsigned char[aFloats * sizeof(float) + SIMD_ALIGNMENT_BYTES];
 	if (mBasePtr == nullptr)
 		return OUT_OF_MEMORY;
-	mData = (float *)(((size_t)mBasePtr + 15) & ~15);
-#endif
+	mData = (float *)(((size_t)mBasePtr + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK);
+
 	return SO_NO_ERROR;
 }
 
@@ -108,13 +100,123 @@ AlignedFloatBuffer::~AlignedFloatBuffer()
 	delete[] mBasePtr;
 }
 
-TinyAlignedFloatBuffer::TinyAlignedFloatBuffer() : mActualData()
+TinyAlignedFloatBuffer::TinyAlignedFloatBuffer()
 {
 	unsigned char *basePtr = &mActualData[0];
-	mData = (float *)(((size_t)basePtr + 15) & ~15);
+	mData = (float *)(((size_t)basePtr + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK);
 }
 
-#if defined(SOLOUD_SSE_INTRINSICS)
+#if defined(SOLOUD_AVX_INTRINSICS)
+void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1)
+{
+	using namespace ClippingConstants;
+
+	float volumeDelta = (aVolume1 - aVolume0) / aSamples;
+	float volume = aVolume0;
+	unsigned int sampleOctuples = (aSamples + 7) / 8; // Round up to process in AVX2 groups
+
+	if (aSoloud->mFlags & Soloud::CLIP_ROUNDOFF)
+	{
+		// Roundoff clipping: smooth saturation curve instead of hard clipping
+		__m256 negThreshold = _mm256_broadcast_ss(&ROUNDOFF_NEG_THRESHOLD);
+		__m256 posThreshold = _mm256_broadcast_ss(&ROUNDOFF_POS_THRESHOLD);
+		__m256 linearScale = _mm256_broadcast_ss(&ROUNDOFF_LINEAR_SCALE);
+		__m256 cubicScale = _mm256_broadcast_ss(&ROUNDOFF_CUBIC_SCALE);
+		__m256 negWall = _mm256_broadcast_ss(&ROUNDOFF_NEG_WALL);
+		__m256 posWall = _mm256_broadcast_ss(&ROUNDOFF_POS_WALL);
+		__m256 postScale = _mm256_broadcast_ss(&aSoloud->mPostClipScaler);
+
+		// Prepare volume ramp for AVX2 processing
+		TinyAlignedFloatBuffer volumes;
+		for (int i = 0; i < OPTIMAL_CHUNK_SAMPLES; i++)
+		{
+			volumes.mData[i] = volume + volumeDelta * i;
+		}
+		volumeDelta *= OPTIMAL_CHUNK_SAMPLES;
+		__m256 volDelta = _mm256_broadcast_ss(&volumeDelta);
+
+		unsigned int srcIdx = 0, dstIdx = 0;
+
+		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
+		{
+			__m256 vol = _mm256_load_ps(volumes.mData);
+
+			for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
+			{
+				// Load 8 samples and apply volume ramp
+				__m256 samples = _mm256_load_ps(&aBuffer.mData[srcIdx]);
+				srcIdx += OPTIMAL_CHUNK_SAMPLES;
+				samples = _mm256_mul_ps(samples, vol);
+				vol = _mm256_add_ps(vol, volDelta);
+
+				// Determine which samples are within the linear region
+				__m256 aboveNegThreshold = _mm256_cmp_ps(samples, negThreshold, _CMP_GT_OQ);
+				__m256 belowPosThreshold = _mm256_cmp_ps(samples, posThreshold, _CMP_LT_OQ);
+
+				// Apply roundoff curve: linear + cubic term
+				__m256 linear = _mm256_mul_ps(samples, linearScale);
+				__m256 cubic = _mm256_mul_ps(samples, samples);
+				cubic = _mm256_mul_ps(cubic, samples);
+				cubic = _mm256_mul_ps(cubic, cubicScale);
+				samples = _mm256_add_ps(linear, cubic);
+
+				// Clamp values below negative threshold to negative wall
+				samples = _mm256_blendv_ps(negWall, samples, aboveNegThreshold);
+
+				// Clamp values above positive threshold to positive wall
+				samples = _mm256_blendv_ps(posWall, samples, belowPosThreshold);
+
+				// Apply post-clip scaling and store
+				samples = _mm256_mul_ps(samples, postScale);
+				_mm256_store_ps(&aDestBuffer.mData[dstIdx], samples);
+				dstIdx += OPTIMAL_CHUNK_SAMPLES;
+			}
+		}
+	}
+	else
+	{
+		// Hard clipping: simple min/max bounds
+		__m256 negBound = _mm256_broadcast_ss(&HARD_CLIP_MIN);
+		__m256 posBound = _mm256_broadcast_ss(&HARD_CLIP_MAX);
+		__m256 postScale = _mm256_broadcast_ss(&aSoloud->mPostClipScaler);
+
+		// Prepare volume ramp for AVX2 processing
+		TinyAlignedFloatBuffer volumes;
+		for (int i = 0; i < OPTIMAL_CHUNK_SAMPLES; i++)
+		{
+			volumes.mData[i] = volume + volumeDelta * i;
+		}
+		volumeDelta *= OPTIMAL_CHUNK_SAMPLES;
+		__m256 volDelta = _mm256_broadcast_ss(&volumeDelta);
+
+		unsigned int srcIdx = 0, dstIdx = 0;
+
+		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
+		{
+			__m256 vol = _mm256_load_ps(volumes.mData);
+
+			for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
+			{
+				// Load 8 samples and apply volume ramp
+				__m256 samples = _mm256_load_ps(&aBuffer.mData[srcIdx]);
+				srcIdx += OPTIMAL_CHUNK_SAMPLES;
+				samples = _mm256_mul_ps(samples, vol);
+				vol = _mm256_add_ps(vol, volDelta);
+
+				// Hard clipping to [-1, 1] range
+				samples = _mm256_max_ps(samples, negBound);
+				samples = _mm256_min_ps(samples, posBound);
+
+				// Apply post-clip scaling and store
+				samples = _mm256_mul_ps(samples, postScale);
+				_mm256_store_ps(&aDestBuffer.mData[dstIdx], samples);
+				dstIdx += OPTIMAL_CHUNK_SAMPLES;
+			}
+		}
+	}
+}
+
+#elif defined(SOLOUD_SSE_INTRINSICS)
 void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1)
 {
 	using namespace ClippingConstants;
@@ -140,7 +242,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 		volumes.mData[1] = volume + volumeDelta;
 		volumes.mData[2] = volume + volumeDelta * 2;
 		volumes.mData[3] = volume + volumeDelta * 3;
-		volumeDelta *= SAMPLES_PER_SIMD_REGISTER;
+		volumeDelta *= OPTIMAL_CHUNK_SAMPLES;
 		__m128 volDelta = _mm_load_ps1(&volumeDelta);
 
 		unsigned int srcIdx = 0, dstIdx = 0;
@@ -153,7 +255,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 			{
 				// Load 4 samples and apply volume ramp
 				__m128 samples = _mm_load_ps(&aBuffer.mData[srcIdx]);
-				srcIdx += SAMPLES_PER_SIMD_REGISTER;
+				srcIdx += OPTIMAL_CHUNK_SAMPLES;
 				samples = _mm_mul_ps(samples, vol);
 				vol = _mm_add_ps(vol, volDelta);
 
@@ -181,7 +283,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 				// Apply post-clip scaling and store
 				samples = _mm_mul_ps(samples, postScale);
 				_mm_store_ps(&aDestBuffer.mData[dstIdx], samples);
-				dstIdx += SAMPLES_PER_SIMD_REGISTER;
+				dstIdx += OPTIMAL_CHUNK_SAMPLES;
 			}
 		}
 	}
@@ -198,7 +300,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 		volumes.mData[1] = volume + volumeDelta;
 		volumes.mData[2] = volume + volumeDelta * 2;
 		volumes.mData[3] = volume + volumeDelta * 3;
-		volumeDelta *= SAMPLES_PER_SIMD_REGISTER;
+		volumeDelta *= OPTIMAL_CHUNK_SAMPLES;
 		__m128 volDelta = _mm_load_ps1(&volumeDelta);
 
 		unsigned int srcIdx = 0, dstIdx = 0;
@@ -211,7 +313,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 			{
 				// Load 4 samples and apply volume ramp
 				__m128 samples = _mm_load_ps(&aBuffer.mData[srcIdx]);
-				srcIdx += SAMPLES_PER_SIMD_REGISTER;
+				srcIdx += OPTIMAL_CHUNK_SAMPLES;
 				samples = _mm_mul_ps(samples, vol);
 				vol = _mm_add_ps(vol, volDelta);
 
@@ -222,13 +324,13 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 				// Apply post-clip scaling and store
 				samples = _mm_mul_ps(samples, postScale);
 				_mm_store_ps(&aDestBuffer.mData[dstIdx], samples);
-				dstIdx += SAMPLES_PER_SIMD_REGISTER;
+				dstIdx += OPTIMAL_CHUNK_SAMPLES;
 			}
 		}
 	}
 }
 
-#else // Fallback implementation without SSE
+#else // Fallback implementation without SIMD
 
 void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1)
 {
@@ -249,7 +351,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 			for (unsigned int quad = 0; quad < sampleQuads; quad++)
 			{
 				// Process 4 samples at a time
-				for (int sample = 0; sample < SAMPLES_PER_SIMD_REGISTER; sample++)
+				for (int sample = 0; sample < OPTIMAL_CHUNK_SAMPLES; sample++)
 				{
 					float input = aBuffer.mData[srcIdx++] * volume;
 					volume += volumeDelta;
@@ -286,7 +388,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 			for (unsigned int quad = 0; quad < sampleQuads; quad++)
 			{
 				// Process 4 samples at a time
-				for (int sample = 0; sample < SAMPLES_PER_SIMD_REGISTER; sample++)
+				for (int sample = 0; sample < OPTIMAL_CHUNK_SAMPLES; sample++)
 				{
 					float input = aBuffer.mData[srcIdx++] * volume;
 					volume += volumeDelta;
@@ -306,10 +408,10 @@ void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSam
 {
 	using namespace ChannelMixingConstants;
 	using namespace ClippingConstants;
-#ifdef SOLOUD_SSE_INTRINSICS
-	SOLOUD_ASSERT(((size_t)aBuffer & 0xf) == 0);
-	SOLOUD_ASSERT(((size_t)aScratch & 0xf) == 0);
-	SOLOUD_ASSERT(((size_t)aBufferSize & 0xf) == 0);
+#if defined(SOLOUD_AVX_INTRINSICS) || defined(SOLOUD_SSE_INTRINSICS)
+	SOLOUD_ASSERT(((size_t)aBuffer & SIMD_ALIGNMENT_MASK) == 0);
+	SOLOUD_ASSERT(((size_t)aScratch & SIMD_ALIGNMENT_MASK) == 0);
+	SOLOUD_ASSERT(((size_t)aBufferSize & SIMD_ALIGNMENT_MASK) == 0);
 #endif
 
 	// Calculate volume ramping for smooth transitions
@@ -401,23 +503,92 @@ void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSam
 			break;
 
 		case 2: // 2.0 -> 2.0: direct mapping with volume ramping
-#if defined(SOLOUD_SSE_INTRINSICS)
+#if defined(SOLOUD_AVX_INTRINSICS)
 		{
 			unsigned int processedSamples = 0;
-			unsigned int sampleQuads = aSamplesToRead / SAMPLES_PER_SIMD_REGISTER;
+			unsigned int sampleOctuples = aSamplesToRead / OPTIMAL_CHUNK_SAMPLES;
 
-			if (sampleQuads > 0)
+			if (sampleOctuples > 0)
 			{
-				// Prepare volume ramps for SIMD processing
+				// Prepare volume ramps for AVX2 processing
 				TinyAlignedFloatBuffer pan0, pan1;
-				for (int i = 0; i < SAMPLES_PER_SIMD_REGISTER; i++)
+				for (int i = 0; i < OPTIMAL_CHUNK_SAMPLES; i++)
 				{
 					pan0.mData[i] = currentPan[0] + panDelta[0] * (i + 1);
 					pan1.mData[i] = currentPan[1] + panDelta[1] * (i + 1);
 				}
 
-				float panDelta0_4x = panDelta[0] * SAMPLES_PER_SIMD_REGISTER;
-				float panDelta1_4x = panDelta[1] * SAMPLES_PER_SIMD_REGISTER;
+				float panDelta0_8x = panDelta[0] * OPTIMAL_CHUNK_SAMPLES;
+				float panDelta1_8x = panDelta[1] * OPTIMAL_CHUNK_SAMPLES;
+				__m256 pan0Delta = _mm256_broadcast_ss(&panDelta0_8x);
+				__m256 pan1Delta = _mm256_broadcast_ss(&panDelta1_8x);
+				__m256 p0 = _mm256_load_ps(pan0.mData);
+				__m256 p1 = _mm256_load_ps(pan1.mData);
+
+				for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
+				{
+					unsigned int idx = processedSamples;
+
+					// Load source samples
+					__m256 src0 = _mm256_load_ps(aScratch + idx);
+					__m256 src1 = _mm256_load_ps(aScratch + idx + aBufferSize);
+
+					// Apply volume ramps
+					__m256 mixed0 = _mm256_mul_ps(src0, p0);
+					__m256 mixed1 = _mm256_mul_ps(src1, p1);
+
+					// Add to existing output
+					__m256 out0 = _mm256_load_ps(aBuffer + idx);
+					__m256 out1 = _mm256_load_ps(aBuffer + idx + aBufferSize);
+					out0 = _mm256_add_ps(out0, mixed0);
+					out1 = _mm256_add_ps(out1, mixed1);
+
+					// Store results
+					_mm256_store_ps(aBuffer + idx, out0);
+					_mm256_store_ps(aBuffer + idx + aBufferSize, out1);
+
+					// Update volume ramps
+					p0 = _mm256_add_ps(p0, pan0Delta);
+					p1 = _mm256_add_ps(p1, pan1Delta);
+
+					processedSamples += OPTIMAL_CHUNK_SAMPLES;
+				}
+
+				// Update current pan for remaining samples
+				currentPan[0] += panDelta[0] * processedSamples;
+				currentPan[1] += panDelta[1] * processedSamples;
+			}
+
+			// Process remaining samples
+			for (unsigned int sample = processedSamples; sample < aSamplesToRead; sample++)
+			{
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				float leftSrc = aScratch[sample];
+				float rightSrc = aScratch[aBufferSize + sample];
+
+				aBuffer[sample] += leftSrc * currentPan[0];
+				aBuffer[aBufferSize + sample] += rightSrc * currentPan[1];
+			}
+		}
+#elif defined(SOLOUD_SSE_INTRINSICS)
+		{
+			unsigned int processedSamples = 0;
+			unsigned int sampleQuads = aSamplesToRead / OPTIMAL_CHUNK_SAMPLES;
+
+			if (sampleQuads > 0)
+			{
+				// Prepare volume ramps for SIMD processing
+				TinyAlignedFloatBuffer pan0, pan1;
+				for (int i = 0; i < OPTIMAL_CHUNK_SAMPLES; i++)
+				{
+					pan0.mData[i] = currentPan[0] + panDelta[0] * (i + 1);
+					pan1.mData[i] = currentPan[1] + panDelta[1] * (i + 1);
+				}
+
+				float panDelta0_4x = panDelta[0] * OPTIMAL_CHUNK_SAMPLES;
+				float panDelta1_4x = panDelta[1] * OPTIMAL_CHUNK_SAMPLES;
 				__m128 pan0Delta = _mm_load_ps1(&panDelta0_4x);
 				__m128 pan1Delta = _mm_load_ps1(&panDelta1_4x);
 				__m128 p0 = _mm_load_ps(pan0.mData);
@@ -449,7 +620,7 @@ void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSam
 					p0 = _mm_add_ps(p0, pan0Delta);
 					p1 = _mm_add_ps(p1, pan1Delta);
 
-					processedSamples += SAMPLES_PER_SIMD_REGISTER;
+					processedSamples += OPTIMAL_CHUNK_SAMPLES;
 				}
 
 				// Update current pan for remaining samples
@@ -486,23 +657,90 @@ void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSam
 		break;
 
 		case 1: // 1.0 -> 2.0: distribute mono to stereo with panning
-#if defined(SOLOUD_SSE_INTRINSICS)
+#if defined(SOLOUD_AVX_INTRINSICS)
 		{
 			unsigned int processedSamples = 0;
-			unsigned int sampleQuads = aSamplesToRead / SAMPLES_PER_SIMD_REGISTER;
+			unsigned int sampleOctuples = aSamplesToRead / OPTIMAL_CHUNK_SAMPLES;
 
-			if (sampleQuads > 0)
+			if (sampleOctuples > 0)
 			{
-				// Prepare volume ramps for SIMD processing
+				// Prepare volume ramps for AVX2 processing
 				TinyAlignedFloatBuffer pan0, pan1;
-				for (int i = 0; i < SAMPLES_PER_SIMD_REGISTER; i++)
+				for (int i = 0; i < OPTIMAL_CHUNK_SAMPLES; i++)
 				{
 					pan0.mData[i] = currentPan[0] + panDelta[0] * (i + 1);
 					pan1.mData[i] = currentPan[1] + panDelta[1] * (i + 1);
 				}
 
-				float panDelta0_4x = panDelta[0] * SAMPLES_PER_SIMD_REGISTER;
-				float panDelta1_4x = panDelta[1] * SAMPLES_PER_SIMD_REGISTER;
+				float panDelta0_8x = panDelta[0] * OPTIMAL_CHUNK_SAMPLES;
+				float panDelta1_8x = panDelta[1] * OPTIMAL_CHUNK_SAMPLES;
+				__m256 pan0Delta = _mm256_broadcast_ss(&panDelta0_8x);
+				__m256 pan1Delta = _mm256_broadcast_ss(&panDelta1_8x);
+				__m256 p0 = _mm256_load_ps(pan0.mData);
+				__m256 p1 = _mm256_load_ps(pan1.mData);
+
+				for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
+				{
+					unsigned int idx = processedSamples;
+
+					// Load mono source
+					__m256 src = _mm256_load_ps(aScratch + idx);
+
+					// Apply volume ramps to create stereo
+					__m256 mixed0 = _mm256_mul_ps(src, p0);
+					__m256 mixed1 = _mm256_mul_ps(src, p1);
+
+					// Add to existing output
+					__m256 out0 = _mm256_load_ps(aBuffer + idx);
+					__m256 out1 = _mm256_load_ps(aBuffer + idx + aBufferSize);
+					out0 = _mm256_add_ps(out0, mixed0);
+					out1 = _mm256_add_ps(out1, mixed1);
+
+					// Store results
+					_mm256_store_ps(aBuffer + idx, out0);
+					_mm256_store_ps(aBuffer + idx + aBufferSize, out1);
+
+					// Update volume ramps
+					p0 = _mm256_add_ps(p0, pan0Delta);
+					p1 = _mm256_add_ps(p1, pan1Delta);
+
+					processedSamples += OPTIMAL_CHUNK_SAMPLES;
+				}
+
+				// Update current pan for remaining samples
+				currentPan[0] += panDelta[0] * processedSamples;
+				currentPan[1] += panDelta[1] * processedSamples;
+			}
+
+			// Process remaining samples
+			for (unsigned int sample = processedSamples; sample < aSamplesToRead; sample++)
+			{
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				float monoSrc = aScratch[sample];
+
+				aBuffer[sample] += monoSrc * currentPan[0];
+				aBuffer[aBufferSize + sample] += monoSrc * currentPan[1];
+			}
+		}
+#elif defined(SOLOUD_SSE_INTRINSICS)
+		{
+			unsigned int processedSamples = 0;
+			unsigned int sampleQuads = aSamplesToRead / OPTIMAL_CHUNK_SAMPLES;
+
+			if (sampleQuads > 0)
+			{
+				// Prepare volume ramps for SIMD processing
+				TinyAlignedFloatBuffer pan0, pan1;
+				for (int i = 0; i < OPTIMAL_CHUNK_SAMPLES; i++)
+				{
+					pan0.mData[i] = currentPan[0] + panDelta[0] * (i + 1);
+					pan1.mData[i] = currentPan[1] + panDelta[1] * (i + 1);
+				}
+
+				float panDelta0_4x = panDelta[0] * OPTIMAL_CHUNK_SAMPLES;
+				float panDelta1_4x = panDelta[1] * OPTIMAL_CHUNK_SAMPLES;
 				__m128 pan0Delta = _mm_load_ps1(&panDelta0_4x);
 				__m128 pan1Delta = _mm_load_ps1(&panDelta1_4x);
 				__m128 p0 = _mm_load_ps(pan0.mData);
@@ -533,7 +771,7 @@ void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSam
 					p0 = _mm_add_ps(p0, pan0Delta);
 					p1 = _mm_add_ps(p1, pan1Delta);
 
-					processedSamples += SAMPLES_PER_SIMD_REGISTER;
+					processedSamples += OPTIMAL_CHUNK_SAMPLES;
 				}
 
 				// Update current pan for remaining samples

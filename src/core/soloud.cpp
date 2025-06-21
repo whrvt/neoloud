@@ -265,8 +265,8 @@ void Soloud::postinit_internal(unsigned int aSamplerate, unsigned int aBufferSiz
 	mChannels = aChannels;
 	mSamplerate = aSamplerate;
 	mBufferSize = aBufferSize;
-	mScratchSize = (aBufferSize + 15) & ~15; // round to the next div by 16
-	if (mScratchSize < SAMPLE_GRANULARITY * 4)  // 4096
+	mScratchSize = (aBufferSize + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
+	if (mScratchSize < SAMPLE_GRANULARITY * 4) // 4096
 		mScratchSize = SAMPLE_GRANULARITY * 4;
 	mScratch.init(mScratchSize * MAX_CHANNELS);
 	mOutputScratch.init(mScratchSize * MAX_CHANNELS);
@@ -516,12 +516,12 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 
 		if (channelBufferSize <= scratchSize)
 		{
-			// Keep aligned for optimal SSE routines (16-byte boundaries)
-			unsigned int alignedBufferSize = (samplesToRead + 15) & ~15;
+			// Keep aligned for optimal intrinsics perf
+			unsigned int alignedBufferSize = (samplesToRead + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
 			// Make sure we don't exceed scratch space
 			if (alignedBufferSize * voice->mChannels > scratchSize)
 			{
-				alignedBufferSize = (scratchSize / voice->mChannels) & ~15;
+				alignedBufferSize = (scratchSize / voice->mChannels) & ~SIMD_ALIGNMENT_MASK;
 				if (alignedBufferSize < samplesToRead)
 					samplesToRead = alignedBufferSize;
 			}
@@ -736,15 +736,11 @@ namespace MixingConstants
 {
 // Scratch buffer allocation strategy
 // Each voice needs space for: voice processing + temp reads + delay handling
-constexpr unsigned int VOICE_SCRATCH_MULTIPLIER = MAX_CHANNELS; // Voice processing buffer
-constexpr unsigned int TEMP_READ_BUFFER_SIZE = 2048;            // Temporary buffer for chunk reading
-constexpr unsigned int DELAY_SCRATCH_MULTIPLIER = 1;            // Delay processing buffer per channel
-
-// Memory alignment for optimal SIMD performance (16-byte boundaries)
-constexpr unsigned int MEMORY_ALIGNMENT_MASK = ~3; // Align to 4-byte boundaries minimum
+constexpr size_t VOICE_SCRATCH_MULTIPLIER = MAX_CHANNELS; // Voice processing buffer
+constexpr size_t TEMP_READ_BUFFER_SIZE = 2048;            // Temporary buffer for chunk reading
 
 // Voice processing limits to prevent resource exhaustion
-constexpr unsigned int MIN_VOICES_PER_BATCH = 1; // Always process at least one voice
+constexpr size_t MIN_VOICES_PER_BATCH = 1; // Always process at least one voice
 } // namespace MixingConstants
 
 // High-performance audio mixing with dynamic resampling and chunked processing
@@ -770,7 +766,7 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 	unsigned int totalPerVoice = voiceScratchSize + tempScratchSize + delayScratchSize;
 
 	// Align memory allocation to improve cache performance
-	totalPerVoice = (totalPerVoice + 3) & MEMORY_ALIGNMENT_MASK;
+	totalPerVoice = (totalPerVoice + MEMORY_ALIGNMENT_MASK) & ~MEMORY_ALIGNMENT_MASK;
 
 	// Calculate maximum number of voices we can process in parallel given memory constraints
 	unsigned int maxVoicesInParallel = (mScratchSize * MAX_CHANNELS) / totalPerVoice;
@@ -1234,7 +1230,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 
 void Soloud::mix(void *aBuffer, unsigned int aSamples, SAMPLE_FORMAT aFormat)
 {
-	unsigned int stride = (aSamples + 15) & ~15;
+	unsigned int stride = (aSamples + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
 	mix_internal(aSamples, stride);
 
 	unsigned int i = 0, j = 0, c = 0;
