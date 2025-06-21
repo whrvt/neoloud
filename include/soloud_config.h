@@ -56,6 +56,9 @@ freely, subject to the following restrictions:
 #endif
 
 #if !defined(DISABLE_SIMD)
+#if defined(__AVX2__)
+#define SOLOUD_AVX_INTRINSICS
+#endif
 #if defined(__SSE2__)
 #define SOLOUD_SSE_INTRINSICS
 #endif

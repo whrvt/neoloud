@@ -1,4 +1,3 @@
-
 /*
 SoLoud audio engine
 Copyright (c) 2013-2020 Jari Komppa
@@ -27,213 +26,276 @@ freely, subject to the following restrictions:
 #include "soloud.h"
 #include "soloud_audiosource.h"
 
-#ifdef SOLOUD_SSE_INTRINSICS
-#include <xmmintrin.h>
-
-#include <cstddef>
-#ifdef _M_IX86
-#include <emmintrin.h>
-#endif
-#endif
+#include <cstring>
 
 namespace SoLoud
 {
 
+// Roundoff clipping algorithm constants
+// These values provide smooth saturation instead of hard clipping
+namespace ClippingConstants
+{
+// Input threshold bounds for roundoff clipping
+constexpr float ROUNDOFF_NEG_THRESHOLD = -1.65f;
+constexpr float ROUNDOFF_POS_THRESHOLD = 1.65f;
+
+// Output saturation limits for roundoff clipping
+constexpr float ROUNDOFF_NEG_WALL = -0.9862875f;
+constexpr float ROUNDOFF_POS_WALL = 0.9862875f;
+
+// Roundoff curve coefficients: output = LINEAR_SCALE * input + CUBIC_SCALE * input^3
+// This creates a smooth S-curve that approaches the walls asymptotically
+constexpr float ROUNDOFF_LINEAR_SCALE = 0.87f;
+constexpr float ROUNDOFF_CUBIC_SCALE = -0.1f;
+
+// Hard clipping bounds
+constexpr float HARD_CLIP_MIN = -1.0f;
+constexpr float HARD_CLIP_MAX = 1.0f;
+
+// SIMD processing parameters
+constexpr unsigned int SAMPLES_PER_SIMD_REGISTER = 4;
+} // namespace ClippingConstants
+
+// Channel mixing coefficients for downmixing operations
+namespace ChannelMixingConstants
+{
+// Coefficients for mixing multi-channel content to fewer channels
+// These values are chosen to preserve perceived loudness while avoiding clipping
+
+constexpr float MIX_8_TO_2_SCALE = 0.2f; // 8->2: Mix 5 channels per output
+constexpr float MIX_6_TO_2_SCALE = 0.3f; // 6->2: Mix 4 channels per output
+constexpr float MIX_4_TO_2_SCALE = 0.5f; // 4->2: Mix 2 channels per output
+
+constexpr float CENTER_SUB_MIX_SCALE = 0.7f; // Center + sub mixing level
+constexpr float SURROUND_MIX_SCALE = 0.5f;   // Surround channel mixing level
+constexpr float QUAD_MIX_SCALE = 0.25f;      // 4-channel average mixing
+} // namespace ChannelMixingConstants
+
+AlignedFloatBuffer::AlignedFloatBuffer()
+{
+	mBasePtr = nullptr;
+	mData = nullptr;
+	mFloats = 0;
+}
+
+result AlignedFloatBuffer::init(unsigned int aFloats)
+{
+	delete[] mBasePtr;
+	mBasePtr = nullptr;
+	mData = nullptr;
+	mFloats = aFloats;
+#ifndef SOLOUD_SSE_INTRINSICS
+	mBasePtr = new unsigned char[aFloats * sizeof(float)];
+	if (mBasePtr == NULL)
+		return OUT_OF_MEMORY;
+	mData = (float *)mBasePtr;
+#else
+	mBasePtr = new unsigned char[aFloats * sizeof(float) + 16];
+	if (mBasePtr == nullptr)
+		return OUT_OF_MEMORY;
+	mData = (float *)(((size_t)mBasePtr + 15) & ~15);
+#endif
+	return SO_NO_ERROR;
+}
+
+void AlignedFloatBuffer::clear()
+{
+	memset(mData, 0, sizeof(float) * mFloats);
+}
+
+AlignedFloatBuffer::~AlignedFloatBuffer()
+{
+	delete[] mBasePtr;
+}
+
+TinyAlignedFloatBuffer::TinyAlignedFloatBuffer() : mActualData()
+{
+	unsigned char *basePtr = &mActualData[0];
+	mData = (float *)(((size_t)basePtr + 15) & ~15);
+}
+
 #if defined(SOLOUD_SSE_INTRINSICS)
 void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1)
 {
-	float vd = (aVolume1 - aVolume0) / aSamples;
-	float v = aVolume0;
-	unsigned int i, j, c, d;
-	unsigned int samplequads = (aSamples + 3) / 4; // rounded up
+	using namespace ClippingConstants;
 
-	// Clip
+	float volumeDelta = (aVolume1 - aVolume0) / aSamples;
+	float volume = aVolume0;
+	unsigned int sampleQuads = (aSamples + 3) / 4; // Round up to process in SIMD groups
+
 	if (aSoloud->mFlags & Soloud::CLIP_ROUNDOFF)
 	{
-		float nb = -1.65f;
-		__m128 negbound = _mm_load_ps1(&nb);
-		float pb = 1.65f;
-		__m128 posbound = _mm_load_ps1(&pb);
-		float ls = 0.87f;
-		__m128 linearscale = _mm_load_ps1(&ls);
-		float cs = -0.1f;
-		__m128 cubicscale = _mm_load_ps1(&cs);
-		float nw = -0.9862875f;
-		__m128 negwall = _mm_load_ps1(&nw);
-		float pw = 0.9862875f;
-		__m128 poswall = _mm_load_ps1(&pw);
-		__m128 postscale = _mm_load_ps1(&aSoloud->mPostClipScaler);
+		// Roundoff clipping: smooth saturation curve instead of hard clipping
+		__m128 negThreshold = _mm_load_ps1(&ROUNDOFF_NEG_THRESHOLD);
+		__m128 posThreshold = _mm_load_ps1(&ROUNDOFF_POS_THRESHOLD);
+		__m128 linearScale = _mm_load_ps1(&ROUNDOFF_LINEAR_SCALE);
+		__m128 cubicScale = _mm_load_ps1(&ROUNDOFF_CUBIC_SCALE);
+		__m128 negWall = _mm_load_ps1(&ROUNDOFF_NEG_WALL);
+		__m128 posWall = _mm_load_ps1(&ROUNDOFF_POS_WALL);
+		__m128 postScale = _mm_load_ps1(&aSoloud->mPostClipScaler);
+
+		// Prepare volume ramp for SIMD processing
 		TinyAlignedFloatBuffer volumes;
-		volumes.mData[0] = v;
-		volumes.mData[1] = v + vd;
-		volumes.mData[2] = v + vd + vd;
-		volumes.mData[3] = v + vd + vd + vd;
-		vd *= 4;
-		__m128 vdelta = _mm_load_ps1(&vd);
-		c = 0;
-		d = 0;
-		for (j = 0; j < aSoloud->mChannels; j++)
+		volumes.mData[0] = volume;
+		volumes.mData[1] = volume + volumeDelta;
+		volumes.mData[2] = volume + volumeDelta * 2;
+		volumes.mData[3] = volume + volumeDelta * 3;
+		volumeDelta *= SAMPLES_PER_SIMD_REGISTER;
+		__m128 volDelta = _mm_load_ps1(&volumeDelta);
+
+		unsigned int srcIdx = 0, dstIdx = 0;
+
+		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
 		{
 			__m128 vol = _mm_load_ps(volumes.mData);
 
-			for (i = 0; i < samplequads; i++)
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
 			{
-				// float f1 = origdata[c] * v;	c++; v += vd;
-				__m128 f = _mm_load_ps(&aBuffer.mData[c]);
-				c += 4;
-				f = _mm_mul_ps(f, vol);
-				vol = _mm_add_ps(vol, vdelta);
+				// Load 4 samples and apply volume ramp
+				__m128 samples = _mm_load_ps(&aBuffer.mData[srcIdx]);
+				srcIdx += SAMPLES_PER_SIMD_REGISTER;
+				samples = _mm_mul_ps(samples, vol);
+				vol = _mm_add_ps(vol, volDelta);
 
-				// float u1 = (f1 > -1.65f);
-				__m128 u = _mm_cmpgt_ps(f, negbound);
+				// Determine which samples are within the linear region
+				__m128 aboveNegThreshold = _mm_cmpgt_ps(samples, negThreshold);
+				__m128 belowPosThreshold = _mm_cmplt_ps(samples, posThreshold);
 
-				// float o1 = (f1 < 1.65f);
-				__m128 o = _mm_cmplt_ps(f, posbound);
+				// Apply roundoff curve: linear + cubic term
+				__m128 linear = _mm_mul_ps(samples, linearScale);
+				__m128 cubic = _mm_mul_ps(samples, samples);
+				cubic = _mm_mul_ps(cubic, samples);
+				cubic = _mm_mul_ps(cubic, cubicScale);
+				samples = _mm_add_ps(linear, cubic);
 
-				// f1 = (0.87f * f1 - 0.1f * f1 * f1 * f1) * u1 * o1;
-				__m128 lin = _mm_mul_ps(f, linearscale);
-				__m128 cubic = _mm_mul_ps(f, f);
-				cubic = _mm_mul_ps(cubic, f);
-				cubic = _mm_mul_ps(cubic, cubicscale);
-				f = _mm_add_ps(cubic, lin);
+				// Clamp values below negative threshold to negative wall
+				__m128 lowMask = _mm_andnot_ps(aboveNegThreshold, negWall);
+				__m128 lowKeep = _mm_and_ps(aboveNegThreshold, samples);
+				samples = _mm_add_ps(lowMask, lowKeep);
 
-				// f1 = f1 * u1 + !u1 * -0.9862875f;
-				__m128 lowmask = _mm_andnot_ps(u, negwall);
-				__m128 ilowmask = _mm_and_ps(u, f);
-				f = _mm_add_ps(lowmask, ilowmask);
+				// Clamp values above positive threshold to positive wall
+				__m128 highMask = _mm_andnot_ps(belowPosThreshold, posWall);
+				__m128 highKeep = _mm_and_ps(belowPosThreshold, samples);
+				samples = _mm_add_ps(highMask, highKeep);
 
-				// f1 = f1 * o1 + !o1 * 0.9862875f;
-				__m128 himask = _mm_andnot_ps(o, poswall);
-				__m128 ihimask = _mm_and_ps(o, f);
-				f = _mm_add_ps(himask, ihimask);
-
-				// outdata[d] = f1 * postclip; d++;
-				f = _mm_mul_ps(f, postscale);
-				_mm_store_ps(&aDestBuffer.mData[d], f);
-				d += 4;
+				// Apply post-clip scaling and store
+				samples = _mm_mul_ps(samples, postScale);
+				_mm_store_ps(&aDestBuffer.mData[dstIdx], samples);
+				dstIdx += SAMPLES_PER_SIMD_REGISTER;
 			}
 		}
 	}
 	else
 	{
-		float nb = -1.0f;
-		__m128 negbound = _mm_load_ps1(&nb);
-		float pb = 1.0f;
-		__m128 posbound = _mm_load_ps1(&pb);
-		__m128 postscale = _mm_load_ps1(&aSoloud->mPostClipScaler);
+		// Hard clipping: simple min/max bounds
+		__m128 negBound = _mm_load_ps1(&HARD_CLIP_MIN);
+		__m128 posBound = _mm_load_ps1(&HARD_CLIP_MAX);
+		__m128 postScale = _mm_load_ps1(&aSoloud->mPostClipScaler);
+
+		// Prepare volume ramp for SIMD processing
 		TinyAlignedFloatBuffer volumes;
-		volumes.mData[0] = v;
-		volumes.mData[1] = v + vd;
-		volumes.mData[2] = v + vd + vd;
-		volumes.mData[3] = v + vd + vd + vd;
-		vd *= 4;
-		__m128 vdelta = _mm_load_ps1(&vd);
-		c = 0;
-		d = 0;
-		for (j = 0; j < aSoloud->mChannels; j++)
+		volumes.mData[0] = volume;
+		volumes.mData[1] = volume + volumeDelta;
+		volumes.mData[2] = volume + volumeDelta * 2;
+		volumes.mData[3] = volume + volumeDelta * 3;
+		volumeDelta *= SAMPLES_PER_SIMD_REGISTER;
+		__m128 volDelta = _mm_load_ps1(&volumeDelta);
+
+		unsigned int srcIdx = 0, dstIdx = 0;
+
+		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
 		{
 			__m128 vol = _mm_load_ps(volumes.mData);
-			for (i = 0; i < samplequads; i++)
+
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
 			{
-				// float f1 = aBuffer.mData[c] * v; c++; v += vd;
-				__m128 f = _mm_load_ps(&aBuffer.mData[c]);
-				c += 4;
-				f = _mm_mul_ps(f, vol);
-				vol = _mm_add_ps(vol, vdelta);
+				// Load 4 samples and apply volume ramp
+				__m128 samples = _mm_load_ps(&aBuffer.mData[srcIdx]);
+				srcIdx += SAMPLES_PER_SIMD_REGISTER;
+				samples = _mm_mul_ps(samples, vol);
+				vol = _mm_add_ps(vol, volDelta);
 
-				// f1 = (f1 <= -1) ? -1 : (f1 >= 1) ? 1 : f1;
-				f = _mm_max_ps(f, negbound);
-				f = _mm_min_ps(f, posbound);
+				// Hard clipping to [-1, 1] range
+				samples = _mm_max_ps(samples, negBound);
+				samples = _mm_min_ps(samples, posBound);
 
-				// aDestBuffer.mData[d] = f1 * mPostClipScaler; d++;
-				f = _mm_mul_ps(f, postscale);
-				_mm_store_ps(&aDestBuffer.mData[d], f);
-				d += 4;
+				// Apply post-clip scaling and store
+				samples = _mm_mul_ps(samples, postScale);
+				_mm_store_ps(&aDestBuffer.mData[dstIdx], samples);
+				dstIdx += SAMPLES_PER_SIMD_REGISTER;
 			}
 		}
 	}
 }
-#else // fallback code
+
+#else // Fallback implementation without SSE
+
 void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1)
 {
-	float vd = (aVolume1 - aVolume0) / aSamples;
-	float v = aVolume0;
-	unsigned int i, j, c, d;
-	unsigned int samplequads = (aSamples + 3) / 4; // rounded up
-	// Clip
+	using namespace ClippingConstants;
+
+	float volumeDelta = (aVolume1 - aVolume0) / aSamples;
+	float volume = aVolume0;
+	unsigned int sampleQuads = (aSamples + 3) / 4; // Process in groups of 4 for consistency
+
 	if (aSoloud->mFlags & Soloud::CLIP_ROUNDOFF)
 	{
-		c = 0;
-		d = 0;
-		for (j = 0; j < aSoloud->mChannels; j++)
+		unsigned int srcIdx = 0, dstIdx = 0;
+
+		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
 		{
-			v = aVolume0;
-			for (i = 0; i < samplequads; i++)
+			volume = aVolume0;
+
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
 			{
-				float f1 = aBuffer.mData[c] * v;
-				c++;
-				v += vd;
-				float f2 = aBuffer.mData[c] * v;
-				c++;
-				v += vd;
-				float f3 = aBuffer.mData[c] * v;
-				c++;
-				v += vd;
-				float f4 = aBuffer.mData[c] * v;
-				c++;
-				v += vd;
+				// Process 4 samples at a time
+				for (int sample = 0; sample < SAMPLES_PER_SIMD_REGISTER; sample++)
+				{
+					float input = aBuffer.mData[srcIdx++] * volume;
+					volume += volumeDelta;
 
-				f1 = (f1 <= -1.65f) ? -0.9862875f : (f1 >= 1.65f) ? 0.9862875f : (0.87f * f1 - 0.1f * f1 * f1 * f1);
-				f2 = (f2 <= -1.65f) ? -0.9862875f : (f2 >= 1.65f) ? 0.9862875f : (0.87f * f2 - 0.1f * f2 * f2 * f2);
-				f3 = (f3 <= -1.65f) ? -0.9862875f : (f3 >= 1.65f) ? 0.9862875f : (0.87f * f3 - 0.1f * f3 * f3 * f3);
-				f4 = (f4 <= -1.65f) ? -0.9862875f : (f4 >= 1.65f) ? 0.9862875f : (0.87f * f4 - 0.1f * f4 * f4 * f4);
+					// Apply roundoff clipping curve
+					float output;
+					if (input <= ROUNDOFF_NEG_THRESHOLD)
+					{
+						output = ROUNDOFF_NEG_WALL;
+					}
+					else if (input >= ROUNDOFF_POS_THRESHOLD)
+					{
+						output = ROUNDOFF_POS_WALL;
+					}
+					else
+					{
+						// Smooth curve: linear + cubic term
+						output = ROUNDOFF_LINEAR_SCALE * input + ROUNDOFF_CUBIC_SCALE * input * input * input;
+					}
 
-				aDestBuffer.mData[d] = f1 * aSoloud->mPostClipScaler;
-				d++;
-				aDestBuffer.mData[d] = f2 * aSoloud->mPostClipScaler;
-				d++;
-				aDestBuffer.mData[d] = f3 * aSoloud->mPostClipScaler;
-				d++;
-				aDestBuffer.mData[d] = f4 * aSoloud->mPostClipScaler;
-				d++;
+					aDestBuffer.mData[dstIdx++] = output * aSoloud->mPostClipScaler;
+				}
 			}
 		}
 	}
 	else
 	{
-		c = 0;
-		d = 0;
-		for (j = 0; j < aSoloud->mChannels; j++)
+		unsigned int srcIdx = 0, dstIdx = 0;
+
+		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
 		{
-			v = aVolume0;
-			for (i = 0; i < samplequads; i++)
+			volume = aVolume0;
+
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
 			{
-				float f1 = aBuffer.mData[c] * v;
-				c++;
-				v += vd;
-				float f2 = aBuffer.mData[c] * v;
-				c++;
-				v += vd;
-				float f3 = aBuffer.mData[c] * v;
-				c++;
-				v += vd;
-				float f4 = aBuffer.mData[c] * v;
-				c++;
-				v += vd;
+				// Process 4 samples at a time
+				for (int sample = 0; sample < SAMPLES_PER_SIMD_REGISTER; sample++)
+				{
+					float input = aBuffer.mData[srcIdx++] * volume;
+					volume += volumeDelta;
 
-				f1 = (f1 <= -1) ? -1 : (f1 >= 1) ? 1 : f1;
-				f2 = (f2 <= -1) ? -1 : (f2 >= 1) ? 1 : f2;
-				f3 = (f3 <= -1) ? -1 : (f3 >= 1) ? 1 : f3;
-				f4 = (f4 <= -1) ? -1 : (f4 >= 1) ? 1 : f4;
+					// Hard clipping to [-1, 1] range
+					float output = (input <= HARD_CLIP_MIN) ? HARD_CLIP_MIN : (input >= HARD_CLIP_MAX) ? HARD_CLIP_MAX : input;
 
-				aDestBuffer.mData[d] = f1 * aSoloud->mPostClipScaler;
-				d++;
-				aDestBuffer.mData[d] = f2 * aSoloud->mPostClipScaler;
-				d++;
-				aDestBuffer.mData[d] = f3 * aSoloud->mPostClipScaler;
-				d++;
-				aDestBuffer.mData[d] = f4 * aSoloud->mPostClipScaler;
-				d++;
+					aDestBuffer.mData[dstIdx++] = output * aSoloud->mPostClipScaler;
+				}
 			}
 		}
 	}
@@ -242,551 +304,587 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 
 void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize, float *aScratch, unsigned int aChannels)
 {
+	using namespace ChannelMixingConstants;
+	using namespace ClippingConstants;
 #ifdef SOLOUD_SSE_INTRINSICS
 	SOLOUD_ASSERT(((size_t)aBuffer & 0xf) == 0);
 	SOLOUD_ASSERT(((size_t)aScratch & 0xf) == 0);
 	SOLOUD_ASSERT(((size_t)aBufferSize & 0xf) == 0);
 #endif
-	float pan[MAX_CHANNELS];  // current speaker volume
-	float pand[MAX_CHANNELS]; // destination speaker volume
-	float pani[MAX_CHANNELS]; // speaker volume increment per sample
-	unsigned int j, k;
-	for (k = 0; k < aChannels; k++)
+
+	// Calculate volume ramping for smooth transitions
+	float currentPan[MAX_CHANNELS]; // Current speaker volumes
+	float targetPan[MAX_CHANNELS];  // Target speaker volumes
+	float panDelta[MAX_CHANNELS];   // Volume change per sample
+
+	for (unsigned int ch = 0; ch < aChannels; ch++)
 	{
-		pan[k] = aVoice->mCurrentChannelVolume[k];
-		pand[k] = aVoice->mChannelVolume[k] * aVoice->mOverallVolume;
-		pani[k] = (pand[k] - pan[k]) / aSamplesToRead; // TODO: this is a bit inconsistent.. but it's a hack to begin with
+		currentPan[ch] = aVoice->mCurrentChannelVolume[ch];
+		targetPan[ch] = aVoice->mChannelVolume[ch] * aVoice->mOverallVolume;
+		panDelta[ch] = (targetPan[ch] - currentPan[ch]) / aSamplesToRead;
 	}
 
-	int ofs = 0;
+	// Channel mapping and mixing logic
 	switch (aChannels)
 	{
-	case 1: // Target is mono. Sum everything. (1->1, 2->1, 4->1, 6->1, 8->1)
-		for (j = 0, ofs = 0; j < aVoice->mChannels; j++, ofs += aBufferSize)
+	case 1: // Mono output: sum all input channels
+	{
+		for (unsigned int srcCh = 0; srcCh < aVoice->mChannels; srcCh++)
 		{
-			pan[0] = aVoice->mCurrentChannelVolume[0];
-			for (k = 0; k < aSamplesToRead; k++)
+			unsigned int srcOffset = srcCh * aBufferSize;
+			currentPan[0] = aVoice->mCurrentChannelVolume[0];
+
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				aBuffer[k] += aScratch[ofs + k] * pan[0];
+				currentPan[0] += panDelta[0];
+				aBuffer[sample] += aScratch[srcOffset + sample] * currentPan[0];
 			}
 		}
-		break;
-	case 2:
+	}
+	break;
+
+	case 2: // Stereo output
 		switch (aVoice->mChannels)
 		{
-		case 8: // 8->2, just sum lefties and righties, add a bit of center and sub?
-			for (j = 0; j < aSamplesToRead; j++)
+		case 8: // 8.0 -> 2.0: mix left/right groups with center and sub contribution
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				float s5 = aScratch[aBufferSize * 4 + j];
-				float s6 = aScratch[aBufferSize * 5 + j];
-				float s7 = aScratch[aBufferSize * 6 + j];
-				float s8 = aScratch[aBufferSize * 7 + j];
-				aBuffer[j + 0] += 0.2f * (s1 + s3 + s4 + s5 + s7) * pan[0];
-				aBuffer[j + aBufferSize] += 0.2f * (s2 + s3 + s4 + s6 + s8) * pan[1];
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				// Load all 8 channels
+				float ch[8];
+				for (int i = 0; i < 8; i++)
+				{
+					ch[i] = aScratch[aBufferSize * i + sample];
+				}
+
+				// Mix: FL + C + LFE + SL + BL for left, FR + C + LFE + SR + BR for right
+				aBuffer[sample] += MIX_8_TO_2_SCALE * (ch[0] + ch[2] + ch[3] + ch[4] + ch[6]) * currentPan[0];
+				aBuffer[aBufferSize + sample] += MIX_8_TO_2_SCALE * (ch[1] + ch[2] + ch[3] + ch[5] + ch[7]) * currentPan[1];
 			}
 			break;
-		case 6: // 6->2, just sum lefties and righties, add a bit of center and sub?
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 6: // 5.1 -> 2.0: mix left/right groups with center and sub contribution
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				float s5 = aScratch[aBufferSize * 4 + j];
-				float s6 = aScratch[aBufferSize * 5 + j];
-				aBuffer[j + 0] += 0.3f * (s1 + s3 + s4 + s5) * pan[0];
-				aBuffer[j + aBufferSize] += 0.3f * (s2 + s3 + s4 + s6) * pan[1];
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				// Load all 6 channels: FL, FR, C, LFE, SL, SR
+				float ch[6];
+				for (int i = 0; i < 6; i++)
+				{
+					ch[i] = aScratch[aBufferSize * i + sample];
+				}
+
+				// Mix: FL + C + LFE + SL for left, FR + C + LFE + SR for right
+				aBuffer[sample] += MIX_6_TO_2_SCALE * (ch[0] + ch[2] + ch[3] + ch[4]) * currentPan[0];
+				aBuffer[aBufferSize + sample] += MIX_6_TO_2_SCALE * (ch[1] + ch[2] + ch[3] + ch[5]) * currentPan[1];
 			}
 			break;
-		case 4: // 4->2, just sum lefties and righties
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 4: // 4.0 -> 2.0: sum front/back pairs
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				aBuffer[j + 0] += 0.5f * (s1 + s3) * pan[0];
-				aBuffer[j + aBufferSize] += 0.5f * (s2 + s4) * pan[1];
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				float frontLeft = aScratch[sample];
+				float frontRight = aScratch[aBufferSize + sample];
+				float backLeft = aScratch[aBufferSize * 2 + sample];
+				float backRight = aScratch[aBufferSize * 3 + sample];
+
+				aBuffer[sample] += MIX_4_TO_2_SCALE * (frontLeft + backLeft) * currentPan[0];
+				aBuffer[aBufferSize + sample] += MIX_4_TO_2_SCALE * (frontRight + backRight) * currentPan[1];
 			}
 			break;
-		case 2: // 2->2
+
+		case 2: // 2.0 -> 2.0: direct mapping with volume ramping
 #if defined(SOLOUD_SSE_INTRINSICS)
 		{
-			int c = 0;
-			// if ((aBufferSize & 3) == 0)
+			unsigned int processedSamples = 0;
+			unsigned int sampleQuads = aSamplesToRead / SAMPLES_PER_SIMD_REGISTER;
+
+			if (sampleQuads > 0)
 			{
-				unsigned int samplequads = aSamplesToRead / 4; // rounded down
-				TinyAlignedFloatBuffer pan0;
-				pan0.mData[0] = pan[0] + pani[0];
-				pan0.mData[1] = pan[0] + pani[0] * 2;
-				pan0.mData[2] = pan[0] + pani[0] * 3;
-				pan0.mData[3] = pan[0] + pani[0] * 4;
-				TinyAlignedFloatBuffer pan1;
-				pan1.mData[0] = pan[1] + pani[1];
-				pan1.mData[1] = pan[1] + pani[1] * 2;
-				pan1.mData[2] = pan[1] + pani[1] * 3;
-				pan1.mData[3] = pan[1] + pani[1] * 4;
-				pani[0] *= 4;
-				pani[1] *= 4;
-				__m128 pan0delta = _mm_load_ps1(&pani[0]);
-				__m128 pan1delta = _mm_load_ps1(&pani[1]);
+				// Prepare volume ramps for SIMD processing
+				TinyAlignedFloatBuffer pan0, pan1;
+				for (int i = 0; i < SAMPLES_PER_SIMD_REGISTER; i++)
+				{
+					pan0.mData[i] = currentPan[0] + panDelta[0] * (i + 1);
+					pan1.mData[i] = currentPan[1] + panDelta[1] * (i + 1);
+				}
+
+				float panDelta0_4x = panDelta[0] * SAMPLES_PER_SIMD_REGISTER;
+				float panDelta1_4x = panDelta[1] * SAMPLES_PER_SIMD_REGISTER;
+				__m128 pan0Delta = _mm_load_ps1(&panDelta0_4x);
+				__m128 pan1Delta = _mm_load_ps1(&panDelta1_4x);
 				__m128 p0 = _mm_load_ps(pan0.mData);
 				__m128 p1 = _mm_load_ps(pan1.mData);
 
-				for (j = 0; j < samplequads; j++)
+				for (unsigned int quad = 0; quad < sampleQuads; quad++)
 				{
-					__m128 f0 = _mm_load_ps(aScratch + c);
-					__m128 c0 = _mm_mul_ps(f0, p0);
-					__m128 f1 = _mm_load_ps(aScratch + c + aBufferSize);
-					__m128 c1 = _mm_mul_ps(f1, p1);
-					__m128 o0 = _mm_load_ps(aBuffer + c);
-					__m128 o1 = _mm_load_ps(aBuffer + c + aBufferSize);
-					c0 = _mm_add_ps(c0, o0);
-					c1 = _mm_add_ps(c1, o1);
-					_mm_store_ps(aBuffer + c, c0);
-					_mm_store_ps(aBuffer + c + aBufferSize, c1);
-					p0 = _mm_add_ps(p0, pan0delta);
-					p1 = _mm_add_ps(p1, pan1delta);
-					c += 4;
+					unsigned int idx = processedSamples;
+
+					// Load source samples
+					__m128 src0 = _mm_load_ps(aScratch + idx);
+					__m128 src1 = _mm_load_ps(aScratch + idx + aBufferSize);
+
+					// Apply volume ramps
+					__m128 mixed0 = _mm_mul_ps(src0, p0);
+					__m128 mixed1 = _mm_mul_ps(src1, p1);
+
+					// Add to existing output
+					__m128 out0 = _mm_load_ps(aBuffer + idx);
+					__m128 out1 = _mm_load_ps(aBuffer + idx + aBufferSize);
+					out0 = _mm_add_ps(out0, mixed0);
+					out1 = _mm_add_ps(out1, mixed1);
+
+					// Store results
+					_mm_store_ps(aBuffer + idx, out0);
+					_mm_store_ps(aBuffer + idx + aBufferSize, out1);
+
+					// Update volume ramps
+					p0 = _mm_add_ps(p0, pan0Delta);
+					p1 = _mm_add_ps(p1, pan1Delta);
+
+					processedSamples += SAMPLES_PER_SIMD_REGISTER;
 				}
+
+				// Update current pan for remaining samples
+				currentPan[0] += panDelta[0] * processedSamples;
+				currentPan[1] += panDelta[1] * processedSamples;
 			}
 
-			// If buffer size or samples to read are not divisible by 4, handle leftovers
-			for (j = c; j < aSamplesToRead; j++)
+			// Process remaining samples
+			for (unsigned int sample = processedSamples; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				float leftSrc = aScratch[sample];
+				float rightSrc = aScratch[aBufferSize + sample];
+
+				aBuffer[sample] += leftSrc * currentPan[0];
+				aBuffer[aBufferSize + sample] += rightSrc * currentPan[1];
 			}
 		}
-#else // fallback
-			for (j = 0; j < aSamplesToRead; j++)
+#else // Fallback implementation
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				float leftSrc = aScratch[sample];
+				float rightSrc = aScratch[aBufferSize + sample];
+
+				aBuffer[sample] += leftSrc * currentPan[0];
+				aBuffer[aBufferSize + sample] += rightSrc * currentPan[1];
 			}
 #endif
 		break;
-		case 1: // 1->2
+
+		case 1: // 1.0 -> 2.0: distribute mono to stereo with panning
 #if defined(SOLOUD_SSE_INTRINSICS)
 		{
-			int c = 0;
-			// if ((aBufferSize & 3) == 0)
+			unsigned int processedSamples = 0;
+			unsigned int sampleQuads = aSamplesToRead / SAMPLES_PER_SIMD_REGISTER;
+
+			if (sampleQuads > 0)
 			{
-				unsigned int samplequads = aSamplesToRead / 4; // rounded down
-				TinyAlignedFloatBuffer pan0;
-				pan0.mData[0] = pan[0] + pani[0];
-				pan0.mData[1] = pan[0] + pani[0] * 2;
-				pan0.mData[2] = pan[0] + pani[0] * 3;
-				pan0.mData[3] = pan[0] + pani[0] * 4;
-				TinyAlignedFloatBuffer pan1;
-				pan1.mData[0] = pan[1] + pani[1];
-				pan1.mData[1] = pan[1] + pani[1] * 2;
-				pan1.mData[2] = pan[1] + pani[1] * 3;
-				pan1.mData[3] = pan[1] + pani[1] * 4;
-				pani[0] *= 4;
-				pani[1] *= 4;
-				__m128 pan0delta = _mm_load_ps1(&pani[0]);
-				__m128 pan1delta = _mm_load_ps1(&pani[1]);
+				// Prepare volume ramps for SIMD processing
+				TinyAlignedFloatBuffer pan0, pan1;
+				for (int i = 0; i < SAMPLES_PER_SIMD_REGISTER; i++)
+				{
+					pan0.mData[i] = currentPan[0] + panDelta[0] * (i + 1);
+					pan1.mData[i] = currentPan[1] + panDelta[1] * (i + 1);
+				}
+
+				float panDelta0_4x = panDelta[0] * SAMPLES_PER_SIMD_REGISTER;
+				float panDelta1_4x = panDelta[1] * SAMPLES_PER_SIMD_REGISTER;
+				__m128 pan0Delta = _mm_load_ps1(&panDelta0_4x);
+				__m128 pan1Delta = _mm_load_ps1(&panDelta1_4x);
 				__m128 p0 = _mm_load_ps(pan0.mData);
 				__m128 p1 = _mm_load_ps(pan1.mData);
 
-				for (j = 0; j < samplequads; j++)
+				for (unsigned int quad = 0; quad < sampleQuads; quad++)
 				{
-					__m128 f = _mm_load_ps(aScratch + c);
-					__m128 c0 = _mm_mul_ps(f, p0);
-					__m128 c1 = _mm_mul_ps(f, p1);
-					__m128 o0 = _mm_load_ps(aBuffer + c);
-					__m128 o1 = _mm_load_ps(aBuffer + c + aBufferSize);
-					c0 = _mm_add_ps(c0, o0);
-					c1 = _mm_add_ps(c1, o1);
-					_mm_store_ps(aBuffer + c, c0);
-					_mm_store_ps(aBuffer + c + aBufferSize, c1);
-					p0 = _mm_add_ps(p0, pan0delta);
-					p1 = _mm_add_ps(p1, pan1delta);
-					c += 4;
+					unsigned int idx = processedSamples;
+
+					// Load mono source
+					__m128 src = _mm_load_ps(aScratch + idx);
+
+					// Apply volume ramps to create stereo
+					__m128 mixed0 = _mm_mul_ps(src, p0);
+					__m128 mixed1 = _mm_mul_ps(src, p1);
+
+					// Add to existing output
+					__m128 out0 = _mm_load_ps(aBuffer + idx);
+					__m128 out1 = _mm_load_ps(aBuffer + idx + aBufferSize);
+					out0 = _mm_add_ps(out0, mixed0);
+					out1 = _mm_add_ps(out1, mixed1);
+
+					// Store results
+					_mm_store_ps(aBuffer + idx, out0);
+					_mm_store_ps(aBuffer + idx + aBufferSize, out1);
+
+					// Update volume ramps
+					p0 = _mm_add_ps(p0, pan0Delta);
+					p1 = _mm_add_ps(p1, pan1Delta);
+
+					processedSamples += SAMPLES_PER_SIMD_REGISTER;
 				}
+
+				// Update current pan for remaining samples
+				currentPan[0] += panDelta[0] * processedSamples;
+				currentPan[1] += panDelta[1] * processedSamples;
 			}
-			// If buffer size or samples to read are not divisible by 4, handle leftovers
-			for (j = c; j < aSamplesToRead; j++)
+
+			// Process remaining samples
+			for (unsigned int sample = processedSamples; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				float s = aScratch[j];
-				aBuffer[j + 0] += s * pan[0];
-				aBuffer[j + aBufferSize] += s * pan[1];
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				float monoSrc = aScratch[sample];
+
+				aBuffer[sample] += monoSrc * currentPan[0];
+				aBuffer[aBufferSize + sample] += monoSrc * currentPan[1];
 			}
 		}
-#else // fallback
-			for (j = 0; j < aSamplesToRead; j++)
+#else // Fallback implementation
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				float s = aScratch[j];
-				aBuffer[j + 0] += s * pan[0];
-				aBuffer[j + aBufferSize] += s * pan[1];
+				currentPan[0] += panDelta[0];
+				currentPan[1] += panDelta[1];
+
+				float monoSrc = aScratch[sample];
+
+				aBuffer[sample] += monoSrc * currentPan[0];
+				aBuffer[aBufferSize + sample] += monoSrc * currentPan[1];
 			}
 #endif
 		break;
 		}
 		break;
-	case 4:
+
+	case 4: // Quadraphonic output
 		switch (aVoice->mChannels)
 		{
-		case 8: // 8->4, add a bit of center, sub?
-			for (j = 0; j < aSamplesToRead; j++)
+		case 8: // 8.0 -> 4.0: group channels and add center/sub
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				float s5 = aScratch[aBufferSize * 4 + j];
-				float s6 = aScratch[aBufferSize * 5 + j];
-				float s7 = aScratch[aBufferSize * 6 + j];
-				float s8 = aScratch[aBufferSize * 7 + j];
-				float c = (s3 + s4) * 0.7f;
-				aBuffer[j + 0] += s1 * pan[0] + c;
-				aBuffer[j + aBufferSize] += s2 * pan[1] + c;
-				aBuffer[j + aBufferSize * 2] += 0.5f * (s5 + s7) * pan[2];
-				aBuffer[j + aBufferSize * 3] += 0.5f * (s6 + s8) * pan[3];
+				for (int ch = 0; ch < 4; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float ch[8];
+				for (int i = 0; i < 8; i++)
+				{
+					ch[i] = aScratch[aBufferSize * i + sample];
+				}
+
+				float centerSub = (ch[2] + ch[3]) * CENTER_SUB_MIX_SCALE;
+
+				aBuffer[sample] += ch[0] * currentPan[0] + centerSub;
+				aBuffer[aBufferSize + sample] += ch[1] * currentPan[1] + centerSub;
+				aBuffer[aBufferSize * 2 + sample] += SURROUND_MIX_SCALE * (ch[4] + ch[6]) * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += SURROUND_MIX_SCALE * (ch[5] + ch[7]) * currentPan[3];
 			}
 			break;
-		case 6: // 6->4, add a bit of center, sub?
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 6: // 5.1 -> 4.0: map channels and add center/sub
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				float s5 = aScratch[aBufferSize * 4 + j];
-				float s6 = aScratch[aBufferSize * 5 + j];
-				float c = (s3 + s4) * 0.7f;
-				aBuffer[j + 0] += s1 * pan[0] + c;
-				aBuffer[j + aBufferSize] += s2 * pan[1] + c;
-				aBuffer[j + aBufferSize * 2] += s5 * pan[2];
-				aBuffer[j + aBufferSize * 3] += s6 * pan[3];
+				for (int ch = 0; ch < 4; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float ch[6];
+				for (int i = 0; i < 6; i++)
+				{
+					ch[i] = aScratch[aBufferSize * i + sample];
+				}
+
+				float centerSub = (ch[2] + ch[3]) * CENTER_SUB_MIX_SCALE;
+
+				aBuffer[sample] += ch[0] * currentPan[0] + centerSub;
+				aBuffer[aBufferSize + sample] += ch[1] * currentPan[1] + centerSub;
+				aBuffer[aBufferSize * 2 + sample] += ch[4] * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += ch[5] * currentPan[3];
 			}
 			break;
-		case 4: // 4->4
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 4: // 4.0 -> 4.0: direct mapping
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += s3 * pan[2];
-				aBuffer[j + aBufferSize * 3] += s4 * pan[3];
+				for (int ch = 0; ch < 4; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+					float src = aScratch[aBufferSize * ch + sample];
+					aBuffer[aBufferSize * ch + sample] += src * currentPan[ch];
+				}
 			}
 			break;
-		case 2: // 2->4
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 2: // 2.0 -> 4.0: duplicate to front and back
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += s1 * pan[2];
-				aBuffer[j + aBufferSize * 3] += s2 * pan[3];
+				for (int ch = 0; ch < 4; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float left = aScratch[sample];
+				float right = aScratch[aBufferSize + sample];
+
+				aBuffer[sample] += left * currentPan[0];
+				aBuffer[aBufferSize + sample] += right * currentPan[1];
+				aBuffer[aBufferSize * 2 + sample] += left * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += right * currentPan[3];
 			}
 			break;
-		case 1: // 1->4
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 1: // 1.0 -> 4.0: distribute mono to all channels
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				float s = aScratch[j];
-				aBuffer[j + 0] += s * pan[0];
-				aBuffer[j + aBufferSize] += s * pan[1];
-				aBuffer[j + aBufferSize * 2] += s * pan[2];
-				aBuffer[j + aBufferSize * 3] += s * pan[3];
+				for (int ch = 0; ch < 4; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float monoSrc = aScratch[sample];
+
+				for (int ch = 0; ch < 4; ch++)
+				{
+					aBuffer[aBufferSize * ch + sample] += monoSrc * currentPan[ch];
+				}
 			}
 			break;
 		}
 		break;
-	case 6:
+
+	case 6: // 5.1 Surround output
 		switch (aVoice->mChannels)
 		{
-		case 8: // 8->6
-			for (j = 0; j < aSamplesToRead; j++)
+		case 8: // 8.0 -> 5.1: combine side and back channels
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				float s5 = aScratch[aBufferSize * 4 + j];
-				float s6 = aScratch[aBufferSize * 5 + j];
-				float s7 = aScratch[aBufferSize * 6 + j];
-				float s8 = aScratch[aBufferSize * 7 + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += s3 * pan[2];
-				aBuffer[j + aBufferSize * 3] += s4 * pan[3];
-				aBuffer[j + aBufferSize * 4] += 0.5f * (s5 + s7) * pan[4];
-				aBuffer[j + aBufferSize * 5] += 0.5f * (s6 + s8) * pan[5];
+				for (int ch = 0; ch < 6; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float ch[8];
+				for (int i = 0; i < 8; i++)
+				{
+					ch[i] = aScratch[aBufferSize * i + sample];
+				}
+
+				// FL, FR, C, LFE, SL+BL, SR+BR
+				aBuffer[sample] += ch[0] * currentPan[0];
+				aBuffer[aBufferSize + sample] += ch[1] * currentPan[1];
+				aBuffer[aBufferSize * 2 + sample] += ch[2] * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += ch[3] * currentPan[3];
+				aBuffer[aBufferSize * 4 + sample] += SURROUND_MIX_SCALE * (ch[4] + ch[6]) * currentPan[4];
+				aBuffer[aBufferSize * 5 + sample] += SURROUND_MIX_SCALE * (ch[5] + ch[7]) * currentPan[5];
 			}
 			break;
-		case 6: // 6->6
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 6: // 5.1 -> 5.1: direct mapping
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				float s5 = aScratch[aBufferSize * 4 + j];
-				float s6 = aScratch[aBufferSize * 5 + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += s3 * pan[2];
-				aBuffer[j + aBufferSize * 3] += s4 * pan[3];
-				aBuffer[j + aBufferSize * 4] += s5 * pan[4];
-				aBuffer[j + aBufferSize * 5] += s6 * pan[5];
+				for (int ch = 0; ch < 6; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+					float src = aScratch[aBufferSize * ch + sample];
+					aBuffer[aBufferSize * ch + sample] += src * currentPan[ch];
+				}
 			}
 			break;
-		case 4: // 4->6
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 4: // 4.0 -> 5.1: create center/sub from front channels
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += 0.5f * (s1 + s2) * pan[2];
-				aBuffer[j + aBufferSize * 3] += 0.25f * (s1 + s2 + s3 + s4) * pan[3];
-				aBuffer[j + aBufferSize * 4] += s3 * pan[4];
-				aBuffer[j + aBufferSize * 5] += s4 * pan[5];
+				for (int ch = 0; ch < 6; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float ch[4];
+				for (int i = 0; i < 4; i++)
+				{
+					ch[i] = aScratch[aBufferSize * i + sample];
+				}
+
+				// FL, FR, C (mix), LFE (mix), SL, SR
+				aBuffer[sample] += ch[0] * currentPan[0];
+				aBuffer[aBufferSize + sample] += ch[1] * currentPan[1];
+				aBuffer[aBufferSize * 2 + sample] += SURROUND_MIX_SCALE * (ch[0] + ch[1]) * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += QUAD_MIX_SCALE * (ch[0] + ch[1] + ch[2] + ch[3]) * currentPan[3];
+				aBuffer[aBufferSize * 4 + sample] += ch[2] * currentPan[4];
+				aBuffer[aBufferSize * 5 + sample] += ch[3] * currentPan[5];
 			}
 			break;
-		case 2: // 2->6
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 2: // 2.0 -> 5.1: create surround content
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += 0.5f * (s1 + s2) * pan[2];
-				aBuffer[j + aBufferSize * 3] += 0.5f * (s1 + s2) * pan[3];
-				aBuffer[j + aBufferSize * 4] += s1 * pan[4];
-				aBuffer[j + aBufferSize * 5] += s2 * pan[5];
+				for (int ch = 0; ch < 6; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float left = aScratch[sample];
+				float right = aScratch[aBufferSize + sample];
+
+				// FL, FR, C (mix), LFE (mix), SL, SR
+				aBuffer[sample] += left * currentPan[0];
+				aBuffer[aBufferSize + sample] += right * currentPan[1];
+				aBuffer[aBufferSize * 2 + sample] += SURROUND_MIX_SCALE * (left + right) * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += SURROUND_MIX_SCALE * (left + right) * currentPan[3];
+				aBuffer[aBufferSize * 4 + sample] += left * currentPan[4];
+				aBuffer[aBufferSize * 5 + sample] += right * currentPan[5];
 			}
 			break;
-		case 1: // 1->6
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 1: // 1.0 -> 5.1: distribute mono to all channels
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				float s = aScratch[j];
-				aBuffer[j + 0] += s * pan[0];
-				aBuffer[j + aBufferSize] += s * pan[1];
-				aBuffer[j + aBufferSize * 2] += s * pan[2];
-				aBuffer[j + aBufferSize * 3] += s * pan[3];
-				aBuffer[j + aBufferSize * 4] += s * pan[4];
-				aBuffer[j + aBufferSize * 5] += s * pan[5];
+				for (int ch = 0; ch < 6; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float monoSrc = aScratch[sample];
+
+				for (int ch = 0; ch < 6; ch++)
+				{
+					aBuffer[aBufferSize * ch + sample] += monoSrc * currentPan[ch];
+				}
 			}
 			break;
 		}
 		break;
-	case 8:
+
+	case 8: // 7.1 Surround output
 		switch (aVoice->mChannels)
 		{
-		case 8: // 8->8
-			for (j = 0; j < aSamplesToRead; j++)
+		case 8: // 8.0 -> 7.1: direct mapping
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				pan[6] += pani[6];
-				pan[7] += pani[7];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				float s5 = aScratch[aBufferSize * 4 + j];
-				float s6 = aScratch[aBufferSize * 5 + j];
-				float s7 = aScratch[aBufferSize * 6 + j];
-				float s8 = aScratch[aBufferSize * 7 + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += s3 * pan[2];
-				aBuffer[j + aBufferSize * 3] += s4 * pan[3];
-				aBuffer[j + aBufferSize * 4] += s5 * pan[4];
-				aBuffer[j + aBufferSize * 5] += s6 * pan[5];
-				aBuffer[j + aBufferSize * 6] += s7 * pan[6];
-				aBuffer[j + aBufferSize * 7] += s8 * pan[7];
+				for (int ch = 0; ch < 8; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+					float src = aScratch[aBufferSize * ch + sample];
+					aBuffer[aBufferSize * ch + sample] += src * currentPan[ch];
+				}
 			}
 			break;
-		case 6: // 6->8
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 6: // 5.1 -> 7.1: create side channels from surrounds
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				pan[6] += pani[6];
-				pan[7] += pani[7];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				float s5 = aScratch[aBufferSize * 4 + j];
-				float s6 = aScratch[aBufferSize * 5 + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += s3 * pan[2];
-				aBuffer[j + aBufferSize * 3] += s4 * pan[3];
-				aBuffer[j + aBufferSize * 4] += 0.5f * (s5 + s1) * pan[4];
-				aBuffer[j + aBufferSize * 5] += 0.5f * (s6 + s2) * pan[5];
-				aBuffer[j + aBufferSize * 6] += s5 * pan[6];
-				aBuffer[j + aBufferSize * 7] += s6 * pan[7];
+				for (int ch = 0; ch < 8; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float ch[6];
+				for (int i = 0; i < 6; i++)
+				{
+					ch[i] = aScratch[aBufferSize * i + sample];
+				}
+
+				// FL, FR, C, LFE, SL+blend, SR+blend, SL, SR
+				aBuffer[sample] += ch[0] * currentPan[0];
+				aBuffer[aBufferSize + sample] += ch[1] * currentPan[1];
+				aBuffer[aBufferSize * 2 + sample] += ch[2] * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += ch[3] * currentPan[3];
+				aBuffer[aBufferSize * 4 + sample] += SURROUND_MIX_SCALE * (ch[4] + ch[0]) * currentPan[4];
+				aBuffer[aBufferSize * 5 + sample] += SURROUND_MIX_SCALE * (ch[5] + ch[1]) * currentPan[5];
+				aBuffer[aBufferSize * 6 + sample] += ch[4] * currentPan[6];
+				aBuffer[aBufferSize * 7 + sample] += ch[5] * currentPan[7];
 			}
 			break;
-		case 4: // 4->8
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 4: // 4.0 -> 7.1: create center/sub and side channels
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				pan[6] += pani[6];
-				pan[7] += pani[7];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				float s3 = aScratch[aBufferSize * 2 + j];
-				float s4 = aScratch[aBufferSize * 3 + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += 0.5f * (s1 + s2) * pan[2];
-				aBuffer[j + aBufferSize * 3] += 0.25f * (s1 + s2 + s3 + s4) * pan[3];
-				aBuffer[j + aBufferSize * 4] += 0.5f * (s1 + s3) * pan[4];
-				aBuffer[j + aBufferSize * 5] += 0.5f * (s2 + s4) * pan[5];
-				aBuffer[j + aBufferSize * 6] += s3 * pan[4];
-				aBuffer[j + aBufferSize * 7] += s4 * pan[5];
+				for (int ch = 0; ch < 8; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float ch[4];
+				for (int i = 0; i < 4; i++)
+				{
+					ch[i] = aScratch[aBufferSize * i + sample];
+				}
+
+				// FL, FR, C (mix), LFE (mix), SL+FL, SR+FR, SL, SR
+				aBuffer[sample] += ch[0] * currentPan[0];
+				aBuffer[aBufferSize + sample] += ch[1] * currentPan[1];
+				aBuffer[aBufferSize * 2 + sample] += SURROUND_MIX_SCALE * (ch[0] + ch[1]) * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += QUAD_MIX_SCALE * (ch[0] + ch[1] + ch[2] + ch[3]) * currentPan[3];
+				aBuffer[aBufferSize * 4 + sample] += SURROUND_MIX_SCALE * (ch[0] + ch[2]) * currentPan[4];
+				aBuffer[aBufferSize * 5 + sample] += SURROUND_MIX_SCALE * (ch[1] + ch[3]) * currentPan[5];
+				aBuffer[aBufferSize * 6 + sample] += ch[2] * currentPan[4];
+				aBuffer[aBufferSize * 7 + sample] += ch[3] * currentPan[5];
 			}
 			break;
-		case 2: // 2->8
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 2: // 2.0 -> 7.1: create full surround field
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				pan[6] += pani[6];
-				pan[7] += pani[7];
-				float s1 = aScratch[j];
-				float s2 = aScratch[aBufferSize + j];
-				aBuffer[j + 0] += s1 * pan[0];
-				aBuffer[j + aBufferSize] += s2 * pan[1];
-				aBuffer[j + aBufferSize * 2] += 0.5f * (s1 + s2) * pan[2];
-				aBuffer[j + aBufferSize * 3] += 0.5f * (s1 + s2) * pan[3];
-				aBuffer[j + aBufferSize * 4] += s1 * pan[4];
-				aBuffer[j + aBufferSize * 5] += s2 * pan[5];
-				aBuffer[j + aBufferSize * 6] += s1 * pan[6];
-				aBuffer[j + aBufferSize * 7] += s2 * pan[7];
+				for (int ch = 0; ch < 8; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float left = aScratch[sample];
+				float right = aScratch[aBufferSize + sample];
+
+				// FL, FR, C (mix), LFE (mix), SL, SR, BL, BR
+				aBuffer[sample] += left * currentPan[0];
+				aBuffer[aBufferSize + sample] += right * currentPan[1];
+				aBuffer[aBufferSize * 2 + sample] += SURROUND_MIX_SCALE * (left + right) * currentPan[2];
+				aBuffer[aBufferSize * 3 + sample] += SURROUND_MIX_SCALE * (left + right) * currentPan[3];
+				aBuffer[aBufferSize * 4 + sample] += left * currentPan[4];
+				aBuffer[aBufferSize * 5 + sample] += right * currentPan[5];
+				aBuffer[aBufferSize * 6 + sample] += left * currentPan[6];
+				aBuffer[aBufferSize * 7 + sample] += right * currentPan[7];
 			}
 			break;
-		case 1: // 1->8
-			for (j = 0; j < aSamplesToRead; j++)
+
+		case 1: // 1.0 -> 7.1: distribute mono to all channels
+			for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 			{
-				pan[0] += pani[0];
-				pan[1] += pani[1];
-				pan[2] += pani[2];
-				pan[3] += pani[3];
-				pan[4] += pani[4];
-				pan[5] += pani[5];
-				pan[6] += pani[6];
-				pan[7] += pani[7];
-				float s = aScratch[j];
-				aBuffer[j + 0] += s * pan[0];
-				aBuffer[j + aBufferSize] += s * pan[1];
-				aBuffer[j + aBufferSize * 2] += s * pan[2];
-				aBuffer[j + aBufferSize * 3] += s * pan[3];
-				aBuffer[j + aBufferSize * 4] += s * pan[4];
-				aBuffer[j + aBufferSize * 5] += s * pan[5];
-				aBuffer[j + aBufferSize * 6] += s * pan[6];
-				aBuffer[j + aBufferSize * 7] += s * pan[7];
+				for (int ch = 0; ch < 8; ch++)
+				{
+					currentPan[ch] += panDelta[ch];
+				}
+
+				float monoSrc = aScratch[sample];
+
+				for (int ch = 0; ch < 8; ch++)
+				{
+					aBuffer[aBufferSize * ch + sample] += monoSrc * currentPan[ch];
+				}
 			}
 			break;
 		}
 		break;
 	}
 
-	for (k = 0; k < aChannels; k++)
-		aVoice->mCurrentChannelVolume[k] = pand[k];
+	// Update voice state with final channel volumes
+	for (unsigned int ch = 0; ch < aChannels; ch++)
+	{
+		aVoice->mCurrentChannelVolume[ch] = targetPan[ch];
+	}
 }
 
 } // namespace SoLoud

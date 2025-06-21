@@ -27,39 +27,92 @@ freely, subject to the following restrictions:
 
 #include "soloud_config.h"
 
+#ifdef SOLOUD_SSE_INTRINSICS
+#include <xmmintrin.h>
+
+#include <cstddef>
+#ifdef _M_IX86
+#include <emmintrin.h>
+#endif
+#endif
+
 namespace SoLoud
 {
 	// Class that handles aligned allocations to support vectorized operations
 	class AlignedFloatBuffer
 	{
 	public:
-		float *mData;            // aligned pointer
-		unsigned char *mBasePtr; // raw allocated pointer (for delete)
-		int mFloats;             // size of buffer (w/out padding)
+		float *mData;            // 16-byte aligned pointer for SIMD operations
+		unsigned char *mBasePtr; // Raw allocated pointer (for delete)
+		int mFloats;             // Size of buffer in floats (without padding)
 
-		// ctor
+		// Constructor
 		AlignedFloatBuffer();
-		// Allocate and align buffer
+
+		// Allocate and align buffer for specified number of floats
 		result init(unsigned int aFloats);
-		// Clear data to zero.
+
+		// Clear all data to zero
 		void clear();
-		// dtor
+
+		// Destructor
 		~AlignedFloatBuffer();
 	};
 
 	// Lightweight class that handles small aligned buffer to support vectorized operations
+	// Used for temporary SIMD register-sized data (4 floats)
 	class TinyAlignedFloatBuffer
 	{
 	public:
-		float *mData; // aligned pointer
-		unsigned char mActualData[sizeof(float) * 16 + 16];
+		float *mData;                                       // 16-byte aligned pointer
+		unsigned char mActualData[sizeof(float) * 16 + 16]; // Space for 16 floats + alignment padding
 
-		// ctor
+		// Constructor - automatically aligns mData to 16-byte boundary
 		TinyAlignedFloatBuffer();
 	};
 
 	class AudioSourceInstance;
+	class Soloud;
+
+	/**
+	 * Apply volume scaling and clipping to audio buffer
+	 *
+	 * @param aSoloud       SoLoud instance (for configuration flags)
+	 * @param aBuffer       Input buffer with source samples
+	 * @param aDestBuffer   Output buffer for processed samples
+	 * @param aSamples      Number of samples to process
+	 * @param aVolume0      Starting volume level
+	 * @param aVolume1      Ending volume level (for smooth ramping)
+	 *
+	 * Supports two clipping modes:
+	 * - Hard clipping: Simple [-1,1] bounds
+	 * - Roundoff clipping: Smooth saturation curve that approaches limits asymptotically
+	 *
+	 * Uses SSE intrinsics when available for 4x performance improvement
+	 */
 	void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1);
+
+	/**
+	 * Pan and expand audio from source channel count to output channel count
+	 *
+	 * @param aVoice         Voice instance containing channel volume settings
+	 * @param aBuffer        Output buffer (accumulative mixing)
+	 * @param aSamplesToRead Number of samples to process
+	 * @param aBufferSize    Size of each channel buffer (for stride calculation)
+	 * @param aScratch       Input source data (separated by channel)
+	 * @param aChannels      Number of output channels
+	 *
+	 * Handles all common channel configurations:
+	 * - 1.0 (mono) -> 1.0, 2.0, 4.0, 5.1, 7.1
+	 * - 2.0 (stereo) -> 1.0, 2.0, 4.0, 5.1, 7.1
+	 * - 4.0 (quad) -> 1.0, 2.0, 4.0, 5.1, 7.1
+	 * - 5.1 (surround) -> 1.0, 2.0, 4.0, 5.1, 7.1
+	 * - 7.1 (surround) -> 1.0, 2.0, 4.0, 5.1, 7.1
+	 *
+	 * Provides smooth volume ramping to avoid audio artifacts.
+	 * Uses intelligent downmixing coefficients to preserve perceived loudness.
+	 * Optimized with SSE intrinsics for stereo output paths.
+	 */
 	void panAndExpand(AudioSourceInstance * aVoice, float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize, float *aScratch, unsigned int aChannels);
 }
 

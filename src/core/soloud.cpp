@@ -31,15 +31,6 @@ freely, subject to the following restrictions:
 #include <cstdlib>
 #include <cstring>
 
-#ifdef SOLOUD_SSE_INTRINSICS
-#include <xmmintrin.h>
-
-#include <cstddef>
-#ifdef _M_IX86
-#include <emmintrin.h>
-#endif
-#endif
-
 // #define FLOATING_POINT_DEBUG
 
 #ifdef FLOATING_POINT_DEBUG
@@ -50,49 +41,6 @@ namespace SoLoud
 {
 
 using namespace detail;
-
-AlignedFloatBuffer::AlignedFloatBuffer()
-{
-	mBasePtr = nullptr;
-	mData = nullptr;
-	mFloats = 0;
-}
-
-result AlignedFloatBuffer::init(unsigned int aFloats)
-{
-	delete[] mBasePtr;
-	mBasePtr = nullptr;
-	mData = nullptr;
-	mFloats = aFloats;
-#ifndef SOLOUD_SSE_INTRINSICS
-	mBasePtr = new unsigned char[aFloats * sizeof(float)];
-	if (mBasePtr == NULL)
-		return OUT_OF_MEMORY;
-	mData = (float *)mBasePtr;
-#else
-	mBasePtr = new unsigned char[aFloats * sizeof(float) + 16];
-	if (mBasePtr == nullptr)
-		return OUT_OF_MEMORY;
-	mData = (float *)(((size_t)mBasePtr + 15) & ~15);
-#endif
-	return SO_NO_ERROR;
-}
-
-void AlignedFloatBuffer::clear()
-{
-	memset(mData, 0, sizeof(float) * mFloats);
-}
-
-AlignedFloatBuffer::~AlignedFloatBuffer()
-{
-	delete[] mBasePtr;
-}
-
-TinyAlignedFloatBuffer::TinyAlignedFloatBuffer()
-{
-	unsigned char *basePtr = &mActualData[0];
-	mData = (float *)(((size_t)basePtr + 15) & ~15);
-}
 
 Soloud::Soloud()
 {
@@ -317,7 +265,7 @@ void Soloud::postinit_internal(unsigned int aSamplerate, unsigned int aBufferSiz
 	mChannels = aChannels;
 	mSamplerate = aSamplerate;
 	mBufferSize = aBufferSize;
-	mScratchSize = (aBufferSize + 15) & (~0xf); // round to the next div by 16
+	mScratchSize = (aBufferSize + 15) & ~15; // round to the next div by 16
 	if (mScratchSize < SAMPLE_GRANULARITY * 4)  // 4096
 		mScratchSize = SAMPLE_GRANULARITY * 4;
 	mScratch.init(mScratchSize * MAX_CHANNELS);
@@ -488,6 +436,25 @@ float *Soloud::calcFFT()
 	return mFFTData;
 }
 
+// Resampling algorithm constants and helper functions
+namespace ResamplingConstants
+{
+// Lookahead samples required for each resampling algorithm
+constexpr unsigned int POINT_LOOKAHEAD = 1;      // Point sampling: just current sample
+constexpr unsigned int LINEAR_LOOKAHEAD = 2;     // Linear: current + next sample
+constexpr unsigned int CATMULLROM_LOOKAHEAD = 4; // Catmull-Rom: 4-point cubic interpolation
+
+// Safety margin for high sample rate ratios to prevent buffer underruns
+constexpr unsigned int LOOKAHEAD_SAFETY_MARGIN = 8;
+
+// Catmull-Rom cubic interpolation coefficients
+// Formula: 0.5 * ((2*p1) + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t^2 + (-p0+3*p1-3*p2+p3)*t^3)
+constexpr float CATMULLROM_SCALE = 0.5f;
+constexpr float CATMULLROM_LINEAR_COEFF = 2.0f;
+constexpr float CATMULLROM_QUAD_COEFFS[4] = {2.0f, -5.0f, 4.0f, -1.0f};  // p0, p1, p2, p3 coefficients
+constexpr float CATMULLROM_CUBIC_COEFFS[4] = {-1.0f, 3.0f, -3.0f, 1.0f}; // p0, p1, p2, p3 coefficients
+} // namespace ResamplingConstants
+
 // Helper function to ensure we have enough source data in the resample buffer
 unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int samplesNeeded, float *scratchBuffer, unsigned int scratchSize)
 {
@@ -501,6 +468,7 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 	}
 
 	// Compact buffer when read position advances significantly
+	// This prevents the buffer from growing indefinitely due to fractional positioning
 	if (voice->mResampleBufferPos >= SAMPLE_GRANULARITY && availableSamples > 0)
 	{
 		for (unsigned int ch = 0; ch < voice->mChannels; ch++)
@@ -525,6 +493,7 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 	}
 
 	// Read one chunk at a time to maintain low latency
+	// Using SAMPLE_GRANULARITY ensures consistent chunk sizes across the audio pipeline
 	unsigned int samplesToRead = SAMPLE_GRANULARITY;
 	if (samplesToRead > spaceAvailable)
 		samplesToRead = spaceAvailable;
@@ -541,13 +510,13 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 
 	if (shouldTryToRead)
 	{
-		// Use scratch buffer for reading
+		// Use scratch buffer for reading - this buffer is channel-interleaved
 		float *channelBuffer = scratchBuffer;
 		unsigned int channelBufferSize = samplesToRead * voice->mChannels;
 
 		if (channelBufferSize <= scratchSize)
 		{
-			// keep aligned for optimal SSE routines
+			// Keep aligned for optimal SSE routines (16-byte boundaries)
 			unsigned int alignedBufferSize = (samplesToRead + 15) & ~15;
 			// Make sure we don't exceed scratch space
 			if (alignedBufferSize * voice->mChannels > scratchSize)
@@ -556,9 +525,10 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 				if (alignedBufferSize < samplesToRead)
 					samplesToRead = alignedBufferSize;
 			}
+
 			samplesRead = voice->getAudio(channelBuffer, samplesToRead, alignedBufferSize);
 
-			// Handle looping
+			// Handle looping: continue reading from loop point if we reach the end
 			if (samplesRead < samplesToRead && (voice->mFlags & AudioSourceInstance::LOOPING))
 			{
 				while (samplesRead < samplesToRead && voice->seek(voice->mLoopPoint, channelBuffer + samplesRead * voice->mChannels,
@@ -569,23 +539,23 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 					    voice->getAudio(channelBuffer + samplesRead * voice->mChannels, samplesToRead - samplesRead, alignedBufferSize - samplesRead);
 					samplesRead += loopSamples;
 					if (loopSamples == 0)
-						break;
+						break; // Prevent infinite loop if source can't provide more data
 				}
 			}
 
-			// Apply filters to source data
+			// Apply per-voice filters to source data before resampling
 			if (samplesRead > 0)
 			{
-				for (unsigned int j = 0; j < FILTERS_PER_STREAM; j++)
+				for (unsigned int filterIdx = 0; filterIdx < FILTERS_PER_STREAM; filterIdx++)
 				{
-					if (voice->mFilter[j])
+					if (voice->mFilter[filterIdx])
 					{
-						voice->mFilter[j]->filter(channelBuffer, samplesRead, alignedBufferSize, voice->mChannels, voice->mSamplerate, voice->mStreamTime);
+						voice->mFilter[filterIdx]->filter(channelBuffer, samplesRead, alignedBufferSize, voice->mChannels, voice->mSamplerate, voice->mStreamTime);
 					}
 				}
 			}
 
-			// Copy from channel-separated scratch buffer to resample buffers
+			// Copy from channel-interleaved scratch buffer to channel-separated resample buffers
 			for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 			{
 				float *srcChannel = channelBuffer + ch * alignedBufferSize;
@@ -605,7 +575,7 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 	return voice->mResampleBufferFill - voice->mResampleBufferPos;
 }
 
-// Improved resampling function that handles arbitrary ratios precisely
+// High-precision resampling function that handles arbitrary sample rate ratios
 unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
                                                    float *outputBuffer,
                                                    unsigned int outputSamples,
@@ -615,32 +585,31 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
                                                    float *scratchBuffer,
                                                    unsigned int scratchSize)
 {
+	using namespace ResamplingConstants;
+
 	if (outputSamples == 0 || !voice)
 		return 0;
 
-	// Calculate step size (how much we advance in source per output sample)
+	// Calculate step size: how much we advance in source per output sample
 	double stepSize = voice->mSamplerate / outputSampleRate;
 
-	// Determine lookahead requirements
-	unsigned int lookaheadSamples = 0;
+	// Determine lookahead requirements based on interpolation algorithm
+	unsigned int lookaheadSamples = LINEAR_LOOKAHEAD; // Default fallback
 	switch (resampler)
 	{
 	case RESAMPLER_POINT:
-		lookaheadSamples = 1;
+		lookaheadSamples = POINT_LOOKAHEAD;
 		break;
 	case RESAMPLER_LINEAR:
-		lookaheadSamples = 2;
+		lookaheadSamples = LINEAR_LOOKAHEAD;
 		break;
 	case RESAMPLER_CATMULLROM:
-		lookaheadSamples = 4;
-		break;
-	default:
-		lookaheadSamples = 2;
+		lookaheadSamples = CATMULLROM_LOOKAHEAD;
 		break;
 	}
 
 	// For chunked processing, we may not be able to produce all requested samples
-	// if we run out of source data. That's okay - we'll get more on the next call.
+	// if we run out of source data. This is normal and prevents excessive buffering.
 	unsigned int samplesProduced = 0;
 	unsigned int samplesToProcess = outputSamples;
 
@@ -652,13 +621,11 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 	}
 
 	// Calculate how much input we need for this chunk of output
-	unsigned int inputNeeded = (unsigned int)ceil(samplesToProcess * stepSize) + lookaheadSamples + 8;
+	unsigned int inputNeeded = (unsigned int)ceil(samplesToProcess * stepSize) + lookaheadSamples + LOOKAHEAD_SAFETY_MARGIN;
 	unsigned int availableInput = ensureSourceData_internal(voice, inputNeeded, scratchBuffer, scratchSize);
 
 	if (availableInput < lookaheadSamples)
-	{
-		return 0; // Not enough input data available
-	}
+		return 0; // Not enough input data available for interpolation
 
 	// If no output buffer provided (tick-only mode), just advance position
 	if (!outputBuffer)
@@ -681,7 +648,7 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 		return actualSamples;
 	}
 
-	// Resample each channel
+	// Resample each channel independently
 	for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 	{
 		double srcPos = voice->mPreciseSrcPosition;
@@ -701,31 +668,43 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 
 			double frac = srcPos - intPos;
 
-			// Perform resampling with boundary protection
+			// Perform interpolation with boundary protection
 			switch (resampler)
 			{
 			case RESAMPLER_POINT:
+				// Point sampling: no interpolation
 				dst[i] = src[intPos];
 				break;
 
 			case RESAMPLER_LINEAR: {
+				// Linear interpolation between current and next sample
 				float s0 = src[intPos];
 				float s1 = (intPos + 1 < availableInput) ? src[intPos + 1] : src[intPos];
 				dst[i] = s0 + (s1 - s0) * (float)frac;
-				break;
 			}
+			break;
 
 			default:
 			case RESAMPLER_CATMULLROM: {
+				// Catmull-Rom cubic interpolation using 4 points
+				// Provides smooth curves with good frequency response
 				float p0 = (intPos >= 1) ? src[intPos - 1] : src[intPos];
 				float p1 = src[intPos];
 				float p2 = (intPos + 1 < availableInput) ? src[intPos + 1] : src[intPos];
 				float p3 = (intPos + 2 < availableInput) ? src[intPos + 2] : src[intPos];
 
 				float t = (float)frac;
-				dst[i] = 0.5f * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
-				break;
+				float t2 = t * t;
+				float t3 = t2 * t;
+
+				// Catmull-Rom formula: 0.5 * ((2*p1) + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t^2 + (-p0+3*p1-3*p2+p3)*t^3)
+				dst[i] =
+				    CATMULLROM_SCALE *
+				    ((CATMULLROM_LINEAR_COEFF * p1) + (-p0 + p2) * t +
+				     (CATMULLROM_QUAD_COEFFS[0] * p0 + CATMULLROM_QUAD_COEFFS[1] * p1 + CATMULLROM_QUAD_COEFFS[2] * p2 + CATMULLROM_QUAD_COEFFS[3] * p3) * t2 +
+				     (CATMULLROM_CUBIC_COEFFS[0] * p0 + CATMULLROM_CUBIC_COEFFS[1] * p1 + CATMULLROM_CUBIC_COEFFS[2] * p2 + CATMULLROM_CUBIC_COEFFS[3] * p3) * t3);
 			}
+			break;
 			}
 
 			srcPos += stepSize;
@@ -742,52 +721,70 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 	double totalAdvance = samplesProduced * stepSize;
 	voice->mPreciseSrcPosition += totalAdvance;
 
-	// Update buffer position for consumed integer samples
+	// Update buffer position for consumed integer samples while preserving fractional part
 	unsigned int integralConsumed = (unsigned int)floor(voice->mPreciseSrcPosition);
 	if (integralConsumed > 0 && integralConsumed <= availableInput)
 	{
 		voice->mResampleBufferPos += integralConsumed;
-		voice->mPreciseSrcPosition -= integralConsumed; // Keep fractional part
+		voice->mPreciseSrcPosition -= integralConsumed; // Keep fractional part for precise positioning
 	}
 
 	return samplesProduced;
 }
 
-// dynamic resampling + chunked processing
+namespace MixingConstants
+{
+// Scratch buffer allocation strategy
+// Each voice needs space for: voice processing + temp reads + delay handling
+constexpr unsigned int VOICE_SCRATCH_MULTIPLIER = MAX_CHANNELS; // Voice processing buffer
+constexpr unsigned int TEMP_READ_BUFFER_SIZE = 2048;            // Temporary buffer for chunk reading
+constexpr unsigned int DELAY_SCRATCH_MULTIPLIER = 1;            // Delay processing buffer per channel
+
+// Memory alignment for optimal SIMD performance (16-byte boundaries)
+constexpr unsigned int MEMORY_ALIGNMENT_MASK = ~3; // Align to 4-byte boundaries minimum
+
+// Voice processing limits to prevent resource exhaustion
+constexpr unsigned int MIN_VOICES_PER_BATCH = 1; // Always process at least one voice
+} // namespace MixingConstants
+
+// High-performance audio mixing with dynamic resampling and chunked processing
 void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize, float *aScratch, unsigned int aBus, float aSamplerate,
                              unsigned int aChannels, unsigned int aResampler)
 {
-	unsigned int i, j;
+	using namespace MixingConstants;
 
-	// Clear accumulation buffer
-	for (i = 0; i < aSamplesToRead; i++)
+	// Clear accumulation buffer - this is where all voices will be mixed together
+	for (unsigned int sample = 0; sample < aSamplesToRead; sample++)
 	{
-		for (j = 0; j < aChannels; j++)
+		for (unsigned int channel = 0; channel < aChannels; channel++)
 		{
-			aBuffer[i + j * aBufferSize] = 0;
+			aBuffer[sample + channel * aBufferSize] = 0;
 		}
 	}
 
-	// scratch space for chunked processing
-	unsigned int voiceScratchSize = MAX_CHANNELS * aBufferSize;
-	unsigned int tempScratchSize = 2048; // temp buffer for chunk-based reading
+	// Calculate scratch space allocation for optimal voice processing
+	// Each voice needs separate buffers to avoid interference during parallel processing
+	unsigned int voiceScratchSize = VOICE_SCRATCH_MULTIPLIER * aBufferSize;
+	unsigned int tempScratchSize = TEMP_READ_BUFFER_SIZE;
 	unsigned int delayScratchSize = aChannels * aBufferSize;
 	unsigned int totalPerVoice = voiceScratchSize + tempScratchSize + delayScratchSize;
 
-	// keep aligned to 16 bytes
-	totalPerVoice = (totalPerVoice + 3) & ~3;
+	// Align memory allocation to improve cache performance
+	totalPerVoice = (totalPerVoice + 3) & MEMORY_ALIGNMENT_MASK;
 
+	// Calculate maximum number of voices we can process in parallel given memory constraints
 	unsigned int maxVoicesInParallel = (mScratchSize * MAX_CHANNELS) / totalPerVoice;
-	if (maxVoicesInParallel == 0)
-		maxVoicesInParallel = 1;
+	if (maxVoicesInParallel < MIN_VOICES_PER_BATCH)
+		maxVoicesInParallel = MIN_VOICES_PER_BATCH;
 
-	// Process each active voice using chunks
-	for (i = 0; i < mActiveVoiceCount; i++)
+	// Process each active voice using chunk-based approach for consistent latency
+	for (unsigned int voiceIdx = 0; voiceIdx < mActiveVoiceCount; voiceIdx++)
 	{
-		AudioSourceInstance *voice = mVoice[mActiveVoice[i]];
+		AudioSourceInstance *voice = mVoice[mActiveVoice[voiceIdx]];
 		if (!voice || voice->mBusHandle != aBus)
 			continue;
 
+		// Determine voice processing requirements
 		bool isPaused = (voice->mFlags & AudioSourceInstance::PAUSED) != 0;
 		bool isInaudible = (voice->mFlags & AudioSourceInstance::INAUDIBLE) != 0;
 		bool mustTick = (voice->mFlags & AudioSourceInstance::INAUDIBLE_TICK) != 0;
@@ -801,16 +798,18 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 		unsigned int outputSamples = aSamplesToRead;
 		unsigned int outputOffset = 0;
 
-		// Handle delay samples
+		// Handle delay samples: sounds can be scheduled to start later
 		if (voice->mDelaySamples > 0)
 		{
 			if (voice->mDelaySamples >= aSamplesToRead)
 			{
+				// Entire buffer is still in delay period
 				voice->mDelaySamples -= aSamplesToRead;
 				continue;
 			}
 			else
 			{
+				// Partial delay: sound starts partway through buffer
 				outputOffset = voice->mDelaySamples;
 				outputSamples = aSamplesToRead - voice->mDelaySamples;
 				voice->mDelaySamples = 0;
@@ -820,16 +819,18 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 		if (outputSamples == 0)
 			continue;
 
-		// Allocate scratch space for this voice
-		unsigned int voiceSlot = i % maxVoicesInParallel;
+		// Allocate scratch space for this voice using round-robin allocation
+		// This prevents memory fragmentation and ensures predictable performance
+		unsigned int voiceSlot = voiceIdx % maxVoicesInParallel;
 		float *voiceScratch = aScratch + (voiceSlot * totalPerVoice);
 		float *tempScratch = voiceScratch + voiceScratchSize;
 		float *delayScratch = tempScratch + tempScratchSize;
 
-		// Adjust temp scratch size if needed
+		// Adjust temporary scratch size based on available space
 		unsigned int actualTempScratchSize = tempScratchSize;
 		if (voiceSlot == maxVoicesInParallel - 1)
 		{
+			// Last slot gets any remaining space
 			unsigned int remainingSpace = (mScratchSize * MAX_CHANNELS) - (voiceSlot * totalPerVoice + voiceScratchSize + delayScratchSize);
 			if (remainingSpace < tempScratchSize)
 			{
@@ -837,30 +838,29 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 			}
 		}
 
-		// Process in chunks - may require multiple iterations to fill output buffer
+		// Process in chunks to maintain consistent latency and prevent buffer overflow
+		// Large sample rate differences might require multiple iterations
 		unsigned int totalProduced = 0;
 		while (totalProduced < outputSamples)
 		{
 			unsigned int remainingSamples = outputSamples - totalProduced;
 			unsigned int chunkOutput = remainingSamples;
 
-			// Limit chunk size to maintain low latency
+			// Limit chunk size to maintain low latency and predictable performance
 			if (chunkOutput > SAMPLE_GRANULARITY)
 				chunkOutput = SAMPLE_GRANULARITY;
 
 			if (isAudible)
 			{
-				// Point to the right offset in the voice scratch buffer
-				float *chunkScratch = voiceScratch;
+				// Clear the chunk area in voice scratch buffer
 				for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 				{
-					// Offset each channel's scratch by totalProduced
-					memset(chunkScratch + ch * aBufferSize + totalProduced, 0, chunkOutput * sizeof(float));
+					memset(voiceScratch + ch * aBufferSize + totalProduced, 0, chunkOutput * sizeof(float));
 				}
 
-				// Resample this chunk
+				// Resample this chunk from source sample rate to output sample rate
 				unsigned int samplesProduced = resampleVoicePrecise_internal(voice,
-				                                                             chunkScratch + totalProduced, // Offset scratch buffer
+				                                                             voiceScratch + totalProduced, // Offset into scratch buffer
 				                                                             chunkOutput,
 				                                                             aBufferSize,
 				                                                             aSamplerate,
@@ -870,13 +870,13 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 
 				if (samplesProduced == 0)
 				{
-					// No more samples available, break out
+					// No more samples available from source
 					break;
 				}
 
 				totalProduced += samplesProduced;
 
-				// If we got fewer samples than requested, we're done
+				// If we got fewer samples than requested, source is exhausted
 				if (samplesProduced < chunkOutput)
 				{
 					break;
@@ -884,7 +884,8 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 			}
 			else if (mustTick && !isPaused)
 			{
-				// Just advance the voice without producing audio
+				// Inaudible but must tick: advance voice position without producing audio
+				// This keeps the voice synchronized for when it becomes audible again
 				unsigned int samplesAdvanced =
 				    resampleVoicePrecise_internal(voice, nullptr, chunkOutput, 0, aSamplerate, aResampler, tempScratch, actualTempScratchSize);
 
@@ -904,37 +905,39 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 		{
 			if (outputOffset == 0)
 			{
-				// No delay, mix directly
+				// No delay offset: mix directly into output buffer
 				panAndExpand(voice, aBuffer, totalProduced, aBufferSize, voiceScratch, aChannels);
 			}
 			else
 			{
-				// Apply delay using delay scratch buffer
+				// Handle delay offset using temporary buffer
 				memset(delayScratch, 0, aChannels * aBufferSize * sizeof(float));
 				panAndExpand(voice, delayScratch, totalProduced, aBufferSize, voiceScratch, aChannels);
 
-				// Mix with offset
+				// Mix delayed content into output buffer at correct offset
 				for (unsigned int ch = 0; ch < aChannels; ch++)
 				{
-					for (unsigned int s = 0; s < totalProduced; s++)
+					for (unsigned int sample = 0; sample < totalProduced; sample++)
 					{
-						if (s + outputOffset < aSamplesToRead)
+						if (sample + outputOffset < aSamplesToRead)
 						{
-							aBuffer[(s + outputOffset) + ch * aBufferSize] += delayScratch[s + ch * aBufferSize];
+							aBuffer[(sample + outputOffset) + ch * aBufferSize] += delayScratch[sample + ch * aBufferSize];
 						}
 					}
 				}
 			}
 		}
 
-		// Check if voice should be stopped - use small lookahead for chunked approach
+		// Check if voice should be automatically stopped
+		// Use small lookahead buffer check to account for chunked processing approach
 		unsigned int remainingSamples = voice->mResampleBufferFill - voice->mResampleBufferPos;
-		unsigned int lookaheadSamples = (aResampler == RESAMPLER_CATMULLROM) ? 4 : 2;
+		unsigned int lookaheadSamples = (aResampler == RESAMPLER_CATMULLROM) ? ResamplingConstants::CATMULLROM_LOOKAHEAD : ResamplingConstants::LINEAR_LOOKAHEAD;
 		bool bufferNearEmpty = remainingSamples <= lookaheadSamples;
 
+		// Stop voice if it has ended and auto-stop is enabled
 		if (!(voice->mFlags & (AudioSourceInstance::LOOPING | AudioSourceInstance::DISABLE_AUTOSTOP)) && voice->hasEnded() && bufferNearEmpty)
 		{
-			stopVoice_internal(mActiveVoice[i]);
+			stopVoice_internal(mActiveVoice[voiceIdx]);
 		}
 	}
 }
@@ -1231,7 +1234,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 
 void Soloud::mix(void *aBuffer, unsigned int aSamples, SAMPLE_FORMAT aFormat)
 {
-	unsigned int stride = (aSamples + 15) & ~0xf;
+	unsigned int stride = (aSamples + 15) & ~15;
 	mix_internal(aSamples, stride);
 
 	unsigned int i = 0, j = 0, c = 0;
