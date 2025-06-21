@@ -25,95 +25,80 @@ freely, subject to the following restrictions:
 #include "soloud.h"
 #include "soloud_thread.h"
 
-#if !defined(WITH_NOSOUND)
-
 namespace SoLoud
 {
-	result nosound_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer)
+struct SoLoudNosoundData
+{
+	AlignedFloatBuffer mBuffer;
+	Soloud *mSoloud;
+	int mSamples;
+	int mSamplerate;
+	Thread::ThreadHandle mThreadHandle;
+	bool mRunning;
+	SoLoudNosoundData()
 	{
-		return NOT_IMPLEMENTED;
+		mBuffer.clear();
+		mSoloud = 0;
+		mSamples = 0;
+		mSamplerate = 0;
+		mThreadHandle = 0;
+		mRunning = 0;
 	}
 };
 
-#else
-
-namespace SoLoud
+static void nosoundThread(void *aParam)
 {
-    struct SoLoudNosoundData
-    {
-        AlignedFloatBuffer mBuffer;
-        Soloud *mSoloud;
-        int mSamples;
-		int mSamplerate;
-        Thread::ThreadHandle mThreadHandle;
-        bool mRunning;
-        SoLoudNosoundData()
-        {
-            mBuffer.clear();
-            mSoloud = 0;
-            mSamples = 0;
-            mSamplerate = 0;
-            mThreadHandle = 0;
-            mRunning = 0;
-        }
-    };
-
-    static void nosoundThread(void *aParam)
-    {
-        SoLoudNosoundData *data = static_cast<SoLoudNosoundData*>(aParam);
-		int delay = (1000 * data->mSamples) / data->mSamplerate;
-		int overflow = 0;
-        while (data->mRunning) 
-        {			
-			data->mSoloud->mix(data->mBuffer.mData, data->mSamples);            
-			int startwait = Thread::getTimeMillis() - overflow;
-			int t;
-			do
-			{
-				Thread::sleep(1);
-				t = Thread::getTimeMillis() - startwait;
-			} 
-			while (t < delay);
-			overflow = t - delay;
-        }
-    }
-
-    static void nosoundCleanup(Soloud *aSoloud)
-    {
-        if (0 == aSoloud->mBackendData)
-        {
-            return;
-        }
-		SoLoudNosoundData*data = static_cast<SoLoudNosoundData*>(aSoloud->mBackendData);
-		data->mRunning = false;
-		if (data->mThreadHandle)
+	SoLoudNosoundData *data = static_cast<SoLoudNosoundData *>(aParam);
+	int delay = (1000 * data->mSamples) / data->mSamplerate;
+	int overflow = 0;
+	while (data->mRunning)
+	{
+		data->mSoloud->mix(data->mBuffer.mData, data->mSamples);
+		int startwait = Thread::getTimeMillis() - overflow;
+		int t;
+		do
 		{
-			Thread::wait(data->mThreadHandle);
-			Thread::release(data->mThreadHandle);
-		}
-        delete data;
-        aSoloud->mBackendData = 0;
-    }
+			Thread::sleep(1);
+			t = Thread::getTimeMillis() - startwait;
+		} while (t < delay);
+		overflow = t - delay;
+	}
+}
 
-	result nosound_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
-    {
-		SoLoudNosoundData*data = new SoLoudNosoundData;		
-		aSoloud->mBackendData = data;
-        aSoloud->mBackendCleanupFunc = nosoundCleanup;
-        data->mSamples = aBuffer;
-		data->mSamplerate = aSamplerate;
-        data->mSoloud = aSoloud;
-        data->mBuffer.init(data->mSamples * aChannels);
-		data->mRunning = true;
-        aSoloud->postinit_internal(aSamplerate, data->mSamples * aChannels, aFlags, aChannels);
-        data->mThreadHandle = Thread::createThread(nosoundThread, data);
-        if (0 == data->mThreadHandle)
-        {
-            return UNKNOWN_ERROR;
-        }
-        aSoloud->mBackendString = "NoSound";
-        return 0;
-    }
-};
+static void nosoundCleanup(Soloud *aSoloud)
+{
+	if (0 == aSoloud->mBackendData)
+	{
+		return;
+	}
+	SoLoudNosoundData *data = static_cast<SoLoudNosoundData *>(aSoloud->mBackendData);
+	data->mRunning = false;
+	if (data->mThreadHandle)
+	{
+		Thread::wait(data->mThreadHandle);
+		Thread::release(data->mThreadHandle);
+	}
+	delete data;
+	aSoloud->mBackendData = 0;
+}
 
-#endif
+result nosound_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
+{
+	SoLoudNosoundData *data = new SoLoudNosoundData;
+	aSoloud->mBackendData = data;
+	aSoloud->mBackendCleanupFunc = nosoundCleanup;
+	data->mSamples = aBuffer;
+	data->mSamplerate = aSamplerate;
+	data->mSoloud = aSoloud;
+	data->mBuffer.init(data->mSamples * aChannels);
+	data->mRunning = true;
+	aSoloud->postinit_internal(aSamplerate, data->mSamples * aChannels, aFlags, aChannels);
+	data->mThreadHandle = Thread::createThread(nosoundThread, data);
+	if (0 == data->mThreadHandle)
+	{
+		return UNKNOWN_ERROR;
+	}
+	aSoloud->mBackendString = "NoSound";
+	return 0;
+}
+}; // namespace SoLoud

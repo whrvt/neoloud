@@ -35,7 +35,7 @@ freely, subject to the following restrictions:
 #define LNAME(x, ver) "lib" #x ".so." #ver
 #endif
 
-#ifdef WITH_SDL3_STATIC
+#ifdef WITH_SDL3
 #include <SDL3/SDL_loadso.h>
 typedef SDL_SharedObject(*OBJHANDLE);
 #define LIBLOAD(x) SDL_LoadObject(x)

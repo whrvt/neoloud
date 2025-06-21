@@ -29,69 +29,9 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
-	// SDL1 back-end initialization call
-	result sdl1_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                 unsigned int aChannels = 2);
-
-	// SDL2 back-end initialization call
-	result sdl2_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                 unsigned int aChannels = 2);
-
-	// SDL1 "non-dynamic" back-end initialization call
-	result sdl1static_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                       unsigned int aChannels = 2);
-
-	// SDL2 "non-dynamic" back-end initialization call
-	result sdl2static_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                       unsigned int aChannels = 2);
-
 	// SDL3 "non-dynamic" back-end initialization call
-	result sdl3static_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
+	result sdl3_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
 	                       unsigned int aChannels = 2);
-
-	// OpenAL back-end initialization call
-	result openal_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                   unsigned int aChannels = 2);
-
-	// Core Audio driver back-end initialization call
-	result coreaudio_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                      unsigned int aChannels = 2);
-
-	// OpenSL ES back-end initialization call
-	result opensles_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                     unsigned int aChannels = 2);
-
-	// PortAudio back-end initialization call
-	result portaudio_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                      unsigned int aChannels = 2);
-
-	// WinMM back-end initialization call
-	result winmm_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 4096,
-	                  unsigned int aChannels = 2);
-
-	// XAudio2 back-end initialization call
-	result xaudio2_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                    unsigned int aChannels = 2);
-
-	// WASAPI back-end initialization call
-	result wasapi_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 4096,
-	                   unsigned int aChannels = 2);
-
-	// OSS back-end initialization call
-	result oss_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                unsigned int aChannels = 2);
-
-	// PS Vita homebrew back-end initialization call
-	result vita_homebrew_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                          unsigned int aChannels = 2);
-
-	// ALSA back-end initialization call
-	result alsa_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                 unsigned int aChannels = 2);
-
-	// JACK back-end initialization call
-	result jack_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                 unsigned int aChannels = 2);
 
 	// MiniAudio back-end initialization call
 	result miniaudio_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,

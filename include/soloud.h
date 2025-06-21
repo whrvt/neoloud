@@ -54,24 +54,8 @@ freely, subject to the following restrictions:
 #endif
 #endif
 
-#ifdef WITH_SDL
-#undef WITH_SDL2
-#undef WITH_SDL1
-#define WITH_SDL3_STATIC
-#endif
-
-#ifdef WITH_SDL_STATIC
-#undef WITH_SDL1_STATIC
-#undef WITH_SDL2_STATIC
-#define WITH_SDL3_STATIC
-#endif
-
 #ifndef M_PI
 #define M_PI 3.14159265359
-#endif
-
-#if defined(_WIN32) || defined(_WIN64)
-#define WINDOWS_VERSION
 #endif
 
 #if !defined(DISABLE_SIMD)
@@ -80,7 +64,7 @@ freely, subject to the following restrictions:
 #endif
 #endif
 
-#define SOLOUD_VERSION 202002
+#define SOLOUD_VERSION 202506
 
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
@@ -185,21 +169,8 @@ namespace SoLoud
 		enum BACKENDS
 		{
 			AUTO = 0,
-			SDL1,
-			SDL2,
-			SDL3,
-			PORTAUDIO,
-			WINMM,
-			XAUDIO2,
-			WASAPI,
-			ALSA,
-			JACK,
-			OSS,
-			OPENAL,
-			COREAUDIO,
-			OPENSLES,
-			VITA_HOMEBREW,
 			MINIAUDIO,
+			SDL3,
 			NOSOUND,
 			NULLDRIVER,
 			BACKEND_MAX,

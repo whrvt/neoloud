@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(SoLoud
-    VERSION 1.0.0
+    VERSION 1.0.1
     DESCRIPTION "SoLoud audio library"
     LANGUAGES C CXX)
 
@@ -55,7 +55,7 @@ set(SOLOUD_BACKEND_SOURCES
 
 # add sdl3 backend if available
 if(SOLOUD_WITH_SDL3)
-    list(APPEND SOLOUD_BACKEND_SOURCES src/backend/sdl3_static/soloud_sdl3_static.cpp)
+    list(APPEND SOLOUD_BACKEND_SOURCES src/backend/sdl3/soloud_sdl3.cpp)
 endif()
 
 # vendored sources
@@ -96,8 +96,7 @@ target_compile_definitions(soloud
     PUBLIC
         $<$<CONFIG:Debug>:_DEBUG>
     PRIVATE
-        WITH_MINIAUDIO
-        $<$<BOOL:${SOLOUD_WITH_SDL3}>:WITH_SDL3_STATIC>
+        $<$<BOOL:${SOLOUD_WITH_SDL3}>:WITH_SDL3>
         $<$<BOOL:${SOLOUD_WITH_LIBMPG123}>:WITH_LIBMPG123>
 )
 
@@ -118,12 +117,11 @@ else()
     endif()
     # disable exceptions for gcc/clang
     target_compile_options(soloud PRIVATE -fno-exceptions)
-    set(CMAKE_THREAD_PREFER_PTHREAD ON)
 endif()
 
 # threading
 find_package(Threads REQUIRED)
-target_link_libraries(soloud PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(soloud PRIVATE Threads::Threads)
 
 # link libraries
 if(SOLOUD_WITH_SDL3)
@@ -146,7 +144,7 @@ elseif(APPLE)
         target_include_directories(soloud PRIVATE ${AUDIOTOOLBOX_FRAMEWORK_INCLUDE_DIRS})
     endif()
 elseif(UNIX)
-    # -ldl
+    # -ldl (for miniaudio to find required libraries at runtime)
     target_link_libraries(soloud PRIVATE ${CMAKE_DL_LIBS})
 
     # alsa/pulse for miniaudio
@@ -162,7 +160,7 @@ elseif(UNIX)
     endif()
 endif()
 
-# c api shared library
+# c api shared library (CURRENTLY OUTDATED, SHOULD BE RE-GENERATED!)
 if(BUILD_SHARED_LIBS)
     add_library(soloud_c SHARED src/c_api/soloud_c.cpp)
     target_link_libraries(soloud_c PRIVATE soloud)
@@ -186,7 +184,7 @@ include(GNUInstallDirs)
 # .pc generation
 set(SOLOUD_PC_REQUIRES "")
 set(SOLOUD_PC_REQUIRES_PRIVATE "")
-set(SOLOUD_PC_LIBS_PRIVATE "")
+set(SOLOUD_PC_LIBS_PRIVATE ${CMAKE_THREAD_LIBS_INIT})
 
 # add optional dependencies to requires
 if(SOLOUD_WITH_SDL3)
@@ -274,4 +272,3 @@ message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Build shared: ${BUILD_SHARED_LIBS}")
 message(STATUS "  SDL3 support: ${SOLOUD_WITH_SDL3}")
 message(STATUS "  libmpg123 support: ${SOLOUD_WITH_LIBMPG123}")
-message(STATUS "  MiniAudio support: ON (always)")

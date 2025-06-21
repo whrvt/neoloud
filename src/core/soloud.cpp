@@ -41,13 +41,6 @@ freely, subject to the following restrictions:
 
 // #define FLOATING_POINT_DEBUG
 
-#if !defined(WITH_SDL2) && !defined(WITH_SDL1) && !defined(WITH_PORTAUDIO) && !defined(WITH_OPENAL) && !defined(WITH_XAUDIO2) && !defined(WITH_WINMM) && \
-    !defined(WITH_WASAPI) && !defined(WITH_OSS) && !defined(WITH_SDL1_STATIC) && !defined(WITH_SDL2_STATIC) && !defined(WITH_SDL3_STATIC) && !defined(WITH_ALSA) && \
-    !defined(WITH_OPENSLES) && !defined(WITH_NULL) && !defined(WITH_COREAUDIO) && !defined(WITH_VITA_HOMEBREW) && !defined(WITH_JACK) && !defined(WITH_NOSOUND) && \
-    !defined(WITH_MINIAUDIO)
-#error It appears you haven't enabled any of the back-ends. Please #define one or more of the WITH_ defines (or use premake) '
-#endif
-
 namespace SoLoud
 {
 AlignedFloatBuffer::AlignedFloatBuffer()
@@ -223,94 +216,6 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 	else
 		buffersize = Soloud::AUTO;
 
-#if defined(WITH_SDL1_STATIC)
-	if (!inited && (aBackend == Soloud::SDL1 || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = sdl1static_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::SDL1;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_SDL2_STATIC)
-	if (!inited && (aBackend == Soloud::SDL2 || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = sdl2static_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::SDL2;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_SDL3_STATIC)
-	if (!inited && (aBackend == Soloud::SDL3 || aBackend == Soloud::AUTO))
-	{
-		int ret = sdl3static_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::SDL3;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_SDL2)
-	if (!inited && (aBackend == Soloud::SDL2 || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = sdl2_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::SDL2;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_SDL1)
-	if (!inited && (aBackend == Soloud::SDL1 || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = sdl1_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::SDL1;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_MINIAUDIO)
 	if (!inited && (aBackend == Soloud::MINIAUDIO || aBackend == Soloud::AUTO))
 	{
 		int ret = miniaudio_init(this, aFlags, samplerate, buffersize, aChannels);
@@ -323,19 +228,15 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 		if (ret != 0 && aBackend != Soloud::AUTO)
 			return ret;
 	}
-#endif
 
-#if defined(WITH_PORTAUDIO)
-	if (!inited && (aBackend == Soloud::PORTAUDIO || aBackend == Soloud::AUTO))
+#if defined(WITH_SDL3)
+	if (!inited && (aBackend == Soloud::SDL3 || aBackend == Soloud::AUTO))
 	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = portaudio_init(this, aFlags, samplerate, buffersize, aChannels);
+		int ret = sdl3_init(this, aFlags, samplerate, buffersize, aChannels);
 		if (ret == 0)
 		{
 			inited = 1;
-			mBackendID = Soloud::PORTAUDIO;
+			mBackendID = Soloud::SDL3;
 		}
 
 		if (ret != 0 && aBackend != Soloud::AUTO)
@@ -343,186 +244,6 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 	}
 #endif
 
-#if defined(WITH_XAUDIO2)
-	if (!inited && (aBackend == Soloud::XAUDIO2 || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 4096;
-
-		int ret = xaudio2_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::XAUDIO2;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_WINMM)
-	if (!inited && (aBackend == Soloud::WINMM || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 4096;
-
-		int ret = winmm_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::WINMM;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_WASAPI)
-	if (!inited && (aBackend == Soloud::WASAPI || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 4096;
-		if (aSamplerate == Soloud::AUTO)
-			samplerate = 48000;
-
-		int ret = wasapi_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::WASAPI;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_ALSA)
-	if (!inited && (aBackend == Soloud::ALSA || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = alsa_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::ALSA;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_JACK)
-	if (!inited && (aBackend == Soloud::JACK || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = jack_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::JACK;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_OSS)
-	if (!inited && (aBackend == Soloud::OSS || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = oss_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::OSS;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_OPENAL)
-	if (!inited && (aBackend == Soloud::OPENAL || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 4096;
-
-		int ret = openal_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::OPENAL;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_COREAUDIO)
-	if (!inited && (aBackend == Soloud::COREAUDIO || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 2048;
-
-		int ret = coreaudio_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::COREAUDIO;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_OPENSLES)
-	if (!inited && (aBackend == Soloud::OPENSLES || aBackend == Soloud::AUTO))
-	{
-		if (aBufferSize == Soloud::AUTO)
-			buffersize = 4096;
-
-		int ret = opensles_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::OPENSLES;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_VITA_HOMEBREW)
-	if (!inited && (aBackend == Soloud::VITA_HOMEBREW || aBackend == Soloud::AUTO))
-	{
-		int ret = vita_homebrew_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
-		{
-			inited = 1;
-			mBackendID = Soloud::VITA_HOMEBREW;
-		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
-	}
-#endif
-
-#if defined(WITH_NOSOUND)
 	if (!inited && (aBackend == Soloud::NOSOUND || aBackend == Soloud::AUTO))
 	{
 		if (aBufferSize == Soloud::AUTO)
@@ -538,9 +259,7 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 		if (ret != 0 && aBackend != Soloud::AUTO)
 			return ret;
 	}
-#endif
 
-#if defined(WITH_NULL)
 	if (!inited && (aBackend == Soloud::NULLDRIVER))
 	{
 		if (aBufferSize == Soloud::AUTO)
@@ -556,7 +275,6 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 		if (ret != 0)
 			return ret;
 	}
-#endif
 
 	if (!inited && aBackend != Soloud::AUTO)
 		return NOT_IMPLEMENTED;

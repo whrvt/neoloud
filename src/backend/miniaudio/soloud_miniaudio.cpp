@@ -21,19 +21,9 @@ misrepresented as being the original software.
 3. This notice may not be removed or altered from any source
 distribution.
 */
+
 #include "soloud.h"
-
-#if !defined(WITH_MINIAUDIO)
-
-namespace SoLoud
-{
-result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer)
-{
-	return NOT_IMPLEMENTED;
-}
-} // namespace SoLoud
-
-#else
+#include "soloud_internal.h"
 
 #define MINIAUDIO_IMPLEMENTATION
 
@@ -60,8 +50,6 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 #define MA_NO_ENGINE
 
 #include "miniaudio.h"
-
-#include "soloud_internal.h"
 
 #include <atomic>
 #include <chrono>
@@ -802,4 +790,3 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	return SO_NO_ERROR;
 }
 }; // namespace SoLoud
-#endif

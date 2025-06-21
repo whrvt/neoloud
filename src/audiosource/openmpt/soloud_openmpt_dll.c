@@ -22,9 +22,6 @@ freely, subject to the following restrictions:
    distribution.
 */
 #include <stdlib.h>
-#if defined(_WIN32)||defined(_WIN64)
-#define WINDOWS_VERSION
-#endif // __WINDOWS__
 #include <math.h>
 
 typedef void * (*dll_openmpt_module_create_from_memory)(const void * filedata, size_t filesize, void *logfunc, void * user, void * ctls);

@@ -28,11 +28,11 @@ freely, subject to the following restrictions:
 
 #include "soloud.h"
 
-#if !defined(WITH_SDL3_STATIC)
+#if !defined(WITH_SDL3)
 
 namespace SoLoud
 {
-    result sdl3static_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
+    result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
     {
         return NOT_IMPLEMENTED;
     }
@@ -53,7 +53,7 @@ namespace SoLoud
     static int gBufferSize = 0;
     static SDL_AudioFormat gDeviceFormat = SDL_AUDIO_UNKNOWN;
 
-    static void soloud_sdl3static_postmix(void *userdata, const SDL_AudioSpec *spec, float *buffer, int buflen)
+    static void soloud_sdl3_postmix(void *userdata, const SDL_AudioSpec *spec, float *buffer, int buflen)
     {
         SoLoud::Soloud *soloud = (SoLoud::Soloud *)userdata;
         if (!soloud) return;
@@ -62,7 +62,7 @@ namespace SoLoud
         soloud->mix(buffer, sampleFrames);
     }
 
-    static void soloud_sdl3static_deinit(SoLoud::Soloud *aSoloud)
+    static void soloud_sdl3_deinit(SoLoud::Soloud *aSoloud)
     {
         if (gFloatBuffer) {
             SDL_free(gFloatBuffer);
@@ -88,12 +88,12 @@ namespace SoLoud
         }
     }
 
-    result sdl3static_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
+    result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
     {
         if (!aSoloud) return INVALID_PARAMETER;
 
         if (gAudioDeviceID) {
-            soloud_sdl3static_deinit(aSoloud);
+            soloud_sdl3_deinit(aSoloud);
         }
 
         if (!SDL_WasInit(SDL_INIT_AUDIO)) {
@@ -145,14 +145,14 @@ namespace SoLoud
             soloudBufferSize = (((deviceSampleFrames >= 16 ? deviceSampleFrames : (soloudBufferSize == 2048 ? 16 : soloudBufferSize)) + 1) / 2) * 2;
         }
 
-        if (!SDL_SetAudioPostmixCallback(gAudioDeviceID, soloud_sdl3static_postmix, aSoloud)) {
+        if (!SDL_SetAudioPostmixCallback(gAudioDeviceID, soloud_sdl3_postmix, aSoloud)) {
             SDL_CloseAudioDevice(gAudioDeviceID);
             gAudioDeviceID = 0;
             return UNKNOWN_ERROR;
         }
 
         aSoloud->postinit_internal(actualSpec.freq, soloudBufferSize, aFlags, actualSpec.channels);
-        aSoloud->mBackendCleanupFunc = soloud_sdl3static_deinit;
+        aSoloud->mBackendCleanupFunc = soloud_sdl3_deinit;
         aSoloud->mBackendString = "SDL3 (static)";
 
         return 0;
