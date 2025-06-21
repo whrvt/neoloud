@@ -37,7 +37,9 @@ BusInstance::BusInstance(Bus *aParent)
 		mVisualizationChannelVolume[i] = 0;
 	for (int i = 0; i < 256; i++)
 		mVisualizationWaveData[i] = 0;
-	mScratchSize = SAMPLE_GRANULARITY;
+	// use the same minimum scratch size as the main Soloud class
+	if (mScratchSize < SAMPLE_GRANULARITY * 4) // 4096
+		mScratchSize = SAMPLE_GRANULARITY * 4;
 	mScratch.init(mScratchSize * MAX_CHANNELS);
 }
 

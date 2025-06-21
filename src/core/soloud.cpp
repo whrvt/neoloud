@@ -318,10 +318,8 @@ void Soloud::postinit_internal(unsigned int aSamplerate, unsigned int aBufferSiz
 	mSamplerate = aSamplerate;
 	mBufferSize = aBufferSize;
 	mScratchSize = (aBufferSize + 15) & (~0xf); // round to the next div by 16
-	if (mScratchSize < SAMPLE_GRANULARITY * 2)
-		mScratchSize = SAMPLE_GRANULARITY * 2;
-	if (mScratchSize < 4096)
-		mScratchSize = 4096;
+	if (mScratchSize < SAMPLE_GRANULARITY * 4)  // 4096
+		mScratchSize = SAMPLE_GRANULARITY * 4;
 	mScratch.init(mScratchSize * MAX_CHANNELS);
 	mOutputScratch.init(mScratchSize * MAX_CHANNELS);
 
@@ -1299,7 +1297,16 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 
 		if (channelBufferSize <= scratchSize)
 		{
-			samplesRead = voice->getAudio(channelBuffer, samplesToRead, samplesToRead);
+			// keep aligned for optimal SSE routines
+			unsigned int alignedBufferSize = (samplesToRead + 15) & ~15;
+			// Make sure we don't exceed scratch space
+			if (alignedBufferSize * voice->mChannels > scratchSize)
+			{
+				alignedBufferSize = (scratchSize / voice->mChannels) & ~15;
+				if (alignedBufferSize < samplesToRead)
+					samplesToRead = alignedBufferSize;
+			}
+			samplesRead = voice->getAudio(channelBuffer, samplesToRead, alignedBufferSize);
 
 			// Handle looping
 			if (samplesRead < samplesToRead && (voice->mFlags & AudioSourceInstance::LOOPING))
@@ -1309,7 +1316,7 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 				{
 					voice->mLoopCount++;
 					unsigned int loopSamples =
-					    voice->getAudio(channelBuffer + samplesRead * voice->mChannels, samplesToRead - samplesRead, samplesToRead - samplesRead);
+					    voice->getAudio(channelBuffer + samplesRead * voice->mChannels, samplesToRead - samplesRead, alignedBufferSize - samplesRead);
 					samplesRead += loopSamples;
 					if (loopSamples == 0)
 						break;
@@ -1323,7 +1330,7 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 				{
 					if (voice->mFilter[j])
 					{
-						voice->mFilter[j]->filter(channelBuffer, samplesRead, samplesToRead, voice->mChannels, voice->mSamplerate, voice->mStreamTime);
+						voice->mFilter[j]->filter(channelBuffer, samplesRead, alignedBufferSize, voice->mChannels, voice->mSamplerate, voice->mStreamTime);
 					}
 				}
 			}
@@ -1331,7 +1338,7 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 			// Copy from channel-separated scratch buffer to resample buffers
 			for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 			{
-				float *srcChannel = channelBuffer + ch * samplesToRead;
+				float *srcChannel = channelBuffer + ch * alignedBufferSize;
 				float *dstChannel = voice->mResampleBuffer[ch] + voice->mResampleBufferFill;
 				memcpy(dstChannel, srcChannel, samplesRead * sizeof(float));
 
@@ -1516,6 +1523,10 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 	unsigned int tempScratchSize = 2048; // temp buffer for chunk-based reading
 	unsigned int delayScratchSize = aChannels * aBufferSize;
 	unsigned int totalPerVoice = voiceScratchSize + tempScratchSize + delayScratchSize;
+
+	// keep aligned to 16 bytes
+	totalPerVoice = (totalPerVoice + 3) & ~3;
+
 	unsigned int maxVoicesInParallel = (mScratchSize * MAX_CHANNELS) / totalPerVoice;
 	if (maxVoicesInParallel == 0)
 		maxVoicesInParallel = 1;
