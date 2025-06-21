@@ -292,14 +292,17 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 	else
 		requestedBufferSize = aBuffer;
 
-	// NOTE: SDL seems to always return a buffer size 2x of what was requested... why?
-	// This doesn't match up with `pw-mon` (or Windows buffer sizes), so just request half the amount we want here.
-	requestedBufferSize = (requestedBufferSize + 1) / 2; // curse integer truncation
+	const char *driver = SDL_GetCurrentAudioDriver();
 
 #ifdef WINDOWS_VERSION
 	// unless it was explicitly requested to be lower, clamp to min 10ms on Windows if not using WASAPI (empirically, directsound blows up with anything lower)
-	if (strcasecmp(SDL_GetCurrentAudioDriver(), "wasapi") != 0)
+	if (strcasecmp(driver, "wasapi") != 0)
 		requestedBufferSize = std::max(((deviceRequestSpec.freq * 10) + 999) / 1000u, requestedBufferSize);
+#elif defined(__linux__)
+	if (strcasecmp(driver, "pulseaudio") == 0) // SDL seems to always return a buffer size 2x of what was requested (but only for pulseaudio)... why?
+		requestedBufferSize = (requestedBufferSize + 1) / 2; // curse integer truncation
+#else // other platforms/drivers, just clamp to min 10ms (like windows non-wasapi)
+	requestedBufferSize = std::max(((deviceRequestSpec.freq * 10) + 999) / 1000u, requestedBufferSize);
 #endif
 
 	char bufferStr[32];
