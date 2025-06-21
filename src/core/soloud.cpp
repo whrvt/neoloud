@@ -22,15 +22,14 @@ freely, subject to the following restrictions:
    distribution.
 */
 
+#include "soloud_audiosource.h"
 #include "soloud_fft.h"
 #include "soloud_internal.h"
 #include "soloud_thread.h"
-#include "soloud_audiosource.h"
 
-#include <float.h> // _controlfp
-#include <math.h>  // sin
-#include <stdlib.h>
-#include <string.h>
+#include <cmath> // sin
+#include <cstdlib>
+#include <cstring>
 
 #ifdef SOLOUD_SSE_INTRINSICS
 #include <xmmintrin.h>
@@ -43,8 +42,15 @@ freely, subject to the following restrictions:
 
 // #define FLOATING_POINT_DEBUG
 
+#ifdef FLOATING_POINT_DEBUG
+#include <cfloat> // _controlfp
+#endif
+
 namespace SoLoud
 {
+
+using namespace detail;
+
 AlignedFloatBuffer::AlignedFloatBuffer()
 {
 	mBasePtr = nullptr;
@@ -1958,109 +1964,103 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 	}
 }
 
-void Soloud::mix(float *aBuffer, unsigned int aSamples)
+void Soloud::mix(void *aBuffer, unsigned int aSamples, SAMPLE_FORMAT aFormat)
 {
 	unsigned int stride = (aSamples + 15) & ~0xf;
 	mix_internal(aSamples, stride);
-	// 111222 -> 121212
+
 	unsigned int i = 0, j = 0, c = 0;
-	for (j = 0; j < mChannels; j++)
+
+	switch (aFormat)
 	{
-		c = j * stride;
-		for (i = j; i < aSamples * mChannels; i += mChannels)
+	case SAMPLE_FLOAT32: {
+		float *buffer = static_cast<float *>(aBuffer);
+		for (j = 0; j < mChannels; j++)
 		{
-			aBuffer[i] = mScratch.mData[c];
-			c++;
+			c = j * stride;
+			for (i = j; i < aSamples * mChannels; i += mChannels)
+			{
+				buffer[i] = mScratch.mData[c];
+				c++;
+			}
 		}
 	}
-}
+	break;
 
-void Soloud::mixUnsigned8(unsigned char *aBuffer, unsigned int aSamples)
-{
-	unsigned int stride = (aSamples + 15) & ~0xf;
-	mix_internal(aSamples, stride);
-	// 111222 -> 121212, convert from [-1,1] float to [0,255] unsigned 8-bit
-	unsigned int i = 0, j = 0, c = 0;
-	for (j = 0; j < mChannels; j++)
-	{
-		c = j * stride;
-		for (i = j; i < aSamples * mChannels; i += mChannels)
+	case SAMPLE_UNSIGNED8: {
+		unsigned char *buffer = static_cast<unsigned char *>(aBuffer);
+		for (j = 0; j < mChannels; j++)
 		{
-			int sample = (int)(mScratch.mData[c] * 127.0f + 128.0f);
-			if (sample < 0)
-				sample = 0;
-			if (sample > 255)
-				sample = 255;
-			aBuffer[i] = (unsigned char)sample;
-			c++;
+			c = j * stride;
+			for (i = j; i < aSamples * mChannels; i += mChannels)
+			{
+				int sample = (int)(mScratch.mData[c] * 127.0f + 128.0f);
+				if (sample < 0)
+					sample = 0;
+				if (sample > 255)
+					sample = 255;
+				buffer[i] = (unsigned char)sample;
+				c++;
+			}
 		}
 	}
-}
+	break;
 
-void Soloud::mixSigned16(short *aBuffer, unsigned int aSamples)
-{
-	unsigned int stride = (aSamples + 15) & ~0xf;
-	mix_internal(aSamples, stride);
-	// 111222 -> 121212
-	unsigned int i = 0, j = 0, c = 0;
-	for (j = 0; j < mChannels; j++)
-	{
-		c = j * stride;
-		for (i = j; i < aSamples * mChannels; i += mChannels)
+	case SAMPLE_SIGNED16: {
+		short *buffer = static_cast<short *>(aBuffer);
+		for (j = 0; j < mChannels; j++)
 		{
-			aBuffer[i] = (short)(mScratch.mData[c] * 0x7fff);
-			c++;
+			c = j * stride;
+			for (i = j; i < aSamples * mChannels; i += mChannels)
+			{
+				buffer[i] = (short)(mScratch.mData[c] * 0x7fff);
+				c++;
+			}
 		}
 	}
-}
+	break;
 
-void Soloud::mixSigned24(unsigned char *aBuffer, unsigned int aSamples)
-{
-	unsigned int stride = (aSamples + 15) & ~0xf;
-	mix_internal(aSamples, stride);
-	// 111222 -> 121212, convert from [-1,1] float to 24-bit signed (3 bytes per sample, little endian)
-	unsigned int i = 0, j = 0, c = 0;
-	for (j = 0; j < mChannels; j++)
-	{
-		c = j * stride;
-		for (i = j; i < aSamples * mChannels; i += mChannels)
+	case SAMPLE_SIGNED24: {
+		unsigned char *buffer = static_cast<unsigned char *>(aBuffer);
+		for (j = 0; j < mChannels; j++)
 		{
-			int sample = (int)(mScratch.mData[c] * 8388607.0f); // 0x7fffff
-			if (sample < -8388608)
-				sample = -8388608;
-			if (sample > 8388607)
-				sample = 8388607;
+			c = j * stride;
+			for (i = j; i < aSamples * mChannels; i += mChannels)
+			{
+				int sample = (int)(mScratch.mData[c] * 8388607.0f);
+				if (sample < -8388608)
+					sample = -8388608;
+				if (sample > 8388607)
+					sample = 8388607;
 
-			// store as little endian 3-byte signed integer
-			unsigned int destIdx = i * 3;
-			aBuffer[destIdx] = (unsigned char)(sample & 0xff);
-			aBuffer[destIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
-			aBuffer[destIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
-			c++;
+				unsigned int destIdx = i * 3;
+				buffer[destIdx] = (unsigned char)(sample & 0xff);
+				buffer[destIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
+				buffer[destIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
+				c++;
+			}
 		}
 	}
-}
+	break;
 
-void Soloud::mixSigned32(int *aBuffer, unsigned int aSamples)
-{
-	unsigned int stride = (aSamples + 15) & ~0xf;
-	mix_internal(aSamples, stride);
-	// 111222 -> 121212, convert from [-1,1] float to 32-bit signed
-	unsigned int i = 0, j = 0, c = 0;
-	for (j = 0; j < mChannels; j++)
-	{
-		c = j * stride;
-		for (i = j; i < aSamples * mChannels; i += mChannels)
+	case SAMPLE_SIGNED32: {
+		int *buffer = static_cast<int *>(aBuffer);
+		for (j = 0; j < mChannels; j++)
 		{
-			// use double precision for better accuracy with 32-bit range
-			double sample = (double)mScratch.mData[c] * 2147483647.0;
-			if (sample < -2147483648.0)
-				sample = -2147483648.0;
-			if (sample > 2147483647.0)
-				sample = 2147483647.0;
-			aBuffer[i] = (int)sample;
-			c++;
+			c = j * stride;
+			for (i = j; i < aSamples * mChannels; i += mChannels)
+			{
+				double sample = (double)mScratch.mData[c] * 2147483647.0;
+				if (sample < -2147483648.0)
+					sample = -2147483648.0;
+				if (sample > 2147483647.0)
+					sample = 2147483647.0;
+				buffer[i] = (int)sample;
+				c++;
+			}
 		}
+	}
+	break;
 	}
 }
 

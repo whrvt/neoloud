@@ -46,6 +46,8 @@ namespace SoLoud
 
 namespace SoLoud
 {
+using namespace detail; // SAMPLE_FORMAT
+
     static bool gWeInitSDL = false;
     static SDL_AudioDeviceID gAudioDeviceID = 0;
     static float* gFloatBuffer = nullptr;
@@ -58,8 +60,21 @@ namespace SoLoud
         SoLoud::Soloud *soloud = (SoLoud::Soloud *)userdata;
         if (!soloud) return;
 
-        int sampleFrames = buflen / (spec->channels * sizeof(float));
-        soloud->mix(buffer, sampleFrames);
+        SAMPLE_FORMAT outputFormat = SAMPLE_FLOAT32;
+        int sampleFrames = buflen;
+        switch (spec->format)
+        {
+            case SDL_AUDIO_S16:
+                outputFormat = SAMPLE_SIGNED16;
+                sampleFrames /= (int)(spec->channels * sizeof(short));
+                break;
+            case SDL_AUDIO_F32:
+            default:
+                outputFormat = SAMPLE_FLOAT32;
+                sampleFrames /= (int)(spec->channels * sizeof(float));
+                break;
+        }
+        soloud->mix(buffer, sampleFrames, outputFormat);
     }
 
     static void soloud_sdl3_deinit(SoLoud::Soloud *aSoloud)

@@ -718,7 +718,7 @@ void Soloud_mix(void * aClassPtr, float * aBuffer, unsigned int aSamples)
 void Soloud_mixSigned16(void * aClassPtr, short * aBuffer, unsigned int aSamples)
 {
 	Soloud * cl = (Soloud *)aClassPtr;
-	cl->mixSigned16(aBuffer, aSamples);
+	cl->mix(aBuffer, aSamples, detail::SAMPLE_SIGNED16);
 }
 
 void Ay_destroy(void * aClassPtr)

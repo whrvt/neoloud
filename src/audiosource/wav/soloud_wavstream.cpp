@@ -43,6 +43,8 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
+namespace // static
+{
 size_t drflac_read_func(void *pUserData, void *pBufferOut, size_t bytesToRead)
 {
 	File *fp = (File *)pUserData;
@@ -101,18 +103,13 @@ drmp3_bool32 drwav_seek_func(void *pUserData, int offset, drwav_seek_origin orig
 	fp->seek(offset);
 	return 1;
 }
+} // namespace
 
-WavStreamInstance::WavStreamInstance(WavStream *aParent)
+WavStreamInstance::WavStreamInstance(WavStream *aParent) : mCodec()
 {
 	mOggFrameSize = 0;
 	mParent = aParent;
 	mOffset = 0;
-	mCodec.mOgg = nullptr;
-	mCodec.mFlac = nullptr;
-	mCodec.mWav = nullptr;
-	mCodec.mMpg123 = nullptr;
-	mCodec.mDrmp3 = nullptr;
-	mCodec.mFfmpeg = nullptr;
 	mFile = nullptr;
 
 	if (aParent->mMemFile)

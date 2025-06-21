@@ -78,6 +78,19 @@ namespace SoLoud
 	class QueueInstance;
 	class AudioSourceInstance3dData;
 
+	// For use by backends to specify which format they'd like from the mixer.
+	namespace detail
+	{
+		enum SAMPLE_FORMAT : unsigned char
+		{
+			SAMPLE_FLOAT32,
+			SAMPLE_UNSIGNED8,
+			SAMPLE_SIGNED16,
+			SAMPLE_SIGNED24,
+			SAMPLE_SIGNED32
+		};
+	}
+
 	// Soloud core class.
 	class Soloud
 	{
@@ -370,15 +383,7 @@ namespace SoLoud
 		// Rest of the stuff is used internally.
 
 		// Returns mixed float samples in buffer. Called by the back-end, or user with null driver.
-		void mix(float *aBuffer, unsigned int aSamples);
-		// Returns mixed 8-bit unsigned integer samples in buffer. Called by the back-end, or user with null driver.
-		void mixUnsigned8(unsigned char *aBuffer, unsigned int aSamples);
-		// Returns mixed 16-bit signed integer samples in buffer. Called by the back-end, or user with null driver.
-		void mixSigned16(short *aBuffer, unsigned int aSamples);
-		// Returns mixed 24-bit signed integer samples in buffer. Called by the back-end, or user with null driver.
-		void mixSigned24(unsigned char *aBuffer, unsigned int aSamples);
-		// Returns mixed 32-bit signed integer samples in buffer. Called by the back-end, or user with null driver.
-		void mixSigned32(int *aBuffer, unsigned int aSamples);
+		void mix(void *aBuffer, unsigned int aSamples, detail::SAMPLE_FORMAT aFormat = detail::SAMPLE_FLOAT32);
 
 	public:
 		// Mix N samples * M channels. Called by other mix_ functions.

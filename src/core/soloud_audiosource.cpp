@@ -30,19 +30,13 @@ freely, subject to the following restrictions:
 namespace SoLoud
 {
 
-AudioSourceInstance3dData::AudioSourceInstance3dData()
+AudioSourceInstance3dData::AudioSourceInstance3dData() : m3dPosition(), m3dVelocity(), mChannelVolume()
 {
 	m3dAttenuationModel = 0;
 	m3dAttenuationRolloff = 1;
 	m3dDopplerFactor = 1.0;
 	m3dMaxDistance = 1000000.0f;
 	m3dMinDistance = 0.0f;
-	m3dPosition[0] = 0;
-	m3dPosition[1] = 0;
-	m3dPosition[2] = 0;
-	m3dVelocity[0] = 0;
-	m3dVelocity[1] = 0;
-	m3dVelocity[2] = 0;
 	m3dVolume = 0;
 	mCollider = nullptr;
 	mColliderData = 0;
@@ -50,8 +44,6 @@ AudioSourceInstance3dData::AudioSourceInstance3dData()
 	mDopplerValue = 0;
 	mFlags = 0;
 	mHandle = 0;
-	for (int i = 0; i < MAX_CHANNELS; i++)
-		mChannelVolume[i] = 0;
 }
 
 void AudioSourceInstance3dData::init(AudioSource &aSource)
@@ -68,7 +60,7 @@ void AudioSourceInstance3dData::init(AudioSource &aSource)
 	mDopplerValue = 1.0f;
 }
 
-AudioSourceInstance::AudioSourceInstance()
+AudioSourceInstance::AudioSourceInstance() : mCurrentChannelVolume(), mFilter(), mResampleBuffer()
 {
 	mPlayIndex = 0;
 	mFlags = 0;
@@ -89,14 +81,6 @@ AudioSourceInstance::AudioSourceInstance()
 	mBusHandle = ~0u;
 	mLoopCount = 0;
 	mLoopPoint = 0;
-	for (i = 0; i < FILTERS_PER_STREAM; i++)
-	{
-		mFilter[i] = nullptr;
-	}
-	for (i = 0; i < MAX_CHANNELS; i++)
-	{
-		mCurrentChannelVolume[i] = 0;
-	}
 
 	mDelaySamples = 0;
 	mOverallVolume = 0;
@@ -105,12 +89,6 @@ AudioSourceInstance::AudioSourceInstance()
 	mResampleBufferFill = 0;
 	mResampleBufferPos = 0;
 	mPreciseSrcPosition = 0.0;
-
-	// Clear resample buffers
-	for (i = 0; i < MAX_CHANNELS; i++)
-	{
-		memset(mResampleBuffer[i], 0, sizeof(mResampleBuffer[i]));
-	}
 }
 
 AudioSourceInstance::~AudioSourceInstance()
@@ -199,13 +177,8 @@ result AudioSourceInstance::seek(double aSeconds, float *mScratch, unsigned int 
 	return SO_NO_ERROR;
 }
 
-AudioSource::AudioSource()
+AudioSource::AudioSource() : mFilter()
 {
-	int i;
-	for (i = 0; i < FILTERS_PER_STREAM; i++)
-	{
-		mFilter[i] = nullptr;
-	}
 	mFlags = 0;
 	mBaseSamplerate = 44100;
 	mAudioSourceID = 0;

@@ -62,6 +62,7 @@ distribution.
 
 namespace SoLoud
 {
+using namespace detail; // SAMPLE_FORMAT
 
 enum class RecoveryLevel : uint8_t
 {
@@ -501,6 +502,8 @@ void soloud_miniaudio_audiomixer(ma_device *pDevice, void *pOutput, const void *
 	auto *data = static_cast<MiniaudioData *>(pDevice->pUserData);
 	auto *soloud = data->soloudInstance;
 
+	static_assert(ma_format_count == 6);
+
 	// check if device is valid or shutting down
 	if (!data->deviceValid.load(std::memory_order_relaxed) || data->shutdownInProgress.load(std::memory_order_relaxed))
 	{
@@ -537,25 +540,15 @@ void soloud_miniaudio_audiomixer(ma_device *pDevice, void *pOutput, const void *
 	}
 
 	// device is valid, proceed with normal mixing
-	switch (pDevice->playback.internalFormat)
-	{
-	case ma_format_s16:
-		soloud->mixSigned16(static_cast<short *>(pOutput), frameCount);
-		break;
-	case ma_format_u8:
-		soloud->mixUnsigned8(static_cast<unsigned char *>(pOutput), frameCount);
-		break;
-	case ma_format_s24:
-		soloud->mixSigned24(static_cast<unsigned char *>(pOutput), frameCount);
-		break;
-	case ma_format_s32:
-		soloud->mixSigned32(static_cast<int *>(pOutput), frameCount);
-		break;
-	case ma_format_f32:
-	default: // fallback to float if format is unknown or unsupported
-		soloud->mix(static_cast<float *>(pOutput), frameCount);
-		break;
-	}
+	const ma_format& maFormat = pDevice->playback.internalFormat;
+	const SAMPLE_FORMAT outputFormat = maFormat == ma_format_f32   ? SAMPLE_FLOAT32
+	                                   : maFormat == ma_format_s16 ? SAMPLE_SIGNED16
+	                                   : maFormat == ma_format_u8  ? SAMPLE_UNSIGNED8
+	                                   : maFormat == ma_format_s24 ? SAMPLE_SIGNED24
+	                                   : maFormat == ma_format_s32 ? SAMPLE_SIGNED32
+	                                                               : SAMPLE_FLOAT32;
+
+	soloud->mix(pOutput, frameCount, outputFormat);
 }
 
 void soloud_miniaudio_deinit(SoLoud::Soloud *aSoloud)
