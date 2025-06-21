@@ -1965,101 +1965,70 @@ void Soloud::mix(float *aBuffer, unsigned int aSamples)
 {
 	unsigned int stride = (aSamples + 15) & ~0xf;
 	mix_internal(aSamples, stride);
-	interlace_samples_float(mScratch.mData, aBuffer, aSamples, mChannels, stride);
+	// 111222 -> 121212
+	unsigned int i = 0, j = 0, c = 0;
+	for (j = 0; j < mChannels; j++)
+	{
+		c = j * stride;
+		for (i = j; i < aSamples * mChannels; i += mChannels)
+		{
+			aBuffer[i] = mScratch.mData[c];
+			c++;
+		}
+	}
 }
 
 void Soloud::mixUnsigned8(unsigned char *aBuffer, unsigned int aSamples)
 {
 	unsigned int stride = (aSamples + 15) & ~0xf;
 	mix_internal(aSamples, stride);
-	interlace_samples_u8(mScratch.mData, aBuffer, aSamples, mChannels, stride);
+	// 111222 -> 121212, convert from [-1,1] float to [0,255] unsigned 8-bit
+	unsigned int i = 0, j = 0, c = 0;
+	for (j = 0; j < mChannels; j++)
+	{
+		c = j * stride;
+		for (i = j; i < aSamples * mChannels; i += mChannels)
+		{
+			int sample = (int)(mScratch.mData[c] * 127.0f + 128.0f);
+			if (sample < 0)
+				sample = 0;
+			if (sample > 255)
+				sample = 255;
+			aBuffer[i] = (unsigned char)sample;
+			c++;
+		}
+	}
 }
 
 void Soloud::mixSigned16(short *aBuffer, unsigned int aSamples)
 {
 	unsigned int stride = (aSamples + 15) & ~0xf;
 	mix_internal(aSamples, stride);
-	interlace_samples_s16(mScratch.mData, aBuffer, aSamples, mChannels, stride);
+	// 111222 -> 121212
+	unsigned int i = 0, j = 0, c = 0;
+	for (j = 0; j < mChannels; j++)
+	{
+		c = j * stride;
+		for (i = j; i < aSamples * mChannels; i += mChannels)
+		{
+			aBuffer[i] = (short)(mScratch.mData[c] * 0x7fff);
+			c++;
+		}
+	}
 }
 
 void Soloud::mixSigned24(unsigned char *aBuffer, unsigned int aSamples)
 {
 	unsigned int stride = (aSamples + 15) & ~0xf;
 	mix_internal(aSamples, stride);
-	interlace_samples_s24(mScratch.mData, aBuffer, aSamples, mChannels, stride);
-}
-
-void Soloud::mixSigned32(int *aBuffer, unsigned int aSamples)
-{
-	unsigned int stride = (aSamples + 15) & ~0xf;
-	mix_internal(aSamples, stride);
-	interlace_samples_s32(mScratch.mData, aBuffer, aSamples, mChannels, stride);
-}
-
-void interlace_samples_float(const float *aSourceBuffer, float *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride)
-{
-	// 111222 -> 121212
-	unsigned int i, j, c;
-	c = 0;
-	for (j = 0; j < aChannels; j++)
-	{
-		c = j * aStride;
-		for (i = j; i < aSamples * aChannels; i += aChannels)
-		{
-			aDestBuffer[i] = aSourceBuffer[c];
-			c++;
-		}
-	}
-}
-
-void interlace_samples_u8(const float *aSourceBuffer, unsigned char *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride)
-{
-	// 111222 -> 121212, convert from [-1,1] float to [0,255] unsigned 8-bit
-	unsigned int i, j, c;
-	c = 0;
-	for (j = 0; j < aChannels; j++)
-	{
-		c = j * aStride;
-		for (i = j; i < aSamples * aChannels; i += aChannels)
-		{
-			int sample = (int)(aSourceBuffer[c] * 127.0f + 128.0f);
-			if (sample < 0)
-				sample = 0;
-			if (sample > 255)
-				sample = 255;
-			aDestBuffer[i] = (unsigned char)sample;
-			c++;
-		}
-	}
-}
-
-void interlace_samples_s16(const float *aSourceBuffer, short *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride)
-{
-	// 111222 -> 121212
-	unsigned int i, j, c;
-	c = 0;
-	for (j = 0; j < aChannels; j++)
-	{
-		c = j * aStride;
-		for (i = j; i < aSamples * aChannels; i += aChannels)
-		{
-			aDestBuffer[i] = (short)(aSourceBuffer[c] * 0x7fff);
-			c++;
-		}
-	}
-}
-
-void interlace_samples_s24(const float *aSourceBuffer, unsigned char *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride)
-{
 	// 111222 -> 121212, convert from [-1,1] float to 24-bit signed (3 bytes per sample, little endian)
-	unsigned int i, j, c;
-	c = 0;
-	for (j = 0; j < aChannels; j++)
+	unsigned int i = 0, j = 0, c = 0;
+	for (j = 0; j < mChannels; j++)
 	{
-		c = j * aStride;
-		for (i = j; i < aSamples * aChannels; i += aChannels)
+		c = j * stride;
+		for (i = j; i < aSamples * mChannels; i += mChannels)
 		{
-			int sample = (int)(aSourceBuffer[c] * 8388607.0f); // 0x7fffff
+			int sample = (int)(mScratch.mData[c] * 8388607.0f); // 0x7fffff
 			if (sample < -8388608)
 				sample = -8388608;
 			if (sample > 8388607)
@@ -2067,31 +2036,32 @@ void interlace_samples_s24(const float *aSourceBuffer, unsigned char *aDestBuffe
 
 			// store as little endian 3-byte signed integer
 			unsigned int destIdx = i * 3;
-			aDestBuffer[destIdx] = (unsigned char)(sample & 0xff);
-			aDestBuffer[destIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
-			aDestBuffer[destIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
+			aBuffer[destIdx] = (unsigned char)(sample & 0xff);
+			aBuffer[destIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
+			aBuffer[destIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
 			c++;
 		}
 	}
 }
 
-void interlace_samples_s32(const float *aSourceBuffer, int *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride)
+void Soloud::mixSigned32(int *aBuffer, unsigned int aSamples)
 {
+	unsigned int stride = (aSamples + 15) & ~0xf;
+	mix_internal(aSamples, stride);
 	// 111222 -> 121212, convert from [-1,1] float to 32-bit signed
-	unsigned int i, j, c;
-	c = 0;
-	for (j = 0; j < aChannels; j++)
+	unsigned int i = 0, j = 0, c = 0;
+	for (j = 0; j < mChannels; j++)
 	{
-		c = j * aStride;
-		for (i = j; i < aSamples * aChannels; i += aChannels)
+		c = j * stride;
+		for (i = j; i < aSamples * mChannels; i += mChannels)
 		{
 			// use double precision for better accuracy with 32-bit range
-			double sample = (double)aSourceBuffer[c] * 2147483647.0;
+			double sample = (double)mScratch.mData[c] * 2147483647.0;
 			if (sample < -2147483648.0)
 				sample = -2147483648.0;
 			if (sample > 2147483647.0)
 				sample = 2147483647.0;
-			aDestBuffer[i] = (int)sample;
+			aBuffer[i] = (int)sample;
 			c++;
 		}
 	}

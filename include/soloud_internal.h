@@ -44,21 +44,6 @@ namespace SoLoud
 	// null driver back-end initialization call
 	result null_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
 	                 unsigned int aChannels = 2);
-
-	// Interlace samples in a buffer. From 11112222 to 12121212
-	void interlace_samples_float(const float *aSourceBuffer, float *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride);
-
-	// Convert to unsigned 8-bit and interlace samples in a buffer. From 11112222 to 12121212
-	void interlace_samples_u8(const float *aSourceBuffer, unsigned char *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride);
-
-	// Convert to 16-bit and interlace samples in a buffer. From 11112222 to 12121212
-	void interlace_samples_s16(const float *aSourceBuffer, short *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride);
-
-	// Convert to 24-bit (packed) and interlace samples in a buffer. From 11112222 to 12121212
-	void interlace_samples_s24(const float *aSourceBuffer, unsigned char *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride);
-
-	// Convert to 32-bit and interlace samples in a buffer. From 11112222 to 12121212
-	void interlace_samples_s32(const float *aSourceBuffer, int *aDestBuffer, unsigned int aSamples, unsigned int aChannels, unsigned int aStride);
 };
 
 #define FOR_ALL_VOICES_PRE \
