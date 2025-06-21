@@ -33,40 +33,9 @@ freely, subject to the following restrictions:
 #include "soloud_audiosource3d.h"
 #include "soloud_fader.h"
 #include "soloud_filter.h"
+#include "soloud_intrin.h"
 
 #include "soloud_error.h"
-
-namespace SoLoud
-{
-	// Class that handles aligned allocations to support vectorized operations
-	class AlignedFloatBuffer
-	{
-	public:
-		float *mData;            // aligned pointer
-		unsigned char *mBasePtr; // raw allocated pointer (for delete)
-		int mFloats;             // size of buffer (w/out padding)
-
-		// ctor
-		AlignedFloatBuffer();
-		// Allocate and align buffer
-		result init(unsigned int aFloats);
-		// Clear data to zero.
-		void clear();
-		// dtor
-		~AlignedFloatBuffer();
-	};
-
-	// Lightweight class that handles small aligned buffer to support vectorized operations
-	class TinyAlignedFloatBuffer
-	{
-	public:
-		float *mData; // aligned pointer
-		unsigned char mActualData[sizeof(float) * 16 + 16];
-
-		// ctor
-		TinyAlignedFloatBuffer();
-	};
-}; // namespace SoLoud
 
 namespace SoLoud
 {
@@ -421,8 +390,6 @@ namespace SoLoud
 		void updateVoiceRelativePlaySpeed_internal(unsigned int aVoice);
 		// Perform 3d audio calculation for array of voices
 		void update3dVoices_internal(unsigned int *aVoiceList, unsigned int aVoiceCount);
-		// Clip the samples in the buffer
-		void clip_internal(AlignedFloatBuffer & aBuffer, AlignedFloatBuffer & aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1);
 		// Remove all non-active voices from group
 		void trimVoiceGroup_internal(handle aVoiceGroupHandle);
 		// Get pointer to the zero-terminated array of voice handles in a voice group
