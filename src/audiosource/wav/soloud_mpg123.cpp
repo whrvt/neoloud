@@ -23,7 +23,8 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include "soloud.h"
+#ifdef WITH_LIBMPG123
+
 #include "soloud_file.h"
 
 #include "soloud_mpg123.h"
@@ -32,6 +33,9 @@ freely, subject to the following restrictions:
 #include <mpg123.h>
 
 namespace SoLoud::MPG123
+{
+
+namespace // static
 {
 
 ssize_t readCallback(void *handle, void *buf, size_t count)
@@ -61,13 +65,14 @@ off_t seekCallback(void *handle, off_t offset, int whence)
 
 	return static_cast<off_t>(file->pos());
 }
+} // namespace
 
 MPG123Decoder *open(File *aFile)
 {
 	if (!aFile)
 		return nullptr;
 
-	MPG123Decoder *decoder = new MPG123Decoder();
+	auto *decoder = new MPG123Decoder();
 	memset(decoder, 0, sizeof(MPG123Decoder));
 
 	decoder->file = aFile;
@@ -112,8 +117,8 @@ MPG123Decoder *open(File *aFile)
 	}
 
 	// get format information
-	long rate;
-	int channels, encoding;
+	long rate = 0;
+	int channels = 0, encoding = 0;
 	if (mpg123_getformat(decoder->handle, &rate, &channels, &encoding) != MPG123_OK)
 	{
 		mpg123_close(decoder->handle);
@@ -152,7 +157,7 @@ MPG123Decoder *open(File *aFile)
 	}
 
 	// validate that this is actually MPEG audio that mpg123 can decode
-	struct mpg123_frameinfo2 frameInfo;
+	struct mpg123_frameinfo2 frameInfo{};
 	if (decoder->totalFrames <= 0 || mpg123_info2(decoder->handle, &frameInfo) != MPG123_OK || (frameInfo.layer < 1 || frameInfo.layer > 3))
 	{
 		// frame count couldn't be determined, or no frame info, or layer isn't between 1 and 3
@@ -217,8 +222,8 @@ size_t readFrames(MPG123Decoder *aDecoder, size_t aFrameCount, float *aBuffer)
 	if (result == MPG123_NEW_FORMAT)
 	{
 		// format changed mid-stream, update decoder info
-		long rate;
-		int channels, encoding;
+		long rate = 0;
+		int channels = 0, encoding = 0;
 		if (mpg123_getformat(aDecoder->handle, &rate, &channels, &encoding) == MPG123_OK)
 		{
 			aDecoder->rate = rate;
@@ -254,3 +259,5 @@ off_t getCurrentFrame(MPG123Decoder *aDecoder)
 	return mpg123_tell(aDecoder->handle);
 }
 } // namespace SoLoud::MPG123
+
+#endif // WITH_LIBMPG123
