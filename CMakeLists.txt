@@ -11,6 +11,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON) # will this cause problems?
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+option(SOLOUD_TESTS "Build test executables" OFF)
+option(SOLOUD_ASAN "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(SOLOUD_TSAN "Enable ThreadSanitizer and UndefinedBehaviorSanitizer" OFF)
+
+# check for conflicting sanitizer options
+if(SOLOUD_ASAN AND SOLOUD_TSAN)
+    message(FATAL_ERROR "SOLOUD_ASAN and SOLOUD_TSAN cannot be enabled simultaneously")
+endif()
 
 # set default build type if none specified
 if(NOT CMAKE_BUILD_TYPE)
@@ -123,6 +131,24 @@ endif()
 find_package(Threads REQUIRED)
 target_link_libraries(soloud PRIVATE Threads::Threads)
 
+# sanitizers
+if(SOLOUD_ASAN)
+    if(MSVC)
+        target_compile_options(soloud PRIVATE /fsanitize=address)
+        target_link_options(soloud PRIVATE /fsanitize=address)
+    else()
+        target_compile_options(soloud PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+        target_link_options(soloud PRIVATE -fsanitize=address,undefined)
+    endif()
+elseif(SOLOUD_TSAN)
+    if(MSVC)
+        message(WARNING "ThreadSanitizer is not supported on MSVC")
+    else()
+        target_compile_options(soloud PRIVATE -fsanitize=thread,undefined)
+        target_link_options(soloud PRIVATE -fsanitize=thread,undefined)
+    endif()
+endif()
+
 # link libraries
 if(SOLOUD_WITH_SDL3)
     target_include_directories(soloud PRIVATE ${SDL3_INCLUDE_DIRS})
@@ -176,6 +202,55 @@ if(BUILD_SHARED_LIBS)
             WINDOWS_EXPORT_ALL_SYMBOLS ON
         )
     endif()
+endif()
+
+# test executables
+if(SOLOUD_TESTS)
+    file(GLOB TEST_DIRS "src/tests/*")
+    foreach(TEST_DIR ${TEST_DIRS})
+        if(IS_DIRECTORY ${TEST_DIR})
+            get_filename_component(TEST_NAME ${TEST_DIR} NAME)
+            file(GLOB_RECURSE TEST_SOURCES "${TEST_DIR}/*.cpp" "${TEST_DIR}/*.c")
+
+            if(TEST_SOURCES)
+                add_executable(${TEST_NAME} ${TEST_SOURCES})
+                target_link_libraries(${TEST_NAME} PRIVATE soloud)
+                target_include_directories(${TEST_NAME} PRIVATE
+                    ${CMAKE_CURRENT_SOURCE_DIR}/include
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                )
+
+                # apply same compiler settings as main library
+                if(MSVC)
+                    target_compile_definitions(${TEST_NAME} PRIVATE
+                        _CRT_SECURE_NO_WARNINGS
+                        _HAS_EXCEPTIONS=0
+                    )
+                    string(REGEX REPLACE "/EH[a-z]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+                else()
+                    target_compile_options(${TEST_NAME} PRIVATE -fno-exceptions)
+                endif()
+
+                # apply sanitizers if enabled
+                if(SOLOUD_ASAN)
+                    if(MSVC)
+                        target_compile_options(${TEST_NAME} PRIVATE /fsanitize=address)
+                        target_link_options(${TEST_NAME} PRIVATE /fsanitize=address)
+                    else()
+                        target_compile_options(${TEST_NAME} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+                        target_link_options(${TEST_NAME} PRIVATE -fsanitize=address,undefined)
+                    endif()
+                elseif(SOLOUD_TSAN)
+                    if(MSVC)
+                        message(WARNING "ThreadSanitizer is not supported on MSVC")
+                    else()
+                        target_compile_options(${TEST_NAME} PRIVATE -fsanitize=thread,undefined)
+                        target_link_options(${TEST_NAME} PRIVATE -fsanitize=thread,undefined)
+                    endif()
+                endif()
+            endif()
+        endif()
+    endforeach()
 endif()
 
 # installation
@@ -270,5 +345,8 @@ install(FILES
 message(STATUS "SoLoud configuration:")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Build shared: ${BUILD_SHARED_LIBS}")
+message(STATUS "  Build tests: ${SOLOUD_TESTS}")
+message(STATUS "  AddressSanitizer: ${SOLOUD_ASAN}")
+message(STATUS "  ThreadSanitizer: ${SOLOUD_TSAN}")
 message(STATUS "  SDL3 support: ${SOLOUD_WITH_SDL3}")
 message(STATUS "  libmpg123 support: ${SOLOUD_WITH_LIBMPG123}")

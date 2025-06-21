@@ -256,6 +256,8 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 	{
 		if (aBufferSize == Soloud::AUTO)
 			buffersize = 2048;
+		if (aSamplerate == Soloud::AUTO)
+			samplerate = 44100;
 
 		int ret = nosound_init(this, aFlags, samplerate, buffersize, aChannels);
 		if (ret == 0)
@@ -272,6 +274,8 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 	{
 		if (aBufferSize == Soloud::AUTO)
 			buffersize = 2048;
+		if (aSamplerate == Soloud::AUTO)
+			samplerate = 44100;
 
 		int ret = null_init(this, aFlags, samplerate, buffersize, aChannels);
 		if (ret == 0)

@@ -39,6 +39,7 @@ distribution.
 #include <stdarg.h>
 
 #include "soloud.h"
+#include "soloud_bus.h"
 #include "soloud_bassboostfilter.h"
 #include "soloud_biquadresonantfilter.h"
 #include "soloud_dcremovalfilter.h"
@@ -100,7 +101,7 @@ long getmsec()
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
-	return (ts->tv_sec * 1000) + (ts->tv_nsec / 1000000)
+	return (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
 }
 #endif
 
@@ -216,12 +217,12 @@ void testMisc()
 	CHECK(soloud.getBackendBufferSize() != 0);
 
 	soloud.mix(scratch, 1000);
-	soloud.mixSigned16(scratch_i16, 1000);
+	soloud.mix(scratch_i16, 1000, SoLoud::detail::SAMPLE_SIGNED16);
 	CHECK_BUF_ZERO(scratch, 2000);
 	CHECK_BUF_ZERO(scratch_i16, 2000);
 	soloud.play(wav);
 	soloud.mix(scratch, 1000);
-	soloud.mixSigned16(scratch_i16, 1000);
+	soloud.mix(scratch_i16, 1000, SoLoud::detail::SAMPLE_SIGNED16);
 	CHECK_BUF_NONZERO(scratch, 2000);
 	CHECK_BUF_NONZERO(scratch_i16, 2000);
 
