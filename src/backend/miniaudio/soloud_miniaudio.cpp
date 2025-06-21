@@ -111,7 +111,7 @@ void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char 
 
 ma_uint32 parse_log_level_from_env()
 {
-	const char *env = getenv("MINIAUDIO_DEBUG");
+	const char *env = getenv("SOLOUD_DEBUG");
 	if (!env)
 	{
 #ifdef _DEBUG
