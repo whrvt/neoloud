@@ -22,7 +22,6 @@ misrepresented as being the original software.
 distribution.
 */
 
-#include "soloud.h"
 #include "soloud_internal.h"
 
 #define MINIAUDIO_IMPLEMENTATION

@@ -122,10 +122,10 @@ result Wav::loadwav(MemoryFile *aReader)
 	mChannels = decoder.channels;
 
 	unsigned int i, j, k;
-	for (i = 0; i < mSampleCount; i += 512)
+	for (i = 0; i < mSampleCount; i += SAMPLE_GRANULARITY)
 	{
-		float tmp[512 * MAX_CHANNELS];
-		unsigned int blockSize = (mSampleCount - i) > 512 ? 512 : mSampleCount - i;
+		float tmp[SAMPLE_GRANULARITY * MAX_CHANNELS];
+		unsigned int blockSize = (mSampleCount - i) > SAMPLE_GRANULARITY ? SAMPLE_GRANULARITY : mSampleCount - i;
 		drwav_read_pcm_frames_f32(&decoder, blockSize, tmp);
 		for (j = 0; j < blockSize; j++)
 		{
@@ -215,10 +215,10 @@ result Wav::loadmpg123(MemoryFile *aReader)
 	mData = new float[mSampleCount * mChannels];
 
 	unsigned int i, j, k;
-	for (i = 0; i < mSampleCount; i += 512)
+	for (i = 0; i < mSampleCount; i += SAMPLE_GRANULARITY)
 	{
-		float tmp[512 * MAX_CHANNELS];
-		unsigned int blockSize = (mSampleCount - i) > 512 ? 512 : mSampleCount - i;
+		float tmp[SAMPLE_GRANULARITY * MAX_CHANNELS];
+		unsigned int blockSize = (mSampleCount - i) > SAMPLE_GRANULARITY ? SAMPLE_GRANULARITY : mSampleCount - i;
 		size_t framesRead = MPG123::readFrames(decoder, blockSize, tmp);
 
 		if (framesRead == 0)
@@ -264,10 +264,10 @@ result Wav::loaddrmp3(MemoryFile *aReader)
 	drmp3_seek_to_pcm_frame(&decoder, 0);
 
 	unsigned int i, j, k;
-	for (i = 0; i < mSampleCount; i += 512)
+	for (i = 0; i < mSampleCount; i += SAMPLE_GRANULARITY)
 	{
-		float tmp[512 * MAX_CHANNELS];
-		unsigned int blockSize = (mSampleCount - i) > 512 ? 512 : mSampleCount - i;
+		float tmp[SAMPLE_GRANULARITY * MAX_CHANNELS];
+		unsigned int blockSize = (mSampleCount - i) > SAMPLE_GRANULARITY ? SAMPLE_GRANULARITY : mSampleCount - i;
 		drmp3_read_pcm_frames_f32(&decoder, blockSize, tmp);
 		for (j = 0; j < blockSize; j++)
 		{
@@ -306,10 +306,10 @@ result Wav::loadflac(MemoryFile *aReader)
 	drflac_seek_to_pcm_frame(decoder, 0);
 
 	unsigned int i, j, k;
-	for (i = 0; i < mSampleCount; i += 512)
+	for (i = 0; i < mSampleCount; i += SAMPLE_GRANULARITY)
 	{
-		float tmp[512 * MAX_CHANNELS];
-		unsigned int blockSize = (mSampleCount - i) > 512 ? 512 : mSampleCount - i;
+		float tmp[SAMPLE_GRANULARITY * MAX_CHANNELS];
+		unsigned int blockSize = (mSampleCount - i) > SAMPLE_GRANULARITY ? SAMPLE_GRANULARITY : mSampleCount - i;
 		drflac_read_pcm_frames_f32(decoder, blockSize, tmp);
 		for (j = 0; j < blockSize; j++)
 		{

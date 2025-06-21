@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_NOISE_H
 #define SOLOUD_NOISE_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 #include "soloud_misc.h"
 
 namespace SoLoud

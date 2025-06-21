@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef TEDSID_H
 #define TEDSID_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 
 class SIDsound;
 class TED;

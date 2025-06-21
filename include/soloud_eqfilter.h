@@ -25,7 +25,6 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_EQFILTER_H
 #define SOLOUD_EQFILTER_H
 
-#include "soloud.h"
 #include "soloud_fftfilter.h"
 
 namespace SoLoud

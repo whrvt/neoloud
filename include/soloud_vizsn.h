@@ -13,7 +13,7 @@ released under same license.
 #ifndef SOLOUD_VIZSN_H
 #define SOLOUD_VIZSN_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 
 namespace SoLoud
 {

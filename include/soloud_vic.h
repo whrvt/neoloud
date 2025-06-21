@@ -28,7 +28,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_VIC_H
 #define SOLOUD_VIC_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 
 /*
 A very bare bones emulator for Commodore VIC-20 sound chip. Supports both PAL and NTSC models.

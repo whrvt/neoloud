@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_AUDIOSOURCE_H
 #define SOLOUD_AUDIOSOURCE_H
 
-#include "soloud.h"
+#include "soloud_audiosource3d.h"
 #include "soloud_fader.h"
 #include "soloud_filter.h"
 
@@ -46,56 +46,6 @@ namespace SoLoud
 	{
 	public:
 		virtual float attenuate(float aDistance, float aMinDistance, float aMaxDistance, float aRolloffFactor) = 0;
-	};
-
-	class AudioSourceInstance3dData
-	{
-	public:
-		// ctor
-		AudioSourceInstance3dData();
-		// Set settings from audiosource
-		void init(AudioSource & aSource);
-		// 3d position
-		float m3dPosition[3];
-		// 3d velocity
-		float m3dVelocity[3];
-		// 3d cone direction
-		/*
-		float m3dConeDirection[3];
-		// 3d cone inner angle
-		float m3dConeInnerAngle;
-		// 3d cone outer angle
-		float m3dConeOuterAngle;
-		// 3d cone outer volume multiplier
-		float m3dConeOuterVolume;
-		*/
-		// 3d min distance
-		float m3dMinDistance;
-		// 3d max distance
-		float m3dMaxDistance;
-		// 3d attenuation rolloff factor
-		float m3dAttenuationRolloff;
-		// 3d attenuation model
-		unsigned int m3dAttenuationModel;
-		// 3d doppler factor
-		float m3dDopplerFactor;
-		// Pointer to a custom audio collider object
-		AudioCollider *mCollider;
-		// Pointer to a custom audio attenuator object
-		AudioAttenuator *mAttenuator;
-		// User data related to audio collider
-		int mColliderData;
-
-		// Doppler sample rate multiplier
-		float mDopplerValue;
-		// Overall 3d volume
-		float m3dVolume;
-		// Channel volume
-		float mChannelVolume[MAX_CHANNELS];
-		// Copy of flags
-		unsigned int mFlags;
-		// Latest handle for this voice
-		handle mHandle;
 	};
 
 	// Base class for audio instances
@@ -182,9 +132,8 @@ namespace SoLoud
 		// When looping, start playing from this time
 		time mLoopPoint;
 
-		static const unsigned int CHUNK_SIZE = 512; // a la SAMPLE_GRANULARITY
-		static const unsigned int CHUNK_COUNT = 3;  // 3 chunks = 1536 samples buffer
-		static const unsigned int RESAMPLE_BUFFER_SIZE = CHUNK_SIZE * CHUNK_COUNT;
+		// 512 SAMPLE_GRANULARITY * 3 chunks = 1536 samples buffer
+		static constexpr const unsigned int RESAMPLE_BUFFER_SIZE = SAMPLE_GRANULARITY * 3;
 
 		float mResampleBuffer[MAX_CHANNELS][RESAMPLE_BUFFER_SIZE];
 		unsigned int mResampleBufferFill; // How many samples currently in buffer

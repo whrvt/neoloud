@@ -23,6 +23,8 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud.h"
+#include "soloud_audiosource.h"
+
 #include <cstring>
 
 namespace SoLoud

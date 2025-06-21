@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef OPENMPT_H
 #define OPENMPT_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 
 namespace SoLoud
 {

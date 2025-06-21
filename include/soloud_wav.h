@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_WAV_H
 #define SOLOUD_WAV_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 
 struct stb_vorbis;
 

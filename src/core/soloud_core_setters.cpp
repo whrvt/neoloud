@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud_internal.h"
+#include "soloud_audiosource.h"
 
 // Setters - set various bits of SoLoud state
 

@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_FADER_H
 #define SOLOUD_FADER_H
 
-#include "soloud.h"
+#include "soloud_config.h"
 
 namespace SoLoud
 {

@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_QUEUE_H
 #define SOLOUD_QUEUE_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 
 #define SOLOUD_QUEUE_MAX 32
 

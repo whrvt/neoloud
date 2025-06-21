@@ -22,6 +22,7 @@ freely, subject to the following restrictions:
    distribution.
 */
 
+#include "soloud_queue.h"
 #include "soloud.h"
 
 namespace SoLoud

@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_FREEVERBFILTER_H
 #define SOLOUD_FREEVERBFILTER_H
 
-#include "soloud.h"
+#include "soloud_filter.h"
 
 namespace SoLoud
 {

@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef AY_H
 #define AY_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 
 class ChipPlayer;
 

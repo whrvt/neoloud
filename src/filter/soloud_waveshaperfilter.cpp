@@ -22,10 +22,10 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include <math.h>
-#include <string.h>
-#include "soloud.h"
 #include "soloud_waveshaperfilter.h"
+#include "soloud_error.h"
+
+#include <cmath>
 
 namespace SoLoud
 {

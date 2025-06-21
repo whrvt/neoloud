@@ -24,9 +24,9 @@ freely, subject to the following restrictions:
    3. This notice may not be removed or altered from any source
    distribution.
 */
-#include <stdlib.h>
+#include <cstdlib>
 
-#include "soloud.h"
+#include "soloud_internal.h"
 
 #if !defined(WITH_SDL3)
 

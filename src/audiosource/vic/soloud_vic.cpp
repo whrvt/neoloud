@@ -25,146 +25,144 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
 #include "soloud_vic.h"
+
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 namespace SoLoud
 {
 
-	VicInstance::VicInstance(Vic *aParent)
+VicInstance::VicInstance(Vic *aParent)
+{
+	m_parent = aParent;
+
+	for (int i = 0; i < 4; i++)
+		m_phase[i] = 0;
+
+	m_noisePos = 0;
+}
+
+VicInstance::~VicInstance() {}
+
+unsigned int VicInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
+{
+	unsigned int phaseAdder[4] = {0, 0, 0, 0};
+	if (aBuffer == NULL)
+		return 0;
+	for (int i = 0; i < 4; i++)
 	{
-		m_parent = aParent;
-
-		for(int i = 0; i < 4; i++)
-			m_phase[i] = 0;
-
-		m_noisePos = 0;
-	}
-
-	VicInstance::~VicInstance()
-	{
-	}
-
-	unsigned int VicInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
-	{
-		unsigned int phaseAdder[4] = { 0, 0, 0, 0 };
-		if (aBuffer == NULL)
-			return 0;
-		for(int i = 0; i < 4; i++)
+		unsigned char reg = m_parent->getRegister(i);
+		if (reg >= 128)
 		{
-			unsigned char reg = m_parent->getRegister(i);
-			if(reg >= 128)
+			float freq = m_parent->m_clocks[i] / (float)(reg < 255 ? 255 - reg : 1);
+			phaseAdder[i] = (unsigned int)(freq * 65536.0f / 44100.0f + 0.5f);
+		}
+	}
+
+	for (int i = 0; i < (signed)aSamplesToRead; i++)
+	{
+		float s = 0.0f;
+
+		// square waves
+		for (int v = 0; v < 3; v++)
+		{
+			if (phaseAdder[v] != 0)
 			{
-				float freq = m_parent->m_clocks[i] / (float)(reg < 255 ? 255 - reg : 1);
-				phaseAdder[i] = (unsigned int)(freq * 65536.0f / 44100.0f + 0.5f);
+				s += (m_phase[v] < 32768 ? 0.5f : -0.5f);
+				m_phase[v] = (m_phase[v] + phaseAdder[v]) & 65535;
 			}
 		}
 
-		for(int i = 0; i < (signed)aSamplesToRead; i++)
+		// noise
+		if (phaseAdder[3] != 0)
 		{
-			float s = 0.0f;
+			s += (float)m_parent->m_noise[m_noisePos] / 255.0f - 0.5f;
 
-			// square waves
-			for(int v = 0; v < 3; v++)
+			m_phase[3] += phaseAdder[3];
+
+			if (m_phase[3] >= 32768)
 			{
-				if(phaseAdder[v] != 0)
-				{
-					s += (m_phase[v] < 32768 ? 0.5f : -0.5f);
-					m_phase[v] = (m_phase[v] + phaseAdder[v]) & 65535;
-				}
+				m_noisePos = (m_noisePos + 1) & 8191;
+				m_phase[3] &= 32767;
 			}
-
-			// noise
-			if(phaseAdder[3] != 0)
-			{
-				s += (float)m_parent->m_noise[m_noisePos] / 255.0f - 0.5f;
-
-				m_phase[3] += phaseAdder[3];
-
-				if(m_phase[3] >= 32768)
-				{
-					m_noisePos = (m_noisePos + 1) & 8191;
-					m_phase[3] &= 32767;
-				}
-			}
-
-			aBuffer[i] = s / 4.0f;
 		}
-		return aSamplesToRead;
-	}
 
-	bool VicInstance::hasEnded()
+		aBuffer[i] = s / 4.0f;
+	}
+	return aSamplesToRead;
+}
+
+bool VicInstance::hasEnded()
+{
+	return false;
+}
+
+Vic::Vic()
+{
+	mBaseSamplerate = 44100;
+	setModel(PAL);
+
+	for (int i = 0; i < MAX_REGS; i++)
+		m_regs[i] = 0;
+
+	// Galois LFSR (source: https://en.wikipedia.org/wiki/Linear_feedback_shift_register)
+	unsigned short lfsr = 0xACE1u;
+	for (int i = 0; i < 8192; i++)
 	{
-		return false;
+		unsigned lsb = lfsr & 1;
+		lfsr >>= 1;
+		lfsr ^= (unsigned)(-(signed)lsb) & 0xB400u;
+		m_noise[i] = (lfsr & 0xff) ^ (lfsr >> 8);
 	}
+}
 
-	Vic::Vic()
+Vic::~Vic()
+{
+	stop();
+}
+
+void Vic::setModel(int model)
+{
+	m_model = model;
+
+	switch (model)
 	{
-		mBaseSamplerate = 44100;
-		setModel(PAL);
+	case PAL:
+		m_clocks[0] = 4329.0f;
+		m_clocks[1] = 8659.0f;
+		m_clocks[2] = 17320.0f;
+		m_clocks[3] = 34640.0f;
+		break;
 
-		for(int i = 0; i < MAX_REGS; i++)
-			m_regs[i] = 0;
-
-		// Galois LFSR (source: https://en.wikipedia.org/wiki/Linear_feedback_shift_register)
-	    unsigned short lfsr = 0xACE1u;
-		for(int i = 0; i < 8192; i++)
-		{
-		    unsigned lsb = lfsr & 1;
-		    lfsr >>= 1;
-		    lfsr ^= (unsigned)(-(signed)lsb) & 0xB400u;
-		    m_noise[i] = (lfsr & 0xff) ^ (lfsr >> 8);
-		}
+	case NTSC:
+		m_clocks[0] = 3995.0f;
+		m_clocks[1] = 7990.0f;
+		m_clocks[2] = 15980.0f;
+		m_clocks[3] = 31960.0f;
+		break;
 	}
+}
 
-	Vic::~Vic()
-	{
-		stop();
-	}
+int Vic::getModel() const
+{
+	return m_model;
+}
 
-	void Vic::setModel(int model)
-	{
-		m_model = model;
+void Vic::setRegister(int reg, unsigned char value)
+{
+	m_regs[reg] = value;
+}
 
-		switch(model)
-		{
-		case PAL:
-			m_clocks[0] = 4329.0f;
-			m_clocks[1] = 8659.0f;
-			m_clocks[2] = 17320.0f;
-			m_clocks[3] = 34640.0f;
-			break;
+unsigned char Vic::getRegister(int reg)
+{
+	return m_regs[reg];
+}
 
-		case NTSC:
-			m_clocks[0] = 3995.0f;
-			m_clocks[1] = 7990.0f;
-			m_clocks[2] = 15980.0f;
-			m_clocks[3] = 31960.0f;
-			break;
-		}
-	}
+AudioSourceInstance *Vic::createInstance()
+{
+	return new VicInstance(this);
+}
 
-	int Vic::getModel() const
-	{
-		return m_model;
-	}
-
-	void Vic::setRegister(int reg, unsigned char value) 
-	{ 
-		m_regs[reg] = value; 
-	}
-	
-	unsigned char Vic::getRegister(int reg)
-	{ 
-		return m_regs[reg]; 
-	}
-
-	AudioSourceInstance * Vic::createInstance() 
-	{
-		return new VicInstance(this);
-	}
-
-};
+}; // namespace SoLoud

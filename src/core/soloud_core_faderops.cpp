@@ -22,6 +22,7 @@ freely, subject to the following restrictions:
    distribution.
 */
 
+#include "soloud_audiosource.h"
 #include "soloud_internal.h"
 
 // Core operations related to faders (not including filters)

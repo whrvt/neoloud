@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud.h"
+#include "soloud_audiosource.h"
 
 // Getters - return information about SoLoud state
 

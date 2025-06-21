@@ -26,7 +26,7 @@ freely, subject to the following restrictions:
 #ifndef SFXR_H
 #define SFXR_H
 
-#include "soloud.h"
+#include "soloud_audiosource.h"
 #include "soloud_misc.h"
 
 namespace SoLoud

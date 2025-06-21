@@ -25,8 +25,7 @@ freely, subject to the following restrictions:
 #ifndef MONOTONE_H
 #define MONOTONE_H
 
-#include "soloud.h"
-#include "soloud_misc.h"
+#include "soloud_audiosource.h"
 
 namespace SoLoud
 {
@@ -97,7 +96,7 @@ namespace SoLoud
 		MonotoneSong mSong;
 		Monotone();
 		~Monotone();
-		result setParams(int aHardwareChannels, int aWaveform = Soloud::WAVE_SQUARE);
+		result setParams(int aHardwareChannels, int aWaveform = 0); /* WAVE_SQUARE */
 		result load(const char *aFilename);
 		result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);
 		result loadFile(File * aFile);

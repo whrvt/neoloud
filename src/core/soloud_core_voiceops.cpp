@@ -23,7 +23,9 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud.h"
-#include <string.h>
+#include "soloud_audiosource.h"
+
+#include <cstring>
 
 // Direct voice operations (no mutexes - called from other functions)
 

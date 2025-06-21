@@ -22,7 +22,8 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include "soloud.h"
+#include "soloud_fader.h"
+#include <cmath>
 
 namespace SoLoud
 {

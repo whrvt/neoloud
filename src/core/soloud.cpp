@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #include "soloud_fft.h"
 #include "soloud_internal.h"
 #include "soloud_thread.h"
+#include "soloud_audiosource.h"
+
 #include <float.h> // _controlfp
 #include <math.h>  // sin
 #include <stdlib.h>
@@ -1231,9 +1233,6 @@ void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSam
 // Helper function to ensure we have enough source data in the resample buffer
 unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int samplesNeeded, float *scratchBuffer, unsigned int scratchSize)
 {
-	const unsigned int CHUNK_SIZE = AudioSourceInstance::CHUNK_SIZE;
-	const unsigned int RESAMPLE_BUFFER_SIZE = AudioSourceInstance::RESAMPLE_BUFFER_SIZE;
-
 	// Calculate how many samples we currently have available
 	unsigned int availableSamples = voice->mResampleBufferFill - voice->mResampleBufferPos;
 
@@ -1244,7 +1243,7 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 	}
 
 	// Compact buffer when read position advances significantly
-	if (voice->mResampleBufferPos >= CHUNK_SIZE && availableSamples > 0)
+	if (voice->mResampleBufferPos >= SAMPLE_GRANULARITY && availableSamples > 0)
 	{
 		for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 		{
@@ -1261,14 +1260,14 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 	}
 
 	// Determine how much space we have for new data
-	unsigned int spaceAvailable = RESAMPLE_BUFFER_SIZE - voice->mResampleBufferFill;
+	unsigned int spaceAvailable = AudioSourceInstance::RESAMPLE_BUFFER_SIZE - voice->mResampleBufferFill;
 	if (spaceAvailable == 0)
 	{
 		return availableSamples; // Buffer is full
 	}
 
 	// Read one chunk at a time to maintain low latency
-	unsigned int samplesToRead = CHUNK_SIZE;
+	unsigned int samplesToRead = SAMPLE_GRANULARITY;
 	if (samplesToRead > spaceAvailable)
 		samplesToRead = spaceAvailable;
 	if (samplesToRead > scratchSize / voice->mChannels)
@@ -1380,10 +1379,9 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 
 	// Limit processing to one chunk worth of output to maintain low latency
 	// This prevents excessive buffering for high sample rate ratios
-	const unsigned int MAX_OUTPUT_CHUNK = AudioSourceInstance::CHUNK_SIZE;
-	if (samplesToProcess > MAX_OUTPUT_CHUNK)
+	if (samplesToProcess > SAMPLE_GRANULARITY)
 	{
-		samplesToProcess = MAX_OUTPUT_CHUNK;
+		samplesToProcess = SAMPLE_GRANULARITY;
 	}
 
 	// Calculate how much input we need for this chunk of output
@@ -1576,9 +1574,8 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 			unsigned int chunkOutput = remainingSamples;
 
 			// Limit chunk size to maintain low latency
-			const unsigned int MAX_CHUNK = AudioSourceInstance::CHUNK_SIZE;
-			if (chunkOutput > MAX_CHUNK)
-				chunkOutput = MAX_CHUNK;
+			if (chunkOutput > SAMPLE_GRANULARITY)
+				chunkOutput = SAMPLE_GRANULARITY;
 
 			if (isAudible)
 			{

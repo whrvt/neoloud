@@ -28,79 +28,13 @@ freely, subject to the following restrictions:
 #include <math.h>   // sin
 #include <stdlib.h> // rand
 
-#ifdef SOLOUD_NO_ASSERTS
-#define SOLOUD_ASSERT(x)
-#else
-#ifdef _MSC_VER
-#include <stdio.h> // for sprintf in asserts
-#ifndef VC_EXTRALEAN
-#define VC_EXTRALEAN
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h> // only needed for OutputDebugStringA, should be solved somehow.
-#define SOLOUD_ASSERT(x) \
-	if (!(x)) \
-	{ \
-		char temp[200]; \
-		sprintf(temp, "%s(%d): assert(%s) failed.\n", __FILE__, __LINE__, #x); \
-		OutputDebugStringA(temp); \
-		__debugbreak(); \
-	}
-#else
-#include <assert.h> // assert
-#define SOLOUD_ASSERT(x) assert(x)
-#endif
-#endif
+#include "soloud_config.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265359
-#endif
+#include "soloud_audiosource3d.h"
+#include "soloud_fader.h"
+#include "soloud_filter.h"
 
-#if !defined(DISABLE_SIMD)
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
-#define SOLOUD_SSE_INTRINSICS
-#endif
-#endif
-
-#define SOLOUD_VERSION 202506
-
-/////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////
-// Configuration defines
-
-// Maximum number of filters per stream
-#define FILTERS_PER_STREAM 8
-
-// Number of samples to process on one go
-#define SAMPLE_GRANULARITY 512
-
-// Maximum number of concurrent voices (hard limit is 4095)
-#define VOICE_COUNT 1024
-
-// 1)mono, 2)stereo 4)quad 6)5.1 8)7.1
-#define MAX_CHANNELS 8
-
-// Default resampler for both main and bus mixers
-#define SOLOUD_DEFAULT_RESAMPLER SoLoud::Soloud::RESAMPLER_LINEAR
-
-//
-/////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////
-
-// Typedefs have to be made before the includes, as the
-// includes depend on them.
-namespace SoLoud
-{
-	class Soloud;
-	typedef void (*mutexCallFunction)(void *aMutexPtr);
-	typedef void (*soloudCallFunction)(Soloud *aSoloud);
-	typedef unsigned int result;
-	typedef result (*soloudResultFunction)(Soloud *aSoloud);
-	typedef unsigned int handle;
-	typedef double time;
-}; // namespace SoLoud
+#include "soloud_error.h"
 
 namespace SoLoud
 {
@@ -134,15 +68,15 @@ namespace SoLoud
 	};
 }; // namespace SoLoud
 
-#include "soloud_audiosource.h"
-#include "soloud_bus.h"
-#include "soloud_error.h"
-#include "soloud_fader.h"
-#include "soloud_filter.h"
-#include "soloud_queue.h"
-
 namespace SoLoud
 {
+	class AudioSource;
+	class AudioSourceInstance;
+	class Bus;
+	class BusInstance;
+	class Queue;
+	class QueueInstance;
+	class AudioSourceInstance3dData;
 
 	// Soloud core class.
 	class Soloud

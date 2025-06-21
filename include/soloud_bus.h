@@ -26,6 +26,7 @@ freely, subject to the following restrictions:
 #define SOLOUD_BUS_H
 
 #include "soloud.h"
+#include "soloud_audiosource.h"
 
 namespace SoLoud
 {

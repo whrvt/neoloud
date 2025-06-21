@@ -22,17 +22,20 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
 #include "sndbuffer.h"
 #include "sndrender.h"
 #include "sndchip.h"
 #include "chipplayer.h"
 #include "soloud_ay.h"
 #include "soloud_file.h"
+
 #include "zx7decompress.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+
 
 
 namespace SoLoud

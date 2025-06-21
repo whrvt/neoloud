@@ -297,7 +297,7 @@ static int getOggData(float **aOggOutputs, float *aBuffer, int aSamples, int aPi
 unsigned int WavStreamInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize)
 {
 	unsigned int offset = 0;
-	float tmp[512 * MAX_CHANNELS];
+	float tmp[SAMPLE_GRANULARITY * MAX_CHANNELS];
 	if (aBuffer == NULL || mFile == NULL)
 		return 0;
 	switch (mParent->mFiletype)
@@ -305,9 +305,9 @@ unsigned int WavStreamInstance::getAudio(float *aBuffer, unsigned int aSamplesTo
 	case WAVSTREAM_FLAC: {
 		unsigned int i, j, k;
 
-		for (i = 0; i < aSamplesToRead; i += 512)
+		for (i = 0; i < aSamplesToRead; i += SAMPLE_GRANULARITY)
 		{
-			unsigned int blockSize = (aSamplesToRead - i) > 512 ? 512 : aSamplesToRead - i;
+			unsigned int blockSize = (aSamplesToRead - i) > SAMPLE_GRANULARITY ? SAMPLE_GRANULARITY : aSamplesToRead - i;
 			offset += (unsigned int)drflac_read_pcm_frames_f32(mCodec.mFlac, blockSize, tmp);
 
 			for (j = 0; j < blockSize; j++)
@@ -325,9 +325,9 @@ unsigned int WavStreamInstance::getAudio(float *aBuffer, unsigned int aSamplesTo
 	case WAVSTREAM_MPG123: {
 		unsigned int i, j, k;
 
-		for (i = 0; i < aSamplesToRead; i += 512)
+		for (i = 0; i < aSamplesToRead; i += SAMPLE_GRANULARITY)
 		{
-			unsigned int blockSize = (aSamplesToRead - i) > 512 ? 512 : aSamplesToRead - i;
+			unsigned int blockSize = (aSamplesToRead - i) > SAMPLE_GRANULARITY ? SAMPLE_GRANULARITY : aSamplesToRead - i;
 			size_t framesRead = MPG123::readFrames(mCodec.mMpg123, blockSize, tmp);
 			offset += (unsigned int)framesRead;
 
@@ -349,9 +349,9 @@ unsigned int WavStreamInstance::getAudio(float *aBuffer, unsigned int aSamplesTo
 	case WAVSTREAM_DRMP3: {
 		unsigned int i, j, k;
 
-		for (i = 0; i < aSamplesToRead; i += 512)
+		for (i = 0; i < aSamplesToRead; i += SAMPLE_GRANULARITY)
 		{
-			unsigned int blockSize = (aSamplesToRead - i) > 512 ? 512 : aSamplesToRead - i;
+			unsigned int blockSize = (aSamplesToRead - i) > SAMPLE_GRANULARITY ? SAMPLE_GRANULARITY : aSamplesToRead - i;
 			offset += (unsigned int)drmp3_read_pcm_frames_f32(mCodec.mDrmp3, blockSize, tmp);
 
 			for (j = 0; j < blockSize; j++)
@@ -395,9 +395,9 @@ unsigned int WavStreamInstance::getAudio(float *aBuffer, unsigned int aSamplesTo
 	case WAVSTREAM_WAV: {
 		unsigned int i, j, k;
 
-		for (i = 0; i < aSamplesToRead; i += 512)
+		for (i = 0; i < aSamplesToRead; i += SAMPLE_GRANULARITY)
 		{
-			unsigned int blockSize = (aSamplesToRead - i) > 512 ? 512 : aSamplesToRead - i;
+			unsigned int blockSize = (aSamplesToRead - i) > SAMPLE_GRANULARITY ? SAMPLE_GRANULARITY : aSamplesToRead - i;
 			offset += (unsigned int)drwav_read_pcm_frames_f32(mCodec.mWav, blockSize, tmp);
 
 			for (j = 0; j < blockSize; j++)

@@ -22,133 +22,134 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
 #include "soloud_openmpt.h"
 #include "soloud_file.h"
+#include <cstdio>
+#include <cstdlib>
 
 extern "C"
 {
-	void * openmpt_module_create_from_memory(const void * filedata, size_t filesize, void *logfunc, void * user,void * ctls);
-	void openmpt_module_destroy(void * mod);
-	int openmpt_module_read_float_stereo(void * mod, int samplerate, size_t count, float * left, float * right);
-	void openmpt_module_set_repeat_count(void* mod, int repeat_count);
+	void *openmpt_module_create_from_memory(const void *filedata, size_t filesize, void *logfunc, void *user, void *ctls);
+	void openmpt_module_destroy(void *mod);
+	int openmpt_module_read_float_stereo(void *mod, int samplerate, size_t count, float *left, float *right);
+	void openmpt_module_set_repeat_count(void *mod, int repeat_count);
 }
 
 namespace SoLoud
 {
-	OpenmptInstance::OpenmptInstance(Openmpt *aParent)
-	{
-		mParent = aParent;
-		mModfile = openmpt_module_create_from_memory((const void*)mParent->mData, mParent->mDataLen, NULL, NULL, NULL);		
-		openmpt_module_set_repeat_count(mModfile, -1);
-		mPlaying = mModfile != NULL;		
-	}
+OpenmptInstance::OpenmptInstance(Openmpt *aParent)
+{
+	mParent = aParent;
+	mModfile = openmpt_module_create_from_memory((const void *)mParent->mData, mParent->mDataLen, NULL, NULL, NULL);
+	openmpt_module_set_repeat_count(mModfile, -1);
+	mPlaying = mModfile != NULL;
+}
 
-	unsigned int OpenmptInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize)
-	{
-		if (aBuffer == NULL || mModfile == NULL)
-			return 0;
-		int s = aSamplesToRead;
-		unsigned int outofs = 0;
-		
-		while (s && mPlaying)
-		{
-			int samples = 512;
-			if (s < samples) samples = s;
-			int res = openmpt_module_read_float_stereo(mModfile, (int)floor(mSamplerate), samples, aBuffer + outofs, aBuffer + outofs + aBufferSize);
-			if (res == 0)
-			{
-				mPlaying = 0;
-				return outofs;
-			}
-			outofs += samples;
-			s -= samples;
-		}
-
-		return outofs;
-	}
-
-	bool OpenmptInstance::hasEnded()
-	{
-		return !mPlaying;
-	}
-
-	OpenmptInstance::~OpenmptInstance()
-	{
-		if (mModfile)
-		{
-			openmpt_module_destroy(mModfile);
-		}
-		mModfile = 0;
-	}
-
-	result Openmpt::loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy, bool aTakeOwnership)
-	{
-		MemoryFile mf;
-		int res = mf.openMem(aMem, aLength, aCopy, aTakeOwnership);
-		if (res != SO_NO_ERROR)
-			return res;
-		return loadFile(&mf);
-	}
-
-	result Openmpt::load(const char *aFilename)
-	{
-		DiskFile df;
-		int res = df.open(aFilename);
-		if (res != SO_NO_ERROR)
-			return res;
-		return loadFile(&df);
-	}
-
-	result Openmpt::loadFile(File *aFile)
-	{
-		delete[] mData;
-
-		mDataLen = aFile->length();
-		mData = new char[mDataLen];
-		if (!mData)
-		{
-			mData = 0;
-			mDataLen = 0;
-			return OUT_OF_MEMORY;
-		}
-		aFile->read((unsigned char*)mData, mDataLen);
-
-		void *mpf = openmpt_module_create_from_memory((const void*)mData, mDataLen, NULL, NULL, NULL);
-		if (!mpf)
-		{
-			delete[] mData;
-			mData = 0;
-			mDataLen = 0;
-			return FILE_LOAD_FAILED;
-		}
-		openmpt_module_destroy(mpf);
+unsigned int OpenmptInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize)
+{
+	if (aBuffer == NULL || mModfile == NULL)
 		return 0;
+	int s = aSamplesToRead;
+	unsigned int outofs = 0;
+
+	while (s && mPlaying)
+	{
+		int samples = SAMPLE_GRANULARITY;
+		if (s < samples)
+			samples = s;
+		int res = openmpt_module_read_float_stereo(mModfile, (int)floor(mSamplerate), samples, aBuffer + outofs, aBuffer + outofs + aBufferSize);
+		if (res == 0)
+		{
+			mPlaying = 0;
+			return outofs;
+		}
+		outofs += samples;
+		s -= samples;
 	}
 
-	Openmpt::Openmpt()
+	return outofs;
+}
+
+bool OpenmptInstance::hasEnded()
+{
+	return !mPlaying;
+}
+
+OpenmptInstance::~OpenmptInstance()
+{
+	if (mModfile)
 	{
-		mBaseSamplerate = 44100;
-		mChannels = 2;
+		openmpt_module_destroy(mModfile);
+	}
+	mModfile = 0;
+}
+
+result Openmpt::loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy, bool aTakeOwnership)
+{
+	MemoryFile mf;
+	int res = mf.openMem(aMem, aLength, aCopy, aTakeOwnership);
+	if (res != SO_NO_ERROR)
+		return res;
+	return loadFile(&mf);
+}
+
+result Openmpt::load(const char *aFilename)
+{
+	DiskFile df;
+	int res = df.open(aFilename);
+	if (res != SO_NO_ERROR)
+		return res;
+	return loadFile(&df);
+}
+
+result Openmpt::loadFile(File *aFile)
+{
+	delete[] mData;
+
+	mDataLen = aFile->length();
+	mData = new char[mDataLen];
+	if (!mData)
+	{
 		mData = 0;
 		mDataLen = 0;
+		return OUT_OF_MEMORY;
 	}
+	aFile->read((unsigned char *)mData, mDataLen);
 
-	Openmpt::~Openmpt()
+	void *mpf = openmpt_module_create_from_memory((const void *)mData, mDataLen, NULL, NULL, NULL);
+	if (!mpf)
 	{
-		stop();
-		if (mData)
-		{
-			delete[] mData;
-			mData = 0;
-		}
+		delete[] mData;
+		mData = 0;
 		mDataLen = 0;
+		return FILE_LOAD_FAILED;
 	}
+	openmpt_module_destroy(mpf);
+	return 0;
+}
 
-	AudioSourceInstance * Openmpt::createInstance()
+Openmpt::Openmpt()
+{
+	mBaseSamplerate = 44100;
+	mChannels = 2;
+	mData = 0;
+	mDataLen = 0;
+}
+
+Openmpt::~Openmpt()
+{
+	stop();
+	if (mData)
 	{
-		return new OpenmptInstance(this);
+		delete[] mData;
+		mData = 0;
 	}
+	mDataLen = 0;
+}
 
-};
+AudioSourceInstance *Openmpt::createInstance()
+{
+	return new OpenmptInstance(this);
+}
+
+}; // namespace SoLoud
