@@ -46,11 +46,11 @@ namespace SoLoud
 		virtual unsigned int pos() = 0;
 		virtual FILE *getFilePtr()
 		{
-			return 0;
+			return nullptr;
 		}
 		virtual const unsigned char *getMemPtr()
 		{
-			return 0;
+			return nullptr;
 		}
 	};
 

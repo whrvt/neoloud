@@ -34,7 +34,7 @@ namespace SoLoud
     {
 		if (aChannels == 0 || aChannels == 3 || aChannels == 5 || aChannels == 7 || aChannels > MAX_CHANNELS || aBuffer < SAMPLE_GRANULARITY)
 			return INVALID_PARAMETER;
-        aSoloud->mBackendData = 0;
+        aSoloud->mBackendData = nullptr;
         aSoloud->mBackendCleanupFunc = nullCleanup;
 
         aSoloud->postinit_internal(aSamplerate, aBuffer, aFlags, aChannels);

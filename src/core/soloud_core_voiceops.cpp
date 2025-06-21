@@ -131,7 +131,7 @@ void Soloud::stopVoice_internal(unsigned int aVoice)
 	{
 		// Delete via temporary variable to avoid recursion
 		AudioSourceInstance *v = mVoice[aVoice];
-		mVoice[aVoice] = 0;
+		mVoice[aVoice] = nullptr;
 
 		delete v;
 	}

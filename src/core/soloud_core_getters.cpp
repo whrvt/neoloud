@@ -51,7 +51,7 @@ float Soloud::getGlobalVolume() const
 
 handle Soloud::getHandleFromVoice_internal(unsigned int aVoice) const
 {
-	if (mVoice[aVoice] == 0)
+	if (mVoice[aVoice] == nullptr)
 		return 0;
 	return (aVoice + 1) | (mVoice[aVoice]->mPlayIndex << 12);
 }
@@ -60,7 +60,7 @@ int Soloud::getVoiceFromHandle_internal(handle aVoiceHandle) const
 {
 	// If this is a voice group handle, pick the first handle from the group
 	handle *h = voiceGroupHandleToArray_internal(aVoiceHandle);
-	if (h != NULL)
+	if (h != nullptr)
 		aVoiceHandle = *h;
 
 	if (aVoiceHandle == 0)
@@ -313,12 +313,12 @@ int Soloud::findFreeVoice_internal()
 	int lowest_play_index = -1;
 
 	// (slowly) drag the highest active voice index down
-	if (mHighestVoice > 0 && mVoice[mHighestVoice - 1] == NULL)
+	if (mHighestVoice > 0 && mVoice[mHighestVoice - 1] == nullptr)
 		mHighestVoice--;
 
 	for (i = 0; i < VOICE_COUNT; i++)
 	{
-		if (mVoice[i] == NULL)
+		if (mVoice[i] == nullptr)
 		{
 			if (i + 1 > (signed)mHighestVoice)
 			{

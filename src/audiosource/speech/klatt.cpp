@@ -296,9 +296,9 @@ klatt::klatt() :
 	mOneMd(0),
 	mSeed(5),
 	mElementCount(0),
-	mElement(0),
+	mElement(nullptr),
 	mElementIndex(0),
-	mLastElement(0),
+	mLastElement(nullptr),
 	mTStress(0),
 	mNTStress(0),
 	mTop(0)
@@ -725,7 +725,7 @@ static char * phoneme_to_element_lookup(char *s, void ** data)
 		}
 	}
 	// should never happen
-	*data = NULL;
+	*data = nullptr;
 	return s+1;
 }
 
@@ -740,7 +740,7 @@ int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 
 	while (s < limit && *s)
 	{
-		char *e = NULL;
+		char *e = nullptr;
 		s = phoneme_to_element_lookup(s, (void**)&e);
 
 		if (e)

@@ -32,7 +32,7 @@ namespace SoLoud
 FlangerFilterInstance::FlangerFilterInstance(FlangerFilter *aParent)
 {
 	mParent = aParent;
-	mBuffer = 0;
+	mBuffer = nullptr;
 	mBufferLength = 0;
 	mOffset = 0;
 	mIndex = 0;
@@ -51,7 +51,7 @@ void FlangerFilterInstance::filter(float *aBuffer, unsigned int aSamples, unsign
 		delete[] mBuffer;
 		mBufferLength = (int)ceil(mParam[FlangerFilter::DELAY] * aSamplerate);
 		mBuffer = new float[mBufferLength * aChannels];
-		if (mBuffer == NULL)
+		if (mBuffer == nullptr)
 		{
 			mBufferLength = 0;
 			return;
@@ -111,7 +111,7 @@ int FlangerFilter::getParamCount()
 const char *FlangerFilter::getParamName(unsigned int aParamIndex)
 {
 	if (aParamIndex > 2)
-		return 0;
+		return nullptr;
 	const char *names[3] = {"Wet", "Delay", "Freq"};
 	return names[aParamIndex];
 }

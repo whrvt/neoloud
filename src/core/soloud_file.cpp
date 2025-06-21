@@ -97,7 +97,7 @@ DiskFile::~DiskFile()
 
 DiskFile::DiskFile()
 {
-	mFileHandle = 0;
+	mFileHandle = nullptr;
 }
 
 result DiskFile::open(const char *aFilename)
@@ -159,7 +159,7 @@ MemoryFile::~MemoryFile()
 
 MemoryFile::MemoryFile()
 {
-	mDataPtr = 0;
+	mDataPtr = nullptr;
 	mDataLength = 0;
 	mOffset = 0;
 	mDataOwned = false;
@@ -167,12 +167,12 @@ MemoryFile::MemoryFile()
 
 result MemoryFile::openMem(const unsigned char *aData, unsigned int aDataLength, bool aCopy, bool aTakeOwnership)
 {
-	if (aData == NULL || aDataLength == 0)
+	if (aData == nullptr || aDataLength == 0)
 		return INVALID_PARAMETER;
 
 	if (mDataOwned)
 		delete[] mDataPtr;
-	mDataPtr = 0;
+	mDataPtr = nullptr;
 	mOffset = 0;
 
 	mDataLength = aDataLength;
@@ -181,7 +181,7 @@ result MemoryFile::openMem(const unsigned char *aData, unsigned int aDataLength,
 	{
 		mDataOwned = true;
 		mDataPtr = new unsigned char[aDataLength];
-		if (mDataPtr == NULL)
+		if (mDataPtr == nullptr)
 			return OUT_OF_MEMORY;
 		memcpy((void *)mDataPtr, aData, aDataLength);
 		return SO_NO_ERROR;
@@ -198,7 +198,7 @@ result MemoryFile::openToMem(const char *aFile)
 		return INVALID_PARAMETER;
 	if (mDataOwned)
 		delete[] mDataPtr;
-	mDataPtr = 0;
+	mDataPtr = nullptr;
 	mOffset = 0;
 
 	DiskFile df;
@@ -208,7 +208,7 @@ result MemoryFile::openToMem(const char *aFile)
 
 	mDataLength = df.length();
 	mDataPtr = new unsigned char[mDataLength];
-	if (mDataPtr == NULL)
+	if (mDataPtr == nullptr)
 		return OUT_OF_MEMORY;
 	df.read((unsigned char *)mDataPtr, mDataLength);
 	mDataOwned = true;
@@ -221,12 +221,12 @@ result MemoryFile::openFileToMem(File *aFile)
 		return INVALID_PARAMETER;
 	if (mDataOwned)
 		delete[] mDataPtr;
-	mDataPtr = 0;
+	mDataPtr = nullptr;
 	mOffset = 0;
 
 	mDataLength = aFile->length();
 	mDataPtr = new unsigned char[mDataLength];
-	if (mDataPtr == NULL)
+	if (mDataPtr == nullptr)
 		return OUT_OF_MEMORY;
 	aFile->read((unsigned char *)mDataPtr, mDataLength);
 	mDataOwned = true;
@@ -294,14 +294,14 @@ extern "C"
 		if (res != SoLoud::SO_NO_ERROR)
 		{
 			delete df;
-			df = 0;
+			df = nullptr;
 		}
 		return (Soloud_Filehack *)df;
 	}
 
 	int Soloud_Filehack_fopen_s(Soloud_Filehack **f, const char *aFilename, char * /*aMode*/)
 	{
-		*f = Soloud_Filehack_fopen(aFilename, 0);
+		*f = Soloud_Filehack_fopen(aFilename, nullptr);
 		return 1;
 	}
 }

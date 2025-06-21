@@ -181,7 +181,7 @@ Allpass::Allpass()
 {
 	mBufidx = 0;
 	mFeedback = 0;
-	mBuffer = 0;
+	mBuffer = nullptr;
 	mBufsize = 0;
 }
 
@@ -225,7 +225,7 @@ Comb::Comb()
 	mFeedback = 0;
 	mDamp1 = 0;
 	mDamp2 = 0;
-	mBuffer = 0;
+	mBuffer = nullptr;
 	mBufsize = 0;
 }
 

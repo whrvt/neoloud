@@ -53,7 +53,7 @@ static void writesamples(short *aSrc, float *aDst, int aCount)
 
 unsigned int SpeechInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 {
-	if (aBuffer == NULL)
+	if (aBuffer == nullptr)
 		return 0;
 	mSynth.init(mParent->mBaseFrequency, mParent->mBaseSpeed, mParent->mBaseDeclination, mParent->mBaseWaveform);
 	unsigned int samples_out = 0;
@@ -116,7 +116,7 @@ result Speech::setParams(unsigned int aBaseFrequency, float aBaseSpeed, float aB
 
 result Speech::setText(const char *aText)
 {
-	if (aText == NULL)
+	if (aText == nullptr)
 		return INVALID_PARAMETER;
 
 	stop();

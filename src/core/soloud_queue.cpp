@@ -49,7 +49,7 @@ unsigned int QueueInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead
 		if (mParent->mSource[mParent->mReadIndex]->hasEnded())
 		{
 			delete mParent->mSource[mParent->mReadIndex];
-			mParent->mSource[mParent->mReadIndex] = 0;
+			mParent->mSource[mParent->mReadIndex] = nullptr;
 			mParent->mReadIndex = (mParent->mReadIndex + 1) % SOLOUD_QUEUE_MAX;
 			mParent->mCount--;
 			mLoopCount++;
@@ -68,13 +68,13 @@ QueueInstance::~QueueInstance() {}
 Queue::Queue()
 {
 	mQueueHandle = 0;
-	mInstance = 0;
+	mInstance = nullptr;
 	mReadIndex = 0;
 	mWriteIndex = 0;
 	mCount = 0;
 	int i;
 	for (i = 0; i < SOLOUD_QUEUE_MAX; i++)
-		mSource[i] = 0;
+		mSource[i] = nullptr;
 }
 
 QueueInstance *Queue::createInstance()
@@ -82,7 +82,7 @@ QueueInstance *Queue::createInstance()
 	if (mInstance)
 	{
 		stop();
-		mInstance = 0;
+		mInstance = nullptr;
 	}
 	mInstance = new QueueInstance(this);
 	return mInstance;
@@ -124,7 +124,7 @@ result Queue::play(AudioSource &aSound)
 
 	SoLoud::AudioSourceInstance *instance = aSound.createInstance();
 
-	if (instance == 0)
+	if (instance == nullptr)
 	{
 		return OUT_OF_MEMORY;
 	}
@@ -155,7 +155,7 @@ unsigned int Queue::getQueueCount()
 
 bool Queue::isCurrentlyPlaying(AudioSource &aSound)
 {
-	if (mSoloud == 0 || mCount == 0 || aSound.mAudioSourceID == 0)
+	if (mSoloud == nullptr || mCount == 0 || aSound.mAudioSourceID == 0)
 		return false;
 	mSoloud->lockAudioMutex_internal();
 	bool res = mSource[mReadIndex]->mAudioSourceID == aSound.mAudioSourceID;

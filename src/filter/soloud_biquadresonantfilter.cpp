@@ -169,7 +169,7 @@ int BiquadResonantFilter::getParamCount()
 const char *BiquadResonantFilter::getParamName(unsigned int aParamIndex)
 {
 	if (aParamIndex > 3)
-		return 0;
+		return nullptr;
 
 	const char *name[4] = {"Wet", "Type", "Frequency", "Resonance"};
 	return name[aParamIndex];

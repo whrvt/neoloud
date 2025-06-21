@@ -36,7 +36,7 @@ void Soloud::setGlobalFilter(unsigned int aFilterId, Filter *aFilter)
 
 	lockAudioMutex_internal();
 	delete mFilterInstance[aFilterId];
-	mFilterInstance[aFilterId] = 0;
+	mFilterInstance[aFilterId] = nullptr;
 
 	mFilter[aFilterId] = aFilter;
 	if (aFilter)

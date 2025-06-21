@@ -87,7 +87,7 @@ DuckFilterInstance::~DuckFilterInstance() {}
 
 DuckFilter::DuckFilter()
 {
-	mSoloud = 0;
+	mSoloud = nullptr;
 	mOnRamp = 0.1f;
 	mOffRamp = 0.5f;
 	mLevel = 0.5f;
@@ -95,7 +95,7 @@ DuckFilter::DuckFilter()
 
 result DuckFilter::setParams(Soloud *aSoloud, handle aListenTo, float aOnRamp, float aOffRamp, float aLevel)
 {
-	if (aOnRamp < 0.0f || aOffRamp < 0.0f || aLevel < 0.0f || aSoloud == 0 || !aSoloud->isValidVoiceHandle(aListenTo))
+	if (aOnRamp < 0.0f || aOffRamp < 0.0f || aLevel < 0.0f || aSoloud == nullptr || !aSoloud->isValidVoiceHandle(aListenTo))
 		return INVALID_PARAMETER;
 
 	mListenTo = aListenTo;
@@ -115,7 +115,7 @@ int DuckFilter::getParamCount()
 const char *DuckFilter::getParamName(unsigned int aParamIndex)
 {
 	if (aParamIndex > 3)
-		return 0;
+		return nullptr;
 	const char *names[4] = {"Wet", "OnRamp", "OffRamp", "Level"};
 	return names[aParamIndex];
 }

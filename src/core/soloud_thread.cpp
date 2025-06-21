@@ -345,12 +345,12 @@ Pool::Pool()
 {
 	mRunning = 0;
 	mThreadCount = 0;
-	mThread = 0;
-	mWorkMutex = 0;
+	mThread = nullptr;
+	mWorkMutex = nullptr;
 	mRobin = 0;
 	mMaxTask = 0;
 	for (int i = 0; i < MAX_THREADPOOL_TASKS; i++)
-		mTaskArray[i] = 0;
+		mTaskArray[i] = nullptr;
 }
 
 Pool::~Pool()
@@ -414,7 +414,7 @@ void Pool::addWork(PoolTask *aTask)
 
 PoolTask *Pool::getWork()
 {
-	PoolTask *t = 0;
+	PoolTask *t = nullptr;
 	if (mWorkMutex)
 		lockMutex(mWorkMutex);
 	if (mMaxTask > 0)

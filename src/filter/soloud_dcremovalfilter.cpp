@@ -32,9 +32,9 @@ namespace SoLoud
 DCRemovalFilterInstance::DCRemovalFilterInstance(DCRemovalFilter *aParent)
 {
 	mParent = aParent;
-	mBuffer = 0;
+	mBuffer = nullptr;
 	mBufferLength = 0;
-	mTotals = 0;
+	mTotals = nullptr;
 	mOffset = 0;
 	initParams(1);
 }
@@ -43,7 +43,7 @@ void DCRemovalFilterInstance::filter(float *aBuffer, unsigned int aSamples, unsi
 {
 	updateParams(aTime);
 
-	if (mBuffer == 0)
+	if (mBuffer == nullptr)
 	{
 		mBufferLength = (int)ceil(mParent->mLength * aSamplerate);
 		mBuffer = new float[mBufferLength * aChannels];

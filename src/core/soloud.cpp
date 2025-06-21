@@ -47,16 +47,16 @@ namespace SoLoud
 {
 AlignedFloatBuffer::AlignedFloatBuffer()
 {
-	mBasePtr = 0;
-	mData = 0;
+	mBasePtr = nullptr;
+	mData = nullptr;
 	mFloats = 0;
 }
 
 result AlignedFloatBuffer::init(unsigned int aFloats)
 {
 	delete[] mBasePtr;
-	mBasePtr = 0;
-	mData = 0;
+	mBasePtr = nullptr;
+	mData = nullptr;
 	mFloats = aFloats;
 #ifndef SOLOUD_SSE_INTRINSICS
 	mBasePtr = new unsigned char[aFloats * sizeof(float)];
@@ -65,7 +65,7 @@ result AlignedFloatBuffer::init(unsigned int aFloats)
 	mData = (float *)mBasePtr;
 #else
 	mBasePtr = new unsigned char[aFloats * sizeof(float) + 16];
-	if (mBasePtr == NULL)
+	if (mBasePtr == nullptr)
 		return OUT_OF_MEMORY;
 	mData = (float *)(((size_t)mBasePtr + 15) & ~15);
 #endif
@@ -104,17 +104,17 @@ Soloud::Soloud()
 	mFlags = 0;
 	mGlobalVolume = 0;
 	mPlayIndex = 0;
-	mBackendData = NULL;
-	mAudioThreadMutex = NULL;
+	mBackendData = nullptr;
+	mAudioThreadMutex = nullptr;
 	mPostClipScaler = 0;
-	mBackendCleanupFunc = NULL;
-	mBackendPauseFunc = NULL;
-	mBackendResumeFunc = NULL;
+	mBackendCleanupFunc = nullptr;
+	mBackendPauseFunc = nullptr;
+	mBackendResumeFunc = nullptr;
 	mChannels = 2;
 	mStreamTime = 0;
 	mLastClockedTime = 0;
 	mAudioSourceID = 1;
-	mBackendString = 0;
+	mBackendString = nullptr;
 	mBackendID = 0;
 	mActiveVoiceDirty = true;
 	mActiveVoiceCount = 0;
@@ -123,8 +123,8 @@ Soloud::Soloud()
 		mActiveVoice[i] = 0;
 	for (i = 0; i < FILTERS_PER_STREAM; i++)
 	{
-		mFilter[i] = NULL;
-		mFilterInstance[i] = NULL;
+		mFilter[i] = nullptr;
+		mFilterInstance[i] = nullptr;
 	}
 	for (i = 0; i < 256; i++)
 	{
@@ -138,9 +138,9 @@ Soloud::Soloud()
 	}
 	for (i = 0; i < VOICE_COUNT; i++)
 	{
-		mVoice[i] = 0;
+		mVoice[i] = nullptr;
 	}
-	mVoiceGroup = 0;
+	mVoiceGroup = nullptr;
 	mVoiceGroupCount = 0;
 
 	m3dPosition[0] = 0;
@@ -186,10 +186,10 @@ void Soloud::deinit()
 	stopAll();
 	if (mBackendCleanupFunc)
 		mBackendCleanupFunc(this);
-	mBackendCleanupFunc = 0;
+	mBackendCleanupFunc = nullptr;
 	if (mAudioThreadMutex)
 		Thread::destroyMutex(mAudioThreadMutex);
-	mAudioThreadMutex = NULL;
+	mAudioThreadMutex = nullptr;
 }
 
 result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aChannels)
@@ -202,7 +202,7 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 	mAudioThreadMutex = Thread::createMutex();
 
 	mBackendID = 0;
-	mBackendString = 0;
+	mBackendString = nullptr;
 
 	int samplerate = 44100;
 	int buffersize = 2048;
@@ -1615,7 +1615,7 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 			{
 				// Just advance the voice without producing audio
 				unsigned int samplesAdvanced =
-				    resampleVoicePrecise_internal(voice, NULL, chunkOutput, 0, aSamplerate, aResampler, tempScratch, actualTempScratchSize);
+				    resampleVoicePrecise_internal(voice, nullptr, chunkOutput, 0, aSamplerate, aResampler, tempScratch, actualTempScratchSize);
 
 				if (samplesAdvanced == 0)
 					break;

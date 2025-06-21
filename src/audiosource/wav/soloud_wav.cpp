@@ -50,7 +50,7 @@ WavInstance::WavInstance(Wav *aParent)
 
 unsigned int WavInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize)
 {
-	if (aBuffer == NULL || mParent->mData == NULL)
+	if (aBuffer == nullptr || mParent->mData == nullptr)
 		return 0;
 
 	unsigned int dataleft = mParent->mSampleCount - mOffset;
@@ -86,7 +86,7 @@ bool WavInstance::hasEnded()
 
 Wav::Wav(bool preferFFmpeg)
 {
-	mData = NULL;
+	mData = nullptr;
 	mSampleCount = 0;
 	mPreferFFmpeg = preferFFmpeg;
 }
@@ -103,7 +103,7 @@ result Wav::loadwav(MemoryFile *aReader)
 {
 	drwav decoder;
 
-	if (!drwav_init_memory(&decoder, aReader->getMemPtr(), aReader->length(), NULL))
+	if (!drwav_init_memory(&decoder, aReader->getMemPtr(), aReader->length(), nullptr))
 	{
 		return FILE_LOAD_FAILED;
 	}
@@ -143,10 +143,10 @@ result Wav::loadwav(MemoryFile *aReader)
 result Wav::loadogg(MemoryFile *aReader)
 {
 	int e = 0;
-	stb_vorbis *vorbis = 0;
-	vorbis = stb_vorbis_open_memory(aReader->getMemPtr(), aReader->length(), &e, 0);
+	stb_vorbis *vorbis = nullptr;
+	vorbis = stb_vorbis_open_memory(aReader->getMemPtr(), aReader->length(), &e, nullptr);
 
-	if (0 == vorbis)
+	if (nullptr == vorbis)
 	{
 		return FILE_LOAD_FAILED;
 	}
@@ -170,7 +170,7 @@ result Wav::loadogg(MemoryFile *aReader)
 	while (1)
 	{
 		float **outputs;
-		int n = stb_vorbis_get_frame_float(vorbis, NULL, &outputs);
+		int n = stb_vorbis_get_frame_float(vorbis, nullptr, &outputs);
 		if (n == 0)
 		{
 			break;
@@ -244,7 +244,7 @@ result Wav::loaddrmp3(MemoryFile *aReader)
 {
 	drmp3 decoder;
 
-	if (!drmp3_init_memory(&decoder, aReader->getMemPtr(), aReader->length(), NULL))
+	if (!drmp3_init_memory(&decoder, aReader->getMemPtr(), aReader->length(), nullptr))
 	{
 		return FILE_LOAD_FAILED;
 	}
@@ -284,7 +284,7 @@ result Wav::loaddrmp3(MemoryFile *aReader)
 
 result Wav::loadflac(MemoryFile *aReader)
 {
-	drflac *decoder = drflac_open_memory(aReader->mDataPtr, aReader->mDataLength, NULL);
+	drflac *decoder = drflac_open_memory(aReader->mDataPtr, aReader->mDataLength, nullptr);
 
 	if (!decoder)
 	{
@@ -362,7 +362,7 @@ result Wav::loadffmpeg(MemoryFile *aReader)
 result Wav::testAndLoadFile(MemoryFile *aReader)
 {
 	delete[] mData;
-	mData = 0;
+	mData = nullptr;
 	mSampleCount = 0;
 	mChannels = 1;
 
@@ -401,7 +401,7 @@ result Wav::testAndLoadFile(MemoryFile *aReader)
 
 result Wav::load(const char *aFilename)
 {
-	if (aFilename == 0)
+	if (aFilename == nullptr)
 		return INVALID_PARAMETER;
 	stop();
 	DiskFile dr;
@@ -413,7 +413,7 @@ result Wav::load(const char *aFilename)
 
 result Wav::loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy, bool aTakeOwnership)
 {
-	if (aMem == NULL || aLength == 0)
+	if (aMem == nullptr || aLength == 0)
 		return INVALID_PARAMETER;
 	stop();
 
@@ -452,7 +452,7 @@ double Wav::getLength()
 
 result Wav::loadRawWave8(unsigned char *aMem, unsigned int aLength, float aSamplerate, unsigned int aChannels)
 {
-	if (aMem == 0 || aLength == 0 || aSamplerate <= 0 || aChannels < 1)
+	if (aMem == nullptr || aLength == 0 || aSamplerate <= 0 || aChannels < 1)
 		return INVALID_PARAMETER;
 	stop();
 	delete[] mData;
@@ -468,7 +468,7 @@ result Wav::loadRawWave8(unsigned char *aMem, unsigned int aLength, float aSampl
 
 result Wav::loadRawWave16(short *aMem, unsigned int aLength, float aSamplerate, unsigned int aChannels)
 {
-	if (aMem == 0 || aLength == 0 || aSamplerate <= 0 || aChannels < 1)
+	if (aMem == nullptr || aLength == 0 || aSamplerate <= 0 || aChannels < 1)
 		return INVALID_PARAMETER;
 	stop();
 	delete[] mData;
@@ -484,7 +484,7 @@ result Wav::loadRawWave16(short *aMem, unsigned int aLength, float aSamplerate, 
 
 result Wav::loadRawWave(float *aMem, unsigned int aLength, float aSamplerate, unsigned int aChannels, bool aCopy, bool aTakeOwndership)
 {
-	if (aMem == 0 || aLength == 0 || aSamplerate <= 0 || aChannels < 1)
+	if (aMem == nullptr || aLength == 0 || aSamplerate <= 0 || aChannels < 1)
 		return INVALID_PARAMETER;
 	stop();
 	delete[] mData;

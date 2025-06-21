@@ -77,7 +77,7 @@ namespace SoLoud
         gBufferSize = 0;
 
         if (gAudioDeviceID) {
-            SDL_SetAudioPostmixCallback(gAudioDeviceID, NULL, NULL);
+            SDL_SetAudioPostmixCallback(gAudioDeviceID, nullptr, nullptr);
             SDL_CloseAudioDevice(gAudioDeviceID);
             gAudioDeviceID = 0;
         }
@@ -106,7 +106,7 @@ namespace SoLoud
         SDL_AudioSpec preferredSpec;
         bool hasPreferredFormat = SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
                                                           &preferredSpec,
-                                                          NULL);
+                                                          nullptr);
 
         aSamplerate = hasPreferredFormat ? preferredSpec.freq : aSamplerate;
         aChannels = hasPreferredFormat ? preferredSpec.channels : aChannels;
@@ -122,7 +122,7 @@ namespace SoLoud
             gAudioDeviceID = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec);
 
             if (gAudioDeviceID == 0) {
-                gAudioDeviceID = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, NULL);
+                gAudioDeviceID = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
                 if (gAudioDeviceID == 0) {
                     return UNKNOWN_ERROR;
                 }

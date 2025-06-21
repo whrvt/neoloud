@@ -59,7 +59,7 @@ static const char *ASCII[] =
 	"X", "Y", "Z", "open brace",
 #endif                            /* ALPHA_IN_DICT */
 	"vertical bar", "close brace", "tilde", "delete",
-	NULL
+	nullptr
 };
 
 /* Context definitions */
@@ -100,7 +100,7 @@ static Rule punct_rules[] =
 	{Anything, ".", Anything, " "},
 	{Anything, "?", Anything, " "},
 	{Anything, "!", Anything, " "},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule A_rules[] =
@@ -139,7 +139,7 @@ static Rule A_rules[] =
 	{Anything, "ANG", "+", "eIndZ"},
 	{"^", "A", "^#", "eI"},
 	{Anything, "A", Anything, "&"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule B_rules[] =
@@ -150,7 +150,7 @@ static Rule B_rules[] =
 	{Nothing, "BUS", "#", "bIz"},
 	{Anything, "BUIL", Anything, "bIl"},
 	{Anything, "B", Anything, "b"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule C_rules[] =
@@ -166,7 +166,7 @@ static Rule C_rules[] =
 	{Anything, "CK", Anything, "k"},
 	{Anything, "COM", "%", "kVm"},
 	{Anything, "C", Anything, "k"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule D_rules[] =
@@ -181,7 +181,7 @@ static Rule D_rules[] =
 	{Nothing, "DOW", Anything, "daU"},
 	{Anything, "DU", "A", "dZu"},
 	{Anything, "D", Anything, "d"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule E_rules[] =
@@ -238,14 +238,14 @@ static Rule E_rules[] =
 	{Anything, "EY", Anything, "i"},
 	{Anything, "EU", Anything, "ju"},
 	{Anything, "E", Anything, "e"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule F_rules[] =
 {
 	{Anything, "FUL", Anything, "fUl"},
 	{Anything, "F", Anything, "f"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule G_rules[] =
@@ -260,7 +260,7 @@ static Rule G_rules[] =
 	{Anything, "GREAT", Anything, "greIt"},
 	{"#", "GH", Anything, ""},
 	{Anything, "G", Anything, "g"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule H_rules[] =
@@ -271,7 +271,7 @@ static Rule H_rules[] =
 	{Anything, "HOW", Anything, "haU"},
 	{Anything, "H", "#", "h"},
 	{Anything, "H", Anything, ""},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule I_rules[] =
@@ -307,20 +307,20 @@ static Rule I_rules[] =
 	{Anything, "IQUE", Anything, "ik"},
 	{"^", "I", "^#", "aI"},
 	{Anything, "I", Anything, "I"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule J_rules[] =
 {
 	{Anything, "J", Anything, "dZ"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule K_rules[] =
 {
 	{Nothing, "K", "N", ""},
 	{Anything, "K", Anything, "k"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule L_rules[] =
@@ -330,7 +330,7 @@ static Rule L_rules[] =
 	{"#:^", "L", "%", "@l"},
 	{Anything, "LEAD", Anything, "lid"},
 	{Anything, "L", Anything, "l"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule M_rules[] =
@@ -338,7 +338,7 @@ static Rule M_rules[] =
 	{Anything, "MOV", Anything, "muv"},
 	{"#", "MM", "#", "m"},
 	{Anything, "M", Anything, "m"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule N_rules[] =
@@ -352,7 +352,7 @@ static Rule N_rules[] =
 	{Nothing, "NOW", Nothing, "naU"},
 	{"#", "NG", Nothing, "Ng"},
 	{Anything, "N", Anything, "n"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule O_rules[] =
@@ -405,7 +405,7 @@ static Rule O_rules[] =
 	{Anything, "OSS", Nothing, "Os"},
 	{"#:^", "OM", Anything, "Vm"},
 	{Anything, "O", Anything, "0"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule P_rules[] =
@@ -415,7 +415,7 @@ static Rule P_rules[] =
 	{Anything, "POW", Anything, "paU"},
 	{Anything, "PUT", Nothing, "pUt"},
 	{Anything, "P", Anything, "p"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule Q_rules[] =
@@ -423,14 +423,14 @@ static Rule Q_rules[] =
 	{Anything, "QUAR", Anything, "kwOr"},
 	{Anything, "QU", Anything, "kw"},
 	{Anything, "Q", Anything, "k"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule R_rules[] =
 {
 	{Nothing, "RE", "^#", "ri"},
 	{Anything, "R", Anything, "r"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule S_rules[] =
@@ -458,7 +458,7 @@ static Rule S_rules[] =
 	{"#", "SM", Anything, "zm"},
 	{"#", "SN", "'", "z@n"},
 	{Anything, "S", Anything, "s"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule T_rules[] =
@@ -489,7 +489,7 @@ static Rule T_rules[] =
 	{Anything, "TU", "A", "tSu"},
 	{Nothing, "TWO", Anything, "tu"},
 	{Anything, "T", Anything, "t"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule U_rules[] =
@@ -529,14 +529,14 @@ static Rule U_rules[] =
 	{"CH", "U", Anything, "u"},
 	{"SH", "U", Anything, "u"},
 	{Anything, "U", Anything, "ju"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule V_rules[] =
 {
 	{Anything, "VIEW", Anything, "vju"},
 	{Anything, "V", Anything, "v"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule W_rules[] =
@@ -553,13 +553,13 @@ static Rule W_rules[] =
 	{Anything, "WOR", "^", "w3"},
 	{Anything, "WR", Anything, "r"},
 	{Anything, "W", Anything, "w"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule X_rules[] =
 {
 	{Anything, "X", Anything, "ks"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule Y_rules[] =
@@ -575,13 +575,13 @@ static Rule Y_rules[] =
 	{" :", "Y", "^+:#", "I"},
 	{" :", "Y", "^#", "aI"},
 	{Anything, "Y", Anything, "I"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule Z_rules[] =
 {
 	{Anything, "Z", Anything, "z"},
-	{Anything, 0, Anything, Silent},
+	{Anything, nullptr, Anything, Silent},
 };
 
 static Rule *Rules[] =
@@ -1107,7 +1107,7 @@ static int find_rule(darray *arg, char *word, int index, Rule *rules)
 		rule = rules++;
 		match = (*rule)[1];
 
-		if (match == 0)
+		if (match == nullptr)
 			/* bad symbol! */
 		{
 			fprintf(stderr, "Error: Can't find rule for: '%c' in \"%s\"\n",

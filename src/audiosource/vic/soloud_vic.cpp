@@ -49,7 +49,7 @@ VicInstance::~VicInstance() {}
 unsigned int VicInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 {
 	unsigned int phaseAdder[4] = {0, 0, 0, 0};
-	if (aBuffer == NULL)
+	if (aBuffer == nullptr)
 		return 0;
 	for (int i = 0; i < 4; i++)
 	{

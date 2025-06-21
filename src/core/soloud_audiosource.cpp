@@ -44,9 +44,9 @@ AudioSourceInstance3dData::AudioSourceInstance3dData()
 	m3dVelocity[1] = 0;
 	m3dVelocity[2] = 0;
 	m3dVolume = 0;
-	mCollider = 0;
+	mCollider = nullptr;
 	mColliderData = 0;
-	mAttenuator = 0;
+	mAttenuator = nullptr;
 	mDopplerValue = 0;
 	mFlags = 0;
 	mHandle = 0;
@@ -91,7 +91,7 @@ AudioSourceInstance::AudioSourceInstance()
 	mLoopPoint = 0;
 	for (i = 0; i < FILTERS_PER_STREAM; i++)
 	{
-		mFilter[i] = NULL;
+		mFilter[i] = nullptr;
 	}
 	for (i = 0; i < MAX_CHANNELS; i++)
 	{
@@ -204,20 +204,20 @@ AudioSource::AudioSource()
 	int i;
 	for (i = 0; i < FILTERS_PER_STREAM; i++)
 	{
-		mFilter[i] = 0;
+		mFilter[i] = nullptr;
 	}
 	mFlags = 0;
 	mBaseSamplerate = 44100;
 	mAudioSourceID = 0;
-	mSoloud = 0;
+	mSoloud = nullptr;
 	mChannels = 1;
 	m3dMinDistance = 1;
 	m3dMaxDistance = 1000000.0f;
 	m3dAttenuationRolloff = 1.0f;
 	m3dAttenuationModel = NO_ATTENUATION;
 	m3dDopplerFactor = 1.0f;
-	mCollider = 0;
-	mAttenuator = 0;
+	mCollider = nullptr;
+	mAttenuator = nullptr;
 	mColliderData = 0;
 	mVolume = 1;
 	mLoopPoint = 0;

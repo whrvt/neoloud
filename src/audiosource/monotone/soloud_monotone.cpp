@@ -64,7 +64,7 @@ MonotoneInstance::MonotoneInstance(Monotone *aParent)
 
 unsigned int MonotoneInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 {
-	if (aBuffer == NULL)
+	if (aBuffer == nullptr)
 		return 0;
 	int samplesPerTick = (int)floor(mSamplerate / 60);
 	unsigned int i;
@@ -318,9 +318,9 @@ Monotone::Monotone()
 		mVibTable[i] = (int)floor(0.5 + 64 * sin(i * M_PI / 32 * 2));
 	}
 
-	mSong.mTitle = 0;
-	mSong.mComment = 0;
-	mSong.mPatternData = 0;
+	mSong.mTitle = nullptr;
+	mSong.mComment = nullptr;
+	mSong.mPatternData = nullptr;
 
 	mBaseSamplerate = 44100;
 	mChannels = 1;
@@ -337,9 +337,9 @@ void Monotone::clear()
 	delete[] mSong.mComment;
 	delete[] mSong.mPatternData;
 
-	mSong.mTitle = 0;
-	mSong.mComment = 0;
-	mSong.mPatternData = 0;
+	mSong.mTitle = nullptr;
+	mSong.mComment = nullptr;
+	mSong.mPatternData = nullptr;
 }
 
 Monotone::~Monotone()
@@ -386,7 +386,7 @@ result Monotone::load(const char *aFilename)
 
 result Monotone::loadFile(File *aFile)
 {
-	if (aFile == NULL)
+	if (aFile == nullptr)
 		return INVALID_PARAMETER;
 	clear();
 	int i;

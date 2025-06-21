@@ -71,7 +71,7 @@ namespace SoLoud
 	const char* RobotizeFilter::getParamName(unsigned int aParamIndex)
 	{
 		if (aParamIndex > 2)
-			return 0;
+			return nullptr;
 		const char* names[3] = {
 			"Wet",
 			"Frequency",

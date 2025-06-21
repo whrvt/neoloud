@@ -122,7 +122,7 @@ BusInstance::~BusInstance()
 Bus::Bus()
 {
 	mChannelHandle = 0;
-	mInstance = 0;
+	mInstance = nullptr;
 	mChannels = 2;
 	mResampler = SOLOUD_DEFAULT_RESAMPLER;
 	for (int i = 0; i < 256; i++)
@@ -138,7 +138,7 @@ BusInstance *Bus::createInstance()
 	{
 		stop();
 		mChannelHandle = 0;
-		mInstance = 0;
+		mInstance = nullptr;
 	}
 	mInstance = new BusInstance(this);
 	return mInstance;
@@ -244,7 +244,7 @@ void Bus::setFilter(unsigned int aFilterId, Filter *aFilter)
 	{
 		mSoloud->lockAudioMutex_internal();
 		delete mInstance->mFilter[aFilterId];
-		mInstance->mFilter[aFilterId] = 0;
+		mInstance->mFilter[aFilterId] = nullptr;
 
 		if (aFilter)
 		{

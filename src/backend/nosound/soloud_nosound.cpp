@@ -38,10 +38,10 @@ struct SoLoudNosoundData
 	SoLoudNosoundData()
 	{
 		mBuffer.clear();
-		mSoloud = 0;
+		mSoloud = nullptr;
 		mSamples = 0;
 		mSamplerate = 0;
-		mThreadHandle = 0;
+		mThreadHandle = nullptr;
 		mRunning = 0;
 	}
 };
@@ -67,7 +67,7 @@ static void nosoundThread(void *aParam)
 
 static void nosoundCleanup(Soloud *aSoloud)
 {
-	if (0 == aSoloud->mBackendData)
+	if (nullptr == aSoloud->mBackendData)
 	{
 		return;
 	}
@@ -79,7 +79,7 @@ static void nosoundCleanup(Soloud *aSoloud)
 		Thread::release(data->mThreadHandle);
 	}
 	delete data;
-	aSoloud->mBackendData = 0;
+	aSoloud->mBackendData = nullptr;
 }
 
 result nosound_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
@@ -94,7 +94,7 @@ result nosound_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplera
 	data->mRunning = true;
 	aSoloud->postinit_internal(aSamplerate, data->mSamples * aChannels, aFlags, aChannels);
 	data->mThreadHandle = Thread::createThread(nosoundThread, data);
-	if (0 == data->mThreadHandle)
+	if (nullptr == data->mThreadHandle)
 	{
 		return UNKNOWN_ERROR;
 	}

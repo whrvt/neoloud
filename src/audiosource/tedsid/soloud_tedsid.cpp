@@ -57,7 +57,7 @@ namespace SoLoud
 	unsigned int TedSidInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 	{
 		unsigned int i;
-		if (aBuffer == NULL)
+		if (aBuffer == nullptr)
 			return 0;
 		for (i = 0; i < aSamplesToRead; i++)
 		{
@@ -74,7 +74,7 @@ namespace SoLoud
 	
 	void TedSidInstance::tick()
 	{
-	    if (mParent->mOps == 0)
+	    if (mParent->mOps == nullptr)
 	        return;
 
 		while (mSampleCount == 0)
@@ -124,7 +124,7 @@ namespace SoLoud
 	{
 		mBaseSamplerate = TED_SOUND_CLOCK;
 		mChannels = 1;
-		mOps = 0;
+		mOps = nullptr;
 		mModel = 0;
 		mLength = 0;
 		mLooppos = 0;
@@ -134,7 +134,7 @@ namespace SoLoud
 	{
 		stop();
 		delete[] mOps;
-		mOps = 0;
+		mOps = nullptr;
 	}
 
 	result TedSid::loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy, bool aTakeOwnership)
@@ -167,10 +167,10 @@ namespace SoLoud
 
 	result TedSid::loadFile(File *aFile)
 	{
-		if (aFile == NULL)
+		if (aFile == nullptr)
 			return INVALID_PARAMETER;
 		delete[] mOps;
-		mOps = 0;
+		mOps = nullptr;
 		// Expect a file wih header and at least one reg write
 		if (aFile->length() < 34) return FILE_LOAD_FAILED;
 

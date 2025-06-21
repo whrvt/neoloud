@@ -50,7 +50,7 @@ namespace SoLoud
 
 	unsigned int AyInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 	{
-		if (aBuffer == NULL)
+		if (aBuffer == nullptr)
 			return 0;
 		int samples = mChip->play(aBuffer, aSamplesToRead);
 		return samples;
@@ -88,7 +88,7 @@ namespace SoLoud
 	{
 		mBaseSamplerate = 44100;
 		mChannels = 2;
-		mOps = 0;
+		mOps = nullptr;
 		mYm = false;
 		mChipspeed = 1774400;
 		mCpuspeed = 50;
@@ -133,7 +133,7 @@ namespace SoLoud
 
 	result Ay::loadFile(File *aFile)
 	{
-		if (aFile == NULL)
+		if (aFile == nullptr)
 			return INVALID_PARAMETER;
 		// Expect a file wih header and at least one reg write
 		if (aFile->length() < 34) return FILE_LOAD_FAILED;

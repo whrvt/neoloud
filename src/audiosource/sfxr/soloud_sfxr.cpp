@@ -45,7 +45,7 @@ SfxrInstance::SfxrInstance(Sfxr *aParent)
 
 unsigned int SfxrInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
 {
-	if (aBuffer == NULL)
+	if (aBuffer == nullptr)
 		return 0;
 	float *buffer = aBuffer;
 	unsigned int i;
@@ -238,7 +238,7 @@ unsigned int SfxrInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead,
 
 		ssample *= 2.0f * mParams.sound_vol;
 
-		if (buffer != NULL)
+		if (buffer != nullptr)
 		{
 			if (ssample > 1.0f)
 				ssample = 1.0f;

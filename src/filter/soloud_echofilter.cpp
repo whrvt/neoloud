@@ -31,7 +31,7 @@ namespace SoLoud
 {
 EchoFilterInstance::EchoFilterInstance(EchoFilter *aParent)
 {
-	mBuffer = 0;
+	mBuffer = nullptr;
 	mBufferLength = 0;
 	mBufferMaxLength = 0;
 	mOffset = 0;
@@ -44,7 +44,7 @@ EchoFilterInstance::EchoFilterInstance(EchoFilter *aParent)
 void EchoFilterInstance::filter(float *aBuffer, unsigned int aSamples, unsigned int aBufferSize, unsigned int aChannels, float aSamplerate, double aTime)
 {
 	updateParams(aTime);
-	if (mBuffer == 0)
+	if (mBuffer == nullptr)
 	{
 		// We only know channels and sample rate at this point.. not really optimal
 		mBufferMaxLength = (int)ceil(mParam[EchoFilter::DELAY] * aSamplerate);
@@ -113,7 +113,7 @@ int EchoFilter::getParamCount()
 const char *EchoFilter::getParamName(unsigned int aParamIndex)
 {
 	if (aParamIndex > 3)
-		return 0;
+		return nullptr;
 	const char *names[4] = {"Wet", "Delay", "Decay", "Filter"};
 	return names[aParamIndex];
 }

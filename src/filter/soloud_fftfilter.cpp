@@ -50,12 +50,12 @@ namespace SoLoud
 
 	void FFTFilterInstance::init()
 	{
-		mInputBuffer = 0;
-		mMixBuffer = 0;
-		mTemp = 0;
-		mLastPhase = 0;
-		mSumPhase = 0;
-		mParent = 0;
+		mInputBuffer = nullptr;
+		mMixBuffer = nullptr;
+		mTemp = nullptr;
+		mLastPhase = nullptr;
+		mSumPhase = nullptr;
+		mParent = nullptr;
 		int i;
 		for (i = 0; i < MAX_CHANNELS; i++)
 		{
@@ -87,7 +87,7 @@ namespace SoLoud
 
 		// Chicken-egg problem: we don't know channel count before this. 
 		// Could allocate max_channels but that would potentially waste a lot of memory.
-		if (mInputBuffer == 0)
+		if (mInputBuffer == nullptr)
 		{
 			mInputBuffer = new float[STFT_WINDOW_TWICE * aChannels];
 			mMixBuffer = new float[STFT_WINDOW_TWICE * aChannels];

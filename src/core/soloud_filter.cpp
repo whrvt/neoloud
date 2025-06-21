@@ -62,8 +62,8 @@ FilterInstance::FilterInstance()
 {
 	mNumParams = 0;
 	mParamChanged = 0;
-	mParam = 0;
-	mParamFader = 0;
+	mParam = nullptr;
+	mParamFader = nullptr;
 }
 
 result FilterInstance::initParams(int aNumParams)

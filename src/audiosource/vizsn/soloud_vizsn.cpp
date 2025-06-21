@@ -241,7 +241,7 @@ unsigned int VizsnInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead
 {
 	unsigned int idx = 0;
 	int i, j;
-	if (aBuffer == NULL)
+	if (aBuffer == nullptr)
 		return 0;
 	if (mBufwrite > mBufread)
 	{
@@ -528,7 +528,7 @@ bool VizsnInstance::hasEnded()
 Vizsn::Vizsn()
 {
 	mBaseSamplerate = 8000;
-	mText = 0;
+	mText = nullptr;
 }
 
 Vizsn::~Vizsn()
