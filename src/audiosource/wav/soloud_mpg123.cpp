@@ -30,38 +30,9 @@ freely, subject to the following restrictions:
 
 #include <cstring>
 #include <mpg123.h>
-#include <mutex>
 
 namespace SoLoud::MPG123
 {
-static std::once_flag gMpg123InitFlag;
-static std::mutex gMpg123DeinitMutex;
-static bool gMpg123Initialized = false;
-
-bool init()
-{
-	bool success = true;
-	std::call_once(gMpg123InitFlag, [&success]() {
-		if (mpg123_init() != MPG123_OK)
-		{
-			success = false;
-			return;
-		}
-		gMpg123Initialized = true;
-	});
-
-	return success && gMpg123Initialized;
-}
-
-void deinit()
-{
-	std::lock_guard<std::mutex> lock(gMpg123DeinitMutex);
-	if (gMpg123Initialized)
-	{
-		mpg123_exit();
-		gMpg123Initialized = false;
-	}
-}
 
 ssize_t readCallback(void *handle, void *buf, size_t count)
 {
@@ -93,9 +64,6 @@ off_t seekCallback(void *handle, off_t offset, int whence)
 
 MPG123Decoder *open(File *aFile)
 {
-	if (!init())
-		return nullptr;
-
 	if (!aFile)
 		return nullptr;
 
@@ -194,7 +162,6 @@ MPG123Decoder *open(File *aFile)
 		return nullptr;
 	}
 
-	decoder->initialized = true;
 	return decoder;
 }
 

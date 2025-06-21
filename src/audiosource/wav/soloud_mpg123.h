@@ -43,14 +43,9 @@ struct MPG123Decoder
 	int channels;
 	long rate;
 	off_t totalFrames;
-	bool initialized;
 	unsigned char *tempBuffer;
 	size_t tempBufferSize;
 };
-
-// global initialization/cleanup
-bool init();
-void deinit();
 
 // decoder functions
 MPG123Decoder *open(File *aFile);
