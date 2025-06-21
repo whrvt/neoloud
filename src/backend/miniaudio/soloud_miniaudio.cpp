@@ -51,26 +51,14 @@ distribution.
 #include "miniaudio.h"
 
 #include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
-#include <thread>
 
 namespace SoLoud
 {
 using namespace detail; // SAMPLE_FORMAT
-
-enum class RecoveryLevel : uint8_t
-{
-	None = 0,
-	DeviceRestart = 1, // try stop/start device
-	DeviceReinit = 2,  // reinitialize device with existing context
-	ContextReinit = 3  // reinitialize entire context + device
-};
 
 struct MiniaudioData
 {
@@ -82,46 +70,10 @@ struct MiniaudioData
 	bool logInitialized{false};
 	ma_uint32 maxLogLevel{0};
 
-	// device state tracking
 	std::atomic<bool> deviceValid{true};
-	std::atomic<bool> shutdownRequested{false};
-	std::atomic<bool> shutdownInProgress{false};
+	std::mutex deviceMutex; // protects device operations during shutdown
 
-	// recovery thread management
-	std::atomic<bool> recoveryInProgress{false};
-	std::thread recoveryThread;
-	std::mutex recoveryMutex;
-	std::condition_variable recoveryCondition;
-	std::atomic<RecoveryLevel> pendingRecoveryLevel{RecoveryLevel::None};
-	std::chrono::steady_clock::time_point lastRecoveryAttempt{};
-
-	// synchronization for shutdown
-	std::mutex miniaudioMutex; // protects all miniaudio operations
-
-	// original configuration for recovery
-	ma_device_config originalConfig{};
-	ma_context_config originalContextConfig{};
 	Soloud *soloudInstance{nullptr};
-
-	// initialization parameters for context recovery
-	unsigned int initFlags{0};
-	unsigned int initSamplerate{0};
-	unsigned int initBuffer{0};
-	unsigned int initChannels{0};
-
-	MiniaudioData() = default;
-
-	~MiniaudioData() { shutdownRecoveryThread(); }
-
-	void shutdownRecoveryThread()
-	{
-		if (recoveryThread.joinable())
-		{
-			shutdownRequested.store(true);
-			recoveryCondition.notify_all();
-			recoveryThread.join();
-		}
-	}
 };
 
 namespace // static
@@ -159,7 +111,7 @@ void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char 
 
 ma_uint32 parse_log_level_from_env()
 {
-	static const char *env = getenv("MINIAUDIO_DEBUG");
+	const char *env = getenv("MINIAUDIO_DEBUG");
 	if (!env)
 	{
 #ifdef _DEBUG
@@ -191,310 +143,46 @@ ma_uint32 parse_log_level_from_env()
 void soloud_miniaudio_notification_callback(const ma_device_notification *pNotification)
 {
 	auto *data = static_cast<MiniaudioData *>(pNotification->pDevice->pUserData);
-	if (!data || data->shutdownInProgress.load())
+	if (!data)
 		return;
-
-	RecoveryLevel requiredLevel = RecoveryLevel::None;
 
 	switch (pNotification->type)
 	{
 	case ma_device_notification_type_stopped:
-		// device stopped - might be recoverable with restart
 		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Device stopped notification\n");
-		requiredLevel = RecoveryLevel::DeviceRestart;
+			fprintf(stderr, "[MiniAudio INFO] Device stopped\n");
+		data->deviceValid.store(false);
 		break;
 
 	case ma_device_notification_type_rerouted:
-		// device rerouted - try device reinit first
 		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Device rerouted notification\n");
-		requiredLevel = RecoveryLevel::DeviceReinit;
+			fprintf(stderr, "[MiniAudio INFO] Device rerouted\n");
+		// device should continue working after reroute
 		break;
 
 	case ma_device_notification_type_interruption_began:
-		// interruption - might indicate server death, escalate to context reinit
 		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Device interruption began notification\n");
-		requiredLevel = RecoveryLevel::ContextReinit;
+			fprintf(stderr, "[MiniAudio INFO] Device interruption began\n");
+		data->deviceValid.store(false);
 		break;
 
 	case ma_device_notification_type_interruption_ended:
-		// interruption ended - device might be working again
 		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Device interruption ended notification\n");
-		// don't mark as invalid, just log
-		return;
-
-	case ma_device_notification_type_unlocked:
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Device unlocked notification\n");
-		return;
+			fprintf(stderr, "[MiniAudio INFO] Device interruption ended\n");
+		data->deviceValid.store(true);
+		break;
 
 	case ma_device_notification_type_started:
 		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Device started notification\n");
+			fprintf(stderr, "[MiniAudio INFO] Device started\n");
 		data->deviceValid.store(true);
-		return;
-	}
+		break;
 
-	// mark device as invalid and request recovery
-	data->deviceValid.store(false);
-
-	// request recovery at the appropriate level, but only if not shutting down
-	if (!data->shutdownInProgress.load())
-	{
-		std::lock_guard<std::mutex> lock(data->recoveryMutex);
-		if (requiredLevel > data->pendingRecoveryLevel.load())
-		{
-			data->pendingRecoveryLevel.store(requiredLevel);
-			data->recoveryCondition.notify_one();
-		}
-	}
-}
-
-bool attempt_device_restart(MiniaudioData *data)
-{
-	if (!data->deviceInitialized || data->shutdownInProgress.load())
-		return false;
-
-	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Attempting device restart\n");
-
-	std::lock_guard<std::mutex> lock(data->miniaudioMutex);
-	if (data->shutdownInProgress.load())
-		return false;
-
-	ma_result result = ma_device_stop(&data->device);
-	if (result != MA_SUCCESS && data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
-		fprintf(stderr, "[MiniAudio WARNING] Failed to stop device during restart: %d\n", result);
-
-	if (data->shutdownInProgress.load())
-		return false;
-
-	result = ma_device_start(&data->device);
-	if (result == MA_SUCCESS)
-	{
+	case ma_device_notification_type_unlocked:
 		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Device restart successful\n");
-		return true;
+			fprintf(stderr, "[MiniAudio INFO] Device unlocked\n");
+		break;
 	}
-	else if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
-		fprintf(stderr, "[MiniAudio WARNING] Failed to start device during restart: %d\n", result);
-
-	return false;
-}
-
-bool attempt_device_reinit(MiniaudioData *data)
-{
-	if (!data->contextInitialized || data->shutdownInProgress.load())
-		return false;
-
-	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Attempting device reinit\n");
-
-	std::lock_guard<std::mutex> lock(data->miniaudioMutex);
-	if (data->shutdownInProgress.load())
-		return false;
-
-	// uninitialize existing device
-	if (data->deviceInitialized)
-	{
-		ma_device_uninit(&data->device);
-		data->deviceInitialized = false;
-	}
-
-	if (data->shutdownInProgress.load())
-		return false;
-
-	// reinitialize device with existing context
-	ma_result result = ma_device_init(&data->context, &data->originalConfig, &data->device);
-	if (result == MA_SUCCESS)
-	{
-		data->deviceInitialized = true;
-
-		if (data->shutdownInProgress.load())
-		{
-			ma_device_uninit(&data->device);
-			data->deviceInitialized = false;
-			return false;
-		}
-
-		result = ma_device_start(&data->device);
-		if (result == MA_SUCCESS)
-		{
-			if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-				fprintf(stderr, "[MiniAudio INFO] Device reinit successful\n");
-			return true;
-		}
-		else if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
-			fprintf(stderr, "[MiniAudio WARNING] Failed to start reinitialized device: %d\n", result);
-	}
-	else if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
-		fprintf(stderr, "[MiniAudio WARNING] Failed to reinitialize device: %d\n", result);
-
-	return false;
-}
-
-bool attempt_context_reinit(MiniaudioData *data)
-{
-	if (data->shutdownInProgress.load())
-		return false;
-
-	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Attempting context reinit\n");
-
-	std::lock_guard<std::mutex> lock(data->miniaudioMutex);
-	if (data->shutdownInProgress.load())
-		return false;
-
-	// uninitialize existing device
-	if (data->deviceInitialized)
-	{
-		ma_device_uninit(&data->device);
-		data->deviceInitialized = false;
-	}
-
-	if (data->shutdownInProgress.load())
-		return false;
-
-	// uninitialize existing context
-	if (data->contextInitialized)
-	{
-		ma_context_uninit(&data->context);
-		data->contextInitialized = false;
-	}
-
-	if (data->shutdownInProgress.load())
-		return false;
-
-	// reinitialize context
-	ma_result result = ma_context_init(nullptr, 0, &data->originalContextConfig, &data->context);
-	if (result != MA_SUCCESS)
-	{
-		if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
-			fprintf(stderr, "[MiniAudio WARNING] Failed to reinitialize context: %d\n", result);
-		return false;
-	}
-	data->contextInitialized = true;
-
-	if (data->shutdownInProgress.load())
-		return false;
-
-	// reinitialize device
-	result = ma_device_init(&data->context, &data->originalConfig, &data->device);
-	if (result != MA_SUCCESS)
-	{
-		if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
-			fprintf(stderr, "[MiniAudio WARNING] Failed to reinitialize device after context reinit: %d\n", result);
-		return false;
-	}
-	data->deviceInitialized = true;
-
-	if (data->shutdownInProgress.load())
-		return false;
-
-	// start device
-	result = ma_device_start(&data->device);
-	if (result == MA_SUCCESS)
-	{
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Context reinit successful\n");
-
-		// update soloud with potentially new device parameters
-		if (data->soloudInstance)
-		{
-			unsigned int actualSampleRate = data->device.sampleRate;
-			unsigned int actualBufferSize = data->device.playback.internalPeriodSizeInFrames;
-			unsigned int actualChannels = data->device.playback.channels;
-			data->soloudInstance->postinit_internal(actualSampleRate, actualBufferSize, data->initFlags, actualChannels);
-		}
-
-		return true;
-	}
-	else if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
-		fprintf(stderr, "[MiniAudio WARNING] Failed to start device after context reinit: %d\n", result);
-
-	return false;
-}
-
-void recovery_thread_function(MiniaudioData *data)
-{
-	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Recovery thread started\n");
-
-	while (!data->shutdownRequested.load())
-	{
-		RecoveryLevel recoveryLevel = RecoveryLevel::None;
-
-		// wait for recovery request or shutdown
-		{
-			std::unique_lock<std::mutex> lock(data->recoveryMutex);
-			data->recoveryCondition.wait(lock, [data]() { return data->shutdownRequested.load() || data->pendingRecoveryLevel.load() != RecoveryLevel::None; });
-
-			if (data->shutdownRequested.load())
-				break;
-
-			recoveryLevel = data->pendingRecoveryLevel.exchange(RecoveryLevel::None);
-		}
-
-		if (recoveryLevel == RecoveryLevel::None || data->shutdownInProgress.load())
-			continue;
-
-		// check if we should throttle recovery attempts
-		auto now = std::chrono::steady_clock::now();
-		if (now - data->lastRecoveryAttempt < std::chrono::seconds(2))
-		{
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-			continue;
-		}
-		data->lastRecoveryAttempt = now;
-
-		data->recoveryInProgress.store(true);
-
-		bool success = false;
-		switch (recoveryLevel)
-		{
-		case RecoveryLevel::DeviceRestart:
-			success = attempt_device_restart(data);
-			if (!success && data->maxLogLevel >= MA_LOG_LEVEL_INFO && !data->shutdownInProgress.load())
-				fprintf(stderr, "[MiniAudio INFO] Device restart failed, escalating to device reinit\n");
-			// fall through to device reinit if restart failed
-			if (!success && !data->shutdownInProgress.load())
-				success = attempt_device_reinit(data);
-			break;
-
-		case RecoveryLevel::DeviceReinit:
-			success = attempt_device_reinit(data);
-			if (!success && data->maxLogLevel >= MA_LOG_LEVEL_INFO && !data->shutdownInProgress.load())
-				fprintf(stderr, "[MiniAudio INFO] Device reinit failed, escalating to context reinit\n");
-			// fall through to context reinit if device reinit failed
-			if (!success && !data->shutdownInProgress.load())
-				success = attempt_context_reinit(data);
-			break;
-
-		case RecoveryLevel::ContextReinit:
-			success = attempt_context_reinit(data);
-			break;
-
-		default:
-			break;
-		}
-
-		if (success)
-		{
-			data->deviceValid.store(true);
-		}
-		else if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING && !data->shutdownInProgress.load())
-		{
-			fprintf(stderr, "[MiniAudio WARNING] All recovery attempts failed\n");
-		}
-
-		data->recoveryInProgress.store(false);
-	}
-
-	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Recovery thread stopped\n");
 }
 
 void soloud_miniaudio_audiomixer(ma_device *pDevice, void *pOutput, const void * /*pInput*/, ma_uint32 frameCount)
@@ -502,12 +190,10 @@ void soloud_miniaudio_audiomixer(ma_device *pDevice, void *pOutput, const void *
 	auto *data = static_cast<MiniaudioData *>(pDevice->pUserData);
 	auto *soloud = data->soloudInstance;
 
-	static_assert(ma_format_count == 6);
-
-	// check if device is valid or shutting down
-	if (!data->deviceValid.load(std::memory_order_relaxed) || data->shutdownInProgress.load(std::memory_order_relaxed))
+	// check if device is valid
+	if (!data->deviceValid.load(std::memory_order_relaxed))
 	{
-		// output silence while device is invalid or shutting down
+		// output silence when device is invalid
 		if (pOutput)
 		{
 			size_t bytes = static_cast<unsigned long>(frameCount) * pDevice->playback.channels;
@@ -540,7 +226,7 @@ void soloud_miniaudio_audiomixer(ma_device *pDevice, void *pOutput, const void *
 	}
 
 	// device is valid, proceed with normal mixing
-	const ma_format& maFormat = pDevice->playback.internalFormat;
+	const ma_format &maFormat = pDevice->playback.internalFormat;
 	const SAMPLE_FORMAT outputFormat = maFormat == ma_format_f32   ? SAMPLE_FLOAT32
 	                                   : maFormat == ma_format_s16 ? SAMPLE_SIGNED16
 	                                   : maFormat == ma_format_u8  ? SAMPLE_UNSIGNED8
@@ -556,30 +242,14 @@ void soloud_miniaudio_deinit(SoLoud::Soloud *aSoloud)
 	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
 	if (data)
 	{
-		// signal shutdown to prevent new recovery operations
-		data->shutdownInProgress.store(true);
 		data->deviceValid.store(false);
 
-		// stop device first to stop audio callback
+		// stop and uninitialize device
 		{
-			std::lock_guard<std::mutex> lock(data->miniaudioMutex);
+			std::lock_guard<std::mutex> lock(data->deviceMutex);
 			if (data->deviceInitialized)
 			{
 				ma_device_stop(&data->device);
-			}
-		}
-
-		// now signal recovery thread shutdown and wait for it
-		data->shutdownRequested.store(true);
-		data->recoveryCondition.notify_all();
-		data->shutdownRecoveryThread();
-
-		// now safely uninitialize miniaudio objects
-		{
-			std::lock_guard<std::mutex> lock(data->miniaudioMutex);
-
-			if (data->deviceInitialized)
-			{
 				ma_device_uninit(&data->device);
 				data->deviceInitialized = false;
 			}
@@ -605,10 +275,10 @@ void soloud_miniaudio_deinit(SoLoud::Soloud *aSoloud)
 result soloud_miniaudio_pause(SoLoud::Soloud *aSoloud)
 {
 	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
-	if (data && data->deviceInitialized && data->deviceValid.load() && !data->shutdownInProgress.load())
+	if (data && data->deviceInitialized)
 	{
-		std::lock_guard<std::mutex> lock(data->miniaudioMutex);
-		if (data->deviceInitialized && !data->shutdownInProgress.load())
+		std::lock_guard<std::mutex> lock(data->deviceMutex);
+		if (data->deviceInitialized)
 		{
 			if (ma_device_stop(&data->device) != MA_SUCCESS)
 				return UNKNOWN_ERROR;
@@ -620,10 +290,10 @@ result soloud_miniaudio_pause(SoLoud::Soloud *aSoloud)
 result soloud_miniaudio_resume(SoLoud::Soloud *aSoloud)
 {
 	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
-	if (data && data->deviceInitialized && data->deviceValid.load() && !data->shutdownInProgress.load())
+	if (data && data->deviceInitialized)
 	{
-		std::lock_guard<std::mutex> lock(data->miniaudioMutex);
-		if (data->deviceInitialized && !data->shutdownInProgress.load())
+		std::lock_guard<std::mutex> lock(data->deviceMutex);
+		if (data->deviceInitialized)
 		{
 			if (ma_device_start(&data->device) != MA_SUCCESS)
 				return UNKNOWN_ERROR;
@@ -639,10 +309,6 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	auto *data = new MiniaudioData();
 	aSoloud->mBackendData = data;
 	data->soloudInstance = aSoloud;
-	data->initFlags = aFlags;
-	data->initSamplerate = aSamplerate;
-	data->initBuffer = aBuffer;
-	data->initChannels = aChannels;
 
 	// setup logging
 	data->maxLogLevel = parse_log_level_from_env();
@@ -661,9 +327,6 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	contextConfig.threadPriority = ma_thread_priority_highest;
 	if (data->logInitialized)
 		contextConfig.pLog = &data->log;
-
-	// store original context config for recovery
-	data->originalContextConfig = contextConfig;
 
 	// this can be set+reordered if we want a different priority
 	// const ma_backend backends[] = {ma_backend_wasapi, ma_backend_dsound, ma_backend_winmm,    ma_backend_coreaudio,  ma_backend_sndio,
@@ -726,9 +389,6 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	config.alsa.noAutoChannels = true;
 	config.alsa.noAutoResample = true;
 
-	// store original config for recovery
-	data->originalConfig = config;
-
 	result = ma_device_init(&data->context, &config, &data->device);
 	if (result != MA_SUCCESS)
 	{
@@ -755,9 +415,6 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 		}
 	}
 	data->deviceInitialized = true;
-
-	// start recovery thread before starting device
-	data->recoveryThread = std::thread(recovery_thread_function, data);
 
 	// use the actual device configuration that was negotiated
 	unsigned int actualSampleRate = data->device.sampleRate;
