@@ -51,7 +51,8 @@ namespace SoLoud
 	{
 		result loadwav(MemoryFile * aReader);
 		result loadogg(MemoryFile * aReader);
-		result loadmp3(MemoryFile * aReader);
+		result loadmpg123(MemoryFile * aReader);
+		result loaddrmp3(MemoryFile * aReader);
 		result loadflac(MemoryFile * aReader);
 		result loadffmpeg(MemoryFile * aReader);
 		result testAndLoadFile(MemoryFile * aReader);

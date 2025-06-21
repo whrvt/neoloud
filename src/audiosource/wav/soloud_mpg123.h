@@ -26,13 +26,14 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_MPG123_H
 #define SOLOUD_MPG123_H
 
+#include <cstdio> // for off_t, size_t, ssize_t
+
 namespace SoLoud
 {
 	class File;
 }
 
 #ifdef WITH_LIBMPG123
-#include <cstdio> // for off_t
 
 struct mpg123_handle_struct;
 typedef struct mpg123_handle_struct mpg123_handle;
@@ -70,10 +71,10 @@ namespace SoLoud::MPG123
 	inline void close(MPG123Decoder * /*aDecoder*/) { ; }
 	inline int getChannels(MPG123Decoder * /*aDecoder*/) { return -1; }
 	inline int getSampleRate(MPG123Decoder * /*aDecoder*/) { return -1; }
-	inline long getTotalFrameCount(MPG123Decoder * /*aDecoder*/) { return -1; }
-	inline unsigned long readFrames(MPG123Decoder * /*aDecoder*/, unsigned long /*aFrameCount*/, float * /*aBuffer*/) { return 0; }
-	inline long seekToFrame(MPG123Decoder * /*aDecoder*/, long /*aFrame*/) { return -1; }
-	inline long getCurrentFrame(MPG123Decoder * /*aDecoder*/) { return -1; }
+	inline off_t getTotalFrameCount(MPG123Decoder * /*aDecoder*/) { return -1; }
+	inline size_t readFrames(MPG123Decoder * /*aDecoder*/, size_t /*aFrameCount*/, float * /*aBuffer*/) { return 0; }
+	inline off_t seekToFrame(MPG123Decoder * /*aDecoder*/, off_t /*aFrame*/) { return -1; }
+	inline off_t getCurrentFrame(MPG123Decoder * /*aDecoder*/) { return -1; }
 	//clang-format on
 } // namespace SoLoud::MPG123
 #endif // WITH_LIBMPG123

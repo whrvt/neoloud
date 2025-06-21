@@ -31,6 +31,8 @@ freely, subject to the following restrictions:
 #include "dr_wav.h"
 #include "stb_vorbis.h"
 
+#include "soloud_mpg123.h"
+
 #include "soloud_ffmpeg.h"
 #include "soloud_ffmpeg_load.h"
 
@@ -185,7 +187,60 @@ result Wav::loadogg(MemoryFile *aReader)
 	return 0;
 }
 
-result Wav::loadmp3(MemoryFile *aReader)
+result Wav::loadmpg123(MemoryFile *aReader)
+{
+	MPG123::MPG123Decoder *decoder = MPG123::open(aReader);
+
+	if (!decoder)
+		return FILE_LOAD_FAILED;
+
+	int channels = MPG123::getChannels(decoder);
+	int sampleRate = MPG123::getSampleRate(decoder);
+	off_t totalFrames = MPG123::getTotalFrameCount(decoder);
+
+	if (channels <= 0 || sampleRate <= 0 || totalFrames <= 0)
+	{
+		MPG123::close(decoder);
+		return FILE_LOAD_FAILED;
+	}
+
+	mChannels = (unsigned int)channels;
+	if (mChannels > MAX_CHANNELS)
+	{
+		mChannels = MAX_CHANNELS;
+	}
+
+	mBaseSamplerate = (float)sampleRate;
+	mSampleCount = (unsigned int)totalFrames;
+	mData = new float[mSampleCount * mChannels];
+
+	unsigned int i, j, k;
+	for (i = 0; i < mSampleCount; i += 512)
+	{
+		float tmp[512 * MAX_CHANNELS];
+		unsigned int blockSize = (mSampleCount - i) > 512 ? 512 : mSampleCount - i;
+		size_t framesRead = MPG123::readFrames(decoder, blockSize, tmp);
+
+		if (framesRead == 0)
+			break;
+
+		for (j = 0; j < framesRead; j++)
+		{
+			for (k = 0; k < mChannels; k++)
+			{
+				mData[k * mSampleCount + i + j] = tmp[j * mChannels + k];
+			}
+		}
+
+		if (framesRead < blockSize)
+			break;
+	}
+
+	MPG123::close(decoder);
+	return SO_NO_ERROR;
+}
+
+result Wav::loaddrmp3(MemoryFile *aReader)
 {
 	drmp3 decoder;
 
@@ -329,7 +384,11 @@ result Wav::testAndLoadFile(MemoryFile *aReader)
 	{
 		return loadflac(aReader);
 	}
-	else if (loadmp3(aReader) == SO_NO_ERROR)
+	else if (loadmpg123(aReader) == SO_NO_ERROR)
+	{
+		return SO_NO_ERROR;
+	}
+	else if (loaddrmp3(aReader) == SO_NO_ERROR)
 	{
 		return SO_NO_ERROR;
 	}
