@@ -736,8 +736,8 @@ namespace MixingConstants
 {
 // Scratch buffer allocation strategy
 // Each voice needs space for: voice processing + temp reads + delay handling
-constexpr size_t VOICE_SCRATCH_MULTIPLIER = MAX_CHANNELS; // Voice processing buffer
-constexpr size_t TEMP_READ_BUFFER_SIZE = 2048;            // Temporary buffer for chunk reading
+constexpr size_t VOICE_SCRATCH_MULTIPLIER = MAX_CHANNELS;          // Voice processing buffer
+constexpr size_t TEMP_READ_BUFFER_SIZE = SAMPLE_GRANULARITY * 4UL; // Temporary buffer for chunk reading
 
 // Voice processing limits to prevent resource exhaustion
 constexpr size_t MIN_VOICES_PER_BATCH = 1; // Always process at least one voice

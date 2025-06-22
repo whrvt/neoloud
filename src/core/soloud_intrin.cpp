@@ -100,7 +100,9 @@ AlignedFloatBuffer::~AlignedFloatBuffer()
 	delete[] mBasePtr;
 }
 
-TinyAlignedFloatBuffer::TinyAlignedFloatBuffer()
+// TODO: fix stride calculation somewhere to avoid needing to zero-initialize mActualData
+// causes audio artifacts at the end of some samples with SSE/AVX if not filled with silence
+TinyAlignedFloatBuffer::TinyAlignedFloatBuffer() : mActualData()
 {
 	unsigned char *basePtr = &mActualData[0];
 	mData = (float *)(((size_t)basePtr + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK);

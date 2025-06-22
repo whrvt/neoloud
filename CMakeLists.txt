@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(SoLoud
-    VERSION 1.0.3
+    VERSION 1.0.4
     DESCRIPTION "SoLoud audio library"
     LANGUAGES C CXX)
 
@@ -14,6 +14,8 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 option(SOLOUD_TESTS "Build test executables" OFF)
 option(SOLOUD_ASAN "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SOLOUD_TSAN "Enable ThreadSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(SOLOUD_WITH_SDL3 "Try to find and use the SDL3 library as an audio playback backend" ON)
+option(SOLOUD_WITH_LIBMPG123 "Try to find and use the libmpg123 library for mp3 decoding" ON)
 
 # check for conflicting sanitizer options
 if(SOLOUD_ASAN AND SOLOUD_TSAN)
@@ -30,23 +32,27 @@ endif()
 find_package(PkgConfig QUIET)
 
 # check for sdl3
-set(SOLOUD_WITH_SDL3 OFF)
-if(PkgConfig_FOUND)
+if(SOLOUD_WITH_SDL3 AND PkgConfig_FOUND)
     pkg_check_modules(SDL3 QUIET sdl3>=3.2.0)
     if(SDL3_FOUND)
-        set(SOLOUD_WITH_SDL3 ON)
         message(STATUS "Found SDL3 ${SDL3_VERSION}")
     endif()
 endif()
 
+if(SOLOUD_WITH_SDL3 AND NOT SDL3_FOUND)
+    set(SOLOUD_WITH_SDL3 OFF)
+endif()
+
 # check for libmpg123
-set(SOLOUD_WITH_LIBMPG123 OFF)
-if(PkgConfig_FOUND)
+if(SOLOUD_WITH_LIBMPG123 AND PkgConfig_FOUND)
     pkg_check_modules(MPG123 QUIET libmpg123>=1.30.0)
     if(MPG123_FOUND)
-        set(SOLOUD_WITH_LIBMPG123 ON)
         message(STATUS "Found libmpg123 ${MPG123_VERSION}")
     endif()
+endif()
+
+if(SOLOUD_WITH_LIBMPG123 AND NOT MPG123_FOUND)
+    set(SOLOUD_WITH_LIBMPG123 OFF)
 endif()
 
 # collect source files
