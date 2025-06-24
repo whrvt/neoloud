@@ -110,6 +110,19 @@ namespace SoLoud
 	typedef result (*soloudResultFunction)(Soloud *aSoloud);
 	typedef unsigned int handle;
 	typedef double time;
+
+	// For use by backends to specify which format they'd like from the mixer.
+	namespace detail
+	{
+		enum SAMPLE_FORMAT : unsigned char
+		{
+			SAMPLE_FLOAT32,
+			SAMPLE_UNSIGNED8,
+			SAMPLE_SIGNED16,
+			SAMPLE_SIGNED24,
+			SAMPLE_SIGNED32
+		};
+	}
 }; // namespace SoLoud
 
 #endif

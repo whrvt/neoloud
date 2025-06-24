@@ -26,6 +26,7 @@ freely, subject to the following restrictions:
 #include "soloud.h"
 #include "soloud_audiosource.h"
 
+#include <climits> // _MAX
 #include <cstring>
 
 namespace SoLoud
@@ -100,16 +101,602 @@ AlignedFloatBuffer::~AlignedFloatBuffer()
 	delete[] mBasePtr;
 }
 
-// TODO: fix stride calculation somewhere to avoid needing to zero-initialize mActualData
-// causes audio artifacts at the end of some samples with SSE/AVX if not filled with silence
-TinyAlignedFloatBuffer::TinyAlignedFloatBuffer() : mActualData()
+TinyAlignedFloatBuffer::TinyAlignedFloatBuffer()
+    : mActualData()
 {
 	unsigned char *basePtr = &mActualData[0];
 	mData = (float *)(((size_t)basePtr + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK);
 }
 
+void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const unsigned int &aSamples, const unsigned int &stride, const unsigned int &aChannels,
+                       const detail::SAMPLE_FORMAT &aFormat)
+{
+	using namespace detail;
+	unsigned int j = 0, c = 0;
+
 #if defined(SOLOUD_AVX_INTRINSICS)
-void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1)
+	switch (aFormat)
+	{
+	case SAMPLE_FLOAT32: {
+		float *buffer = static_cast<float *>(outputBuffer);
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j;
+
+			// Process 8 samples at a time with AVX2
+			unsigned int sampleOctuples = aSamples / OPTIMAL_CHUNK_SAMPLES;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
+			{
+				__m256 samples = _mm256_load_ps(&rawBuffer[c]);
+
+				// Store samples to interleaved positions
+				float temp[OPTIMAL_CHUNK_SAMPLES];
+				_mm256_store_ps(temp, samples);
+
+				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
+				{
+					buffer[outIdx] = temp[k];
+					outIdx += aChannels;
+				}
+
+				c += OPTIMAL_CHUNK_SAMPLES;
+				processedSamples += OPTIMAL_CHUNK_SAMPLES;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				buffer[outIdx] = rawBuffer[c];
+				outIdx += aChannels;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_UNSIGNED8: {
+		unsigned char *buffer = static_cast<unsigned char *>(outputBuffer);
+		__m256 scale = _mm256_set1_ps(127.0f);
+		__m256 offset = _mm256_set1_ps(128.0f);
+		__m256 zero = _mm256_setzero_ps();
+		__m256 max_val = _mm256_set1_ps(255.0f);
+
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j;
+
+			unsigned int sampleOctuples = aSamples / OPTIMAL_CHUNK_SAMPLES;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
+			{
+				__m256 samples = _mm256_load_ps(&rawBuffer[c]);
+				samples = _mm256_mul_ps(samples, scale);
+				samples = _mm256_add_ps(samples, offset);
+
+				// Clamp to [0, 255]
+				samples = _mm256_max_ps(samples, zero);
+				samples = _mm256_min_ps(samples, max_val);
+
+				// Convert to integers and store
+				__m256i int_samples = _mm256_cvtps_epi32(samples);
+				int temp[OPTIMAL_CHUNK_SAMPLES];
+				_mm256_store_si256((__m256i *)temp, int_samples);
+
+				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
+				{
+					buffer[outIdx] = (unsigned char)temp[k];
+					outIdx += aChannels;
+				}
+
+				c += OPTIMAL_CHUNK_SAMPLES;
+				processedSamples += OPTIMAL_CHUNK_SAMPLES;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				int sample = (int)(rawBuffer[c] * 127.0f + 128.0f);
+				if (sample < 0)
+					sample = 0;
+				if (sample > 255)
+					sample = 255;
+				buffer[outIdx] = (unsigned char)sample;
+				outIdx += aChannels;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED16: {
+		short *buffer = static_cast<short *>(outputBuffer);
+		__m256 scale = _mm256_set1_ps(0x7fff);
+
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j;
+
+			unsigned int sampleOctuples = aSamples / OPTIMAL_CHUNK_SAMPLES;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
+			{
+				__m256 samples = _mm256_load_ps(&rawBuffer[c]);
+				samples = _mm256_mul_ps(samples, scale);
+
+				// Convert to int32 and store
+				__m256i int_samples = _mm256_cvtps_epi32(samples);
+				int temp[OPTIMAL_CHUNK_SAMPLES];
+				_mm256_store_si256((__m256i *)temp, int_samples);
+
+				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
+				{
+					buffer[outIdx] = (short)temp[k];
+					outIdx += aChannels;
+				}
+
+				c += OPTIMAL_CHUNK_SAMPLES;
+				processedSamples += OPTIMAL_CHUNK_SAMPLES;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				buffer[outIdx] = (short)(rawBuffer[c] * 0x7fff);
+				outIdx += aChannels;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED24: {
+		unsigned char *buffer = static_cast<unsigned char *>(outputBuffer);
+		__m256 scale = _mm256_set1_ps((float)(INT_MAX >> 8));
+		__m256 min_val = _mm256_set1_ps((float)(INT_MIN >> 8));
+		__m256 max_val = _mm256_set1_ps((float)(INT_MAX >> 8));
+
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j * 3;
+
+			unsigned int sampleOctuples = aSamples / OPTIMAL_CHUNK_SAMPLES;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
+			{
+				__m256 samples = _mm256_load_ps(&rawBuffer[c]);
+				samples = _mm256_mul_ps(samples, scale);
+
+				// Clamp to 24-bit range
+				samples = _mm256_max_ps(samples, min_val);
+				samples = _mm256_min_ps(samples, max_val);
+
+				// Convert to integers and store as 24-bit
+				__m256i int_samples = _mm256_cvtps_epi32(samples);
+				int temp[OPTIMAL_CHUNK_SAMPLES];
+				_mm256_store_si256((__m256i *)temp, int_samples);
+
+				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
+				{
+					int sample = temp[k];
+					buffer[outIdx] = (unsigned char)(sample & 0xff);
+					buffer[outIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
+					buffer[outIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
+					outIdx += aChannels * 3;
+				}
+
+				c += OPTIMAL_CHUNK_SAMPLES;
+				processedSamples += OPTIMAL_CHUNK_SAMPLES;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				int sample = (int)(rawBuffer[c] * (float)(INT_MAX >> 8));
+				if (sample < (INT_MIN >> 8))
+					sample = (INT_MIN >> 8);
+				if (sample > (INT_MAX >> 8))
+					sample = (INT_MAX >> 8);
+
+				buffer[outIdx] = (unsigned char)(sample & 0xff);
+				buffer[outIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
+				buffer[outIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
+				outIdx += aChannels * 3;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED32: {
+		int *buffer = static_cast<int *>(outputBuffer);
+		__m256d scale = _mm256_set1_pd((double)INT_MAX);
+		__m256d min_val = _mm256_set1_pd((double)INT_MIN);
+		__m256d max_val = _mm256_set1_pd((double)INT_MAX);
+
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j;
+
+			// Process 4 samples at a time for 32-bit (double precision needed)
+			unsigned int sampleQuads = aSamples / 4;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
+			{
+				// Load 4 floats and convert to double for precision
+				__m128 samples_f = _mm_load_ps(&rawBuffer[c]);
+				__m256d samples = _mm256_cvtps_pd(samples_f);
+				samples = _mm256_mul_pd(samples, scale);
+
+				// Clamp to 32-bit range
+				samples = _mm256_max_pd(samples, min_val);
+				samples = _mm256_min_pd(samples, max_val);
+
+				// Convert back to int
+				double temp[4];
+				_mm256_store_pd(temp, samples);
+
+				for (unsigned int k = 0; k < 4; k++)
+				{
+					buffer[outIdx] = (int)temp[k];
+					outIdx += aChannels;
+				}
+
+				c += 4;
+				processedSamples += 4;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				double sample = (double)rawBuffer[c] * (double)INT_MAX;
+				if (sample < (double)INT_MIN)
+					sample = (double)INT_MIN;
+				if (sample > (double)INT_MAX)
+					sample = (double)INT_MAX;
+				buffer[outIdx] = (int)sample;
+				outIdx += aChannels;
+				c++;
+			}
+		}
+	}
+	break;
+	}
+
+#elif defined(SOLOUD_SSE_INTRINSICS)
+	int i = 0;
+	switch (aFormat)
+	{
+	case SAMPLE_FLOAT32: {
+		float *buffer = static_cast<float *>(outputBuffer);
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j;
+
+			// Process 4 samples at a time with SSE
+			unsigned int sampleQuads = aSamples / OPTIMAL_CHUNK_SAMPLES;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
+			{
+				__m128 samples = _mm_load_ps(&rawBuffer[c]);
+
+				// Store samples to interleaved positions
+				float temp[OPTIMAL_CHUNK_SAMPLES];
+				_mm_store_ps(temp, samples);
+
+				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
+				{
+					buffer[outIdx] = temp[k];
+					outIdx += aChannels;
+				}
+
+				c += OPTIMAL_CHUNK_SAMPLES;
+				processedSamples += OPTIMAL_CHUNK_SAMPLES;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				buffer[outIdx] = rawBuffer[c];
+				outIdx += aChannels;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_UNSIGNED8: {
+		unsigned char *buffer = static_cast<unsigned char *>(outputBuffer);
+		__m128 scale = _mm_set_ps1(127.0f);
+		__m128 offset = _mm_set_ps1(128.0f);
+		__m128 zero = _mm_setzero_ps();
+		__m128 max_val = _mm_set_ps1(255.0f);
+
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j;
+
+			unsigned int sampleQuads = aSamples / OPTIMAL_CHUNK_SAMPLES;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
+			{
+				__m128 samples = _mm_load_ps(&rawBuffer[c]);
+				samples = _mm_mul_ps(samples, scale);
+				samples = _mm_add_ps(samples, offset);
+
+				// Clamp to [0, 255]
+				samples = _mm_max_ps(samples, zero);
+				samples = _mm_min_ps(samples, max_val);
+
+				// Convert to integers and store
+				__m128i int_samples = _mm_cvtps_epi32(samples);
+				int temp[OPTIMAL_CHUNK_SAMPLES];
+				_mm_store_si128((__m128i *)temp, int_samples);
+
+				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
+				{
+					buffer[outIdx] = (unsigned char)temp[k];
+					outIdx += aChannels;
+				}
+
+				c += OPTIMAL_CHUNK_SAMPLES;
+				processedSamples += OPTIMAL_CHUNK_SAMPLES;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				int sample = (int)(rawBuffer[c] * 127.0f + 128.0f);
+				if (sample < 0)
+					sample = 0;
+				if (sample > 255)
+					sample = 255;
+				buffer[outIdx] = (unsigned char)sample;
+				outIdx += aChannels;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED16: {
+		short *buffer = static_cast<short *>(outputBuffer);
+		__m128 scale = _mm_set_ps1(0x7fff);
+
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j;
+
+			unsigned int sampleQuads = aSamples / OPTIMAL_CHUNK_SAMPLES;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
+			{
+				__m128 samples = _mm_load_ps(&rawBuffer[c]);
+				samples = _mm_mul_ps(samples, scale);
+
+				// Convert to int32 and store
+				__m128i int_samples = _mm_cvtps_epi32(samples);
+				int temp[OPTIMAL_CHUNK_SAMPLES];
+				_mm_store_si128((__m128i *)temp, int_samples);
+
+				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
+				{
+					buffer[outIdx] = (short)temp[k];
+					outIdx += aChannels;
+				}
+
+				c += OPTIMAL_CHUNK_SAMPLES;
+				processedSamples += OPTIMAL_CHUNK_SAMPLES;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				buffer[outIdx] = (short)(rawBuffer[c] * 0x7fff);
+				outIdx += aChannels;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED24: {
+		unsigned char *buffer = static_cast<unsigned char *>(outputBuffer);
+		__m128 scale = _mm_set_ps1((float)(INT_MAX >> 8));
+		__m128 min_val = _mm_set_ps1((float)(INT_MIN >> 8));
+		__m128 max_val = _mm_set_ps1((float)(INT_MAX >> 8));
+
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j * 3;
+
+			unsigned int sampleQuads = aSamples / OPTIMAL_CHUNK_SAMPLES;
+			unsigned int processedSamples = 0;
+
+			for (unsigned int quad = 0; quad < sampleQuads; quad++)
+			{
+				__m128 samples = _mm_load_ps(&rawBuffer[c]);
+				samples = _mm_mul_ps(samples, scale);
+
+				// Clamp to 24-bit range
+				samples = _mm_max_ps(samples, min_val);
+				samples = _mm_min_ps(samples, max_val);
+
+				// Convert to integers and store as 24-bit
+				__m128i int_samples = _mm_cvtps_epi32(samples);
+				int temp[OPTIMAL_CHUNK_SAMPLES];
+				_mm_store_si128((__m128i *)temp, int_samples);
+
+				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
+				{
+					int sample = temp[k];
+					buffer[outIdx] = (unsigned char)(sample & 0xff);
+					buffer[outIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
+					buffer[outIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
+					outIdx += aChannels * 3;
+				}
+
+				c += OPTIMAL_CHUNK_SAMPLES;
+				processedSamples += OPTIMAL_CHUNK_SAMPLES;
+			}
+
+			// Handle remaining samples
+			for (unsigned int remaining = processedSamples; remaining < aSamples; remaining++)
+			{
+				int sample = (int)(rawBuffer[c] * (float)(INT_MAX >> 8));
+				if (sample < (INT_MIN >> 8))
+					sample = (INT_MIN >> 8);
+				if (sample > (INT_MAX >> 8))
+					sample = (INT_MAX >> 8);
+
+				buffer[outIdx] = (unsigned char)(sample & 0xff);
+				buffer[outIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
+				buffer[outIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
+				outIdx += aChannels * 3;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED32: {
+		int *buffer = static_cast<int *>(outputBuffer);
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			unsigned int outIdx = j;
+
+			// Use scalar for 32-bit to maintain precision
+			for (i = j; i < aSamples * aChannels; i += aChannels)
+			{
+				double sample = (double)rawBuffer[c] * (double)INT_MAX;
+				if (sample < (double)INT_MIN)
+					sample = (double)INT_MIN;
+				if (sample > (double)INT_MAX)
+					sample = (double)INT_MAX;
+				buffer[i] = (int)sample;
+				c++;
+			}
+		}
+	}
+	break;
+	}
+
+#else // Fallback scalar implementation
+	int i = 0;
+	switch (aFormat)
+	{
+	case SAMPLE_FLOAT32: {
+		float *buffer = static_cast<float *>(outputBuffer);
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			for (i = j; i < aSamples * aChannels; i += aChannels)
+			{
+				buffer[i] = rawBuffer[c];
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_UNSIGNED8: {
+		unsigned char *buffer = static_cast<unsigned char *>(outputBuffer);
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			for (i = j; i < aSamples * aChannels; i += aChannels)
+			{
+				int sample = (int)(rawBuffer[c] * 127.0f + 128.0f);
+				if (sample < 0)
+					sample = 0;
+				if (sample > 255)
+					sample = 255;
+				buffer[i] = (unsigned char)sample;
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED16: {
+		short *buffer = static_cast<short *>(outputBuffer);
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			for (i = j; i < aSamples * aChannels; i += aChannels)
+			{
+				buffer[i] = (short)(rawBuffer[c] * 0x7fff);
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED24: {
+		unsigned char *buffer = static_cast<unsigned char *>(outputBuffer);
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			for (i = j; i < aSamples * aChannels; i += aChannels)
+			{
+				int sample = (int)(rawBuffer[c] * (float)(INT_MAX >> 8));
+				if (sample < (INT_MIN >> 8))
+					sample = (INT_MIN >> 8);
+				if (sample > (INT_MAX >> 8))
+					sample = (INT_MAX >> 8);
+
+				unsigned int destIdx = i * 3;
+				buffer[destIdx] = (unsigned char)(sample & 0xff);
+				buffer[destIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
+				buffer[destIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
+				c++;
+			}
+		}
+	}
+	break;
+
+	case SAMPLE_SIGNED32: {
+		int *buffer = static_cast<int *>(outputBuffer);
+		for (j = 0; j < aChannels; j++)
+		{
+			c = j * stride;
+			for (i = j; i < aSamples * aChannels; i += aChannels)
+			{
+				double sample = (double)rawBuffer[c] * (double)INT_MAX;
+				if (sample < (double)INT_MIN)
+					sample = (double)INT_MIN;
+				if (sample > (double)INT_MAX)
+					sample = (double)INT_MAX;
+				buffer[i] = (int)sample;
+				c++;
+			}
+		}
+	}
+	break;
+	}
+#endif
+}
+
+#if defined(SOLOUD_AVX_INTRINSICS)
+void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const
 {
 	using namespace ClippingConstants;
 
@@ -117,7 +704,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 	float volume = aVolume0;
 	unsigned int sampleOctuples = (aSamples + 7) / 8; // Round up to process in AVX2 groups
 
-	if (aSoloud->mFlags & Soloud::CLIP_ROUNDOFF)
+	if (mFlags & CLIP_ROUNDOFF)
 	{
 		// Roundoff clipping: smooth saturation curve instead of hard clipping
 		__m256 negThreshold = _mm256_broadcast_ss(&ROUNDOFF_NEG_THRESHOLD);
@@ -126,7 +713,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 		__m256 cubicScale = _mm256_broadcast_ss(&ROUNDOFF_CUBIC_SCALE);
 		__m256 negWall = _mm256_broadcast_ss(&ROUNDOFF_NEG_WALL);
 		__m256 posWall = _mm256_broadcast_ss(&ROUNDOFF_POS_WALL);
-		__m256 postScale = _mm256_broadcast_ss(&aSoloud->mPostClipScaler);
+		__m256 postScale = _mm256_broadcast_ss(&mPostClipScaler);
 
 		// Prepare volume ramp for AVX2 processing
 		TinyAlignedFloatBuffer volumes;
@@ -139,7 +726,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
+		for (unsigned int channel = 0; channel < mChannels; channel++)
 		{
 			__m256 vol = _mm256_load_ps(volumes.mData);
 
@@ -180,7 +767,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 		// Hard clipping: simple min/max bounds
 		__m256 negBound = _mm256_broadcast_ss(&HARD_CLIP_MIN);
 		__m256 posBound = _mm256_broadcast_ss(&HARD_CLIP_MAX);
-		__m256 postScale = _mm256_broadcast_ss(&aSoloud->mPostClipScaler);
+		__m256 postScale = _mm256_broadcast_ss(&mPostClipScaler);
 
 		// Prepare volume ramp for AVX2 processing
 		TinyAlignedFloatBuffer volumes;
@@ -193,7 +780,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
+		for (unsigned int channel = 0; channel < mChannels; channel++)
 		{
 			__m256 vol = _mm256_load_ps(volumes.mData);
 
@@ -219,7 +806,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 }
 
 #elif defined(SOLOUD_SSE_INTRINSICS)
-void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1)
+void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const
 {
 	using namespace ClippingConstants;
 
@@ -227,7 +814,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 	float volume = aVolume0;
 	unsigned int sampleQuads = (aSamples + 3) / 4; // Round up to process in SIMD groups
 
-	if (aSoloud->mFlags & Soloud::CLIP_ROUNDOFF)
+	if (mFlags & CLIP_ROUNDOFF)
 	{
 		// Roundoff clipping: smooth saturation curve instead of hard clipping
 		__m128 negThreshold = _mm_load_ps1(&ROUNDOFF_NEG_THRESHOLD);
@@ -236,7 +823,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 		__m128 cubicScale = _mm_load_ps1(&ROUNDOFF_CUBIC_SCALE);
 		__m128 negWall = _mm_load_ps1(&ROUNDOFF_NEG_WALL);
 		__m128 posWall = _mm_load_ps1(&ROUNDOFF_POS_WALL);
-		__m128 postScale = _mm_load_ps1(&aSoloud->mPostClipScaler);
+		__m128 postScale = _mm_load_ps1(&mPostClipScaler);
 
 		// Prepare volume ramp for SIMD processing
 		TinyAlignedFloatBuffer volumes;
@@ -249,7 +836,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
+		for (unsigned int channel = 0; channel < mChannels; channel++)
 		{
 			__m128 vol = _mm_load_ps(volumes.mData);
 
@@ -294,7 +881,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 		// Hard clipping: simple min/max bounds
 		__m128 negBound = _mm_load_ps1(&HARD_CLIP_MIN);
 		__m128 posBound = _mm_load_ps1(&HARD_CLIP_MAX);
-		__m128 postScale = _mm_load_ps1(&aSoloud->mPostClipScaler);
+		__m128 postScale = _mm_load_ps1(&mPostClipScaler);
 
 		// Prepare volume ramp for SIMD processing
 		TinyAlignedFloatBuffer volumes;
@@ -307,7 +894,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
+		for (unsigned int channel = 0; channel < mChannels; channel++)
 		{
 			__m128 vol = _mm_load_ps(volumes.mData);
 
@@ -334,7 +921,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 
 #else // Fallback implementation without SIMD
 
-void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1)
+void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const
 {
 	using namespace ClippingConstants;
 
@@ -342,11 +929,11 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 	float volume = aVolume0;
 	unsigned int sampleQuads = (aSamples + 3) / 4; // Process in groups of 4 for consistency
 
-	if (aSoloud->mFlags & Soloud::CLIP_ROUNDOFF)
+	if (mFlags & CLIP_ROUNDOFF)
 	{
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
+		for (unsigned int channel = 0; channel < mChannels; channel++)
 		{
 			volume = aVolume0;
 
@@ -374,7 +961,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 						output = ROUNDOFF_LINEAR_SCALE * input + ROUNDOFF_CUBIC_SCALE * input * input * input;
 					}
 
-					aDestBuffer.mData[dstIdx++] = output * aSoloud->mPostClipScaler;
+					aDestBuffer.mData[dstIdx++] = output * mPostClipScaler;
 				}
 			}
 		}
@@ -383,7 +970,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 	{
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < aSoloud->mChannels; channel++)
+		for (unsigned int channel = 0; channel < mChannels; channel++)
 		{
 			volume = aVolume0;
 
@@ -398,7 +985,7 @@ void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFl
 					// Hard clipping to [-1, 1] range
 					float output = (input <= HARD_CLIP_MIN) ? HARD_CLIP_MIN : (input >= HARD_CLIP_MAX) ? HARD_CLIP_MAX : input;
 
-					aDestBuffer.mData[dstIdx++] = output * aSoloud->mPostClipScaler;
+					aDestBuffer.mData[dstIdx++] = output * mPostClipScaler;
 				}
 			}
 		}

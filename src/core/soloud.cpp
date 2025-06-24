@@ -27,7 +27,7 @@ freely, subject to the following restrictions:
 #include "soloud_internal.h"
 #include "soloud_thread.h"
 
-#include <cmath> // sin
+#include <cmath>   // sin
 #include <cstdlib>
 #include <cstring>
 
@@ -1184,7 +1184,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 
 	// Note: clipping channels*aStride, not channels*aSamples, so we're possibly clipping some unused data.
 	// The buffers should be large enough for it, we just may do a few bytes of unneccessary work.
-	clip_internal(this, mOutputScratch, mScratch, aStride, globalVolume[0], globalVolume[1]);
+	clip_internal(mOutputScratch, mScratch, aStride, globalVolume[0], globalVolume[1]);
 
 	if (mFlags & ENABLE_VISUALIZATION)
 	{
@@ -1233,99 +1233,7 @@ void Soloud::mix(void *aBuffer, unsigned int aSamples, SAMPLE_FORMAT aFormat)
 	unsigned int stride = (aSamples + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
 	mix_internal(aSamples, stride);
 
-	unsigned int i = 0, j = 0, c = 0;
-
-	switch (aFormat)
-	{
-	case SAMPLE_FLOAT32: {
-		float *buffer = static_cast<float *>(aBuffer);
-		for (j = 0; j < mChannels; j++)
-		{
-			c = j * stride;
-			for (i = j; i < aSamples * mChannels; i += mChannels)
-			{
-				buffer[i] = mScratch.mData[c];
-				c++;
-			}
-		}
-	}
-	break;
-
-	case SAMPLE_UNSIGNED8: {
-		unsigned char *buffer = static_cast<unsigned char *>(aBuffer);
-		for (j = 0; j < mChannels; j++)
-		{
-			c = j * stride;
-			for (i = j; i < aSamples * mChannels; i += mChannels)
-			{
-				int sample = (int)(mScratch.mData[c] * 127.0f + 128.0f);
-				if (sample < 0)
-					sample = 0;
-				if (sample > 255)
-					sample = 255;
-				buffer[i] = (unsigned char)sample;
-				c++;
-			}
-		}
-	}
-	break;
-
-	case SAMPLE_SIGNED16: {
-		short *buffer = static_cast<short *>(aBuffer);
-		for (j = 0; j < mChannels; j++)
-		{
-			c = j * stride;
-			for (i = j; i < aSamples * mChannels; i += mChannels)
-			{
-				buffer[i] = (short)(mScratch.mData[c] * 0x7fff);
-				c++;
-			}
-		}
-	}
-	break;
-
-	case SAMPLE_SIGNED24: {
-		unsigned char *buffer = static_cast<unsigned char *>(aBuffer);
-		for (j = 0; j < mChannels; j++)
-		{
-			c = j * stride;
-			for (i = j; i < aSamples * mChannels; i += mChannels)
-			{
-				int sample = (int)(mScratch.mData[c] * 8388607.0f);
-				if (sample < -8388608)
-					sample = -8388608;
-				if (sample > 8388607)
-					sample = 8388607;
-
-				unsigned int destIdx = i * 3;
-				buffer[destIdx] = (unsigned char)(sample & 0xff);
-				buffer[destIdx + 1] = (unsigned char)((sample >> 8) & 0xff);
-				buffer[destIdx + 2] = (unsigned char)((sample >> 16) & 0xff);
-				c++;
-			}
-		}
-	}
-	break;
-
-	case SAMPLE_SIGNED32: {
-		int *buffer = static_cast<int *>(aBuffer);
-		for (j = 0; j < mChannels; j++)
-		{
-			c = j * stride;
-			for (i = j; i < aSamples * mChannels; i += mChannels)
-			{
-				double sample = (double)mScratch.mData[c] * 2147483647.0;
-				if (sample < -2147483648.0)
-					sample = -2147483648.0;
-				if (sample > 2147483647.0)
-					sample = 2147483647.0;
-				buffer[i] = (int)sample;
-				c++;
-			}
-		}
-	}
-	break;
-	}
+	interlace_samples(aBuffer, mScratch.mData, aSamples, stride, mChannels, aFormat);
 }
 
 void Soloud::lockAudioMutex_internal()

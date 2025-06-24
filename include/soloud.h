@@ -47,19 +47,6 @@ namespace SoLoud
 	class QueueInstance;
 	class AudioSourceInstance3dData;
 
-	// For use by backends to specify which format they'd like from the mixer.
-	namespace detail
-	{
-		enum SAMPLE_FORMAT : unsigned char
-		{
-			SAMPLE_FLOAT32,
-			SAMPLE_UNSIGNED8,
-			SAMPLE_SIGNED16,
-			SAMPLE_SIGNED24,
-			SAMPLE_SIGNED32
-		};
-	}
-
 	// Soloud core class.
 	class Soloud
 	{
@@ -350,6 +337,26 @@ namespace SoLoud
 		void set3dSourceDopplerFactor(handle aVoiceHandle, float aDopplerFactor);
 
 		// Rest of the stuff is used internally.
+
+		/**
+		 * Apply volume scaling and clipping to audio buffer
+		 *
+		 * @param aSoloud       SoLoud instance (for configuration flags)
+		 * @param aBuffer       Input buffer with source samples
+		 * @param aDestBuffer   Output buffer for processed samples
+		 * @param aSamples      Number of samples to process
+		 * @param aVolume0      Starting volume level
+		 * @param aVolume1      Ending volume level (for smooth ramping)
+		 *
+		 * Supports two clipping modes:
+		 * - Hard clipping: Simple [-1,1] bounds
+		 * - Roundoff clipping: Smooth saturation curve that approaches limits asymptotically
+		 *
+		 * Uses AVX2 intrinsics when available for 8x performance improvement,
+		 * falls back to SSE intrinsics for 4x performance improvement,
+		 * or scalar fallback for compatibility
+		 */
+		void clip_internal(AlignedFloatBuffer & aBuffer, AlignedFloatBuffer & aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const;
 
 		// Returns mixed float samples in buffer. Called by the back-end, or user with null driver.
 		void mix(void *aBuffer, unsigned int aSamples, detail::SAMPLE_FORMAT aFormat = detail::SAMPLE_FLOAT32);

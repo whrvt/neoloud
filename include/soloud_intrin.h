@@ -99,25 +99,29 @@ namespace SoLoud
 	class AudioSourceInstance;
 	class Soloud;
 
+	/* Soloud::clip_internal defined in soloud.h for convenience access to class members */
+
 	/**
-	 * Apply volume scaling and clipping to audio buffer
+	 * Convert channel-separated audio data to interleaved format with sample format conversion
 	 *
-	 * @param aSoloud       SoLoud instance (for configuration flags)
-	 * @param aBuffer       Input buffer with source samples
-	 * @param aDestBuffer   Output buffer for processed samples
-	 * @param aSamples      Number of samples to process
-	 * @param aVolume0      Starting volume level
-	 * @param aVolume1      Ending volume level (for smooth ramping)
+	 * @param outputBuffer   Destination buffer for interleaved samples
+	 * @param rawBuffer      Source buffer with channel-separated float data
+	 * @param aSamples       Number of samples per channel to process
+	 * @param stride         Size of each channel buffer (including padding for alignment)
+	 * @param aChannels      Number of audio channels
+	 * @param aFormat        Target sample format for conversion
 	 *
-	 * Supports two clipping modes:
-	 * - Hard clipping: Simple [-1,1] bounds
-	 * - Roundoff clipping: Smooth saturation curve that approaches limits asymptotically
+	 * Converts from SoLoud's internal channel-separated float format to interleaved output
+	 * in the specified sample format. Handles scaling, clamping, and type conversion for:
+	 * - SAMPLE_FLOAT32: Direct copy (32-bit float)
+	 * - SAMPLE_UNSIGNED8: Scale to [0,255] range (8-bit unsigned)
+	 * - SAMPLE_SIGNED16: Scale to [-32767,32767] range (16-bit signed)
+	 * - SAMPLE_SIGNED24: Scale to 24-bit range, store as 3-byte packed
+	 * - SAMPLE_SIGNED32: Scale to full 32-bit signed integer range
 	 *
-	 * Uses AVX2 intrinsics when available for 8x performance improvement,
-	 * falls back to SSE intrinsics for 4x performance improvement,
-	 * or scalar fallback for compatibility
 	 */
-	void clip_internal(const Soloud *aSoloud, AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1);
+	void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const unsigned int &aSamples, const unsigned int &stride,
+	                       const unsigned int &aChannels, const detail::SAMPLE_FORMAT &aFormat = detail::SAMPLE_FLOAT32);
 
 	/**
 	 * Pan and expand audio from source channel count to output channel count
