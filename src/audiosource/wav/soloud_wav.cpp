@@ -116,10 +116,14 @@ result Wav::loadwav(MemoryFile *aReader)
 		return FILE_LOAD_FAILED;
 	}
 
-	mData = new float[(unsigned int)(samples * decoder.channels)];
+	mChannels = (unsigned int)decoder.channels;
+	if (mChannels > MAX_CHANNELS)
+		mChannels = MAX_CHANNELS;
+
 	mBaseSamplerate = (float)decoder.sampleRate;
 	mSampleCount = (unsigned int)samples;
-	mChannels = decoder.channels;
+	mData = new float[(size_t)(mSampleCount * mChannels)];
+	memset(mData, 0, (size_t)(mSampleCount * mChannels) * sizeof(float));
 
 	unsigned int i, j, k;
 	for (i = 0; i < mSampleCount; i += SAMPLE_GRANULARITY)
@@ -129,9 +133,9 @@ result Wav::loadwav(MemoryFile *aReader)
 		drwav_read_pcm_frames_f32(&decoder, blockSize, tmp);
 		for (j = 0; j < blockSize; j++)
 		{
-			for (k = 0; k < decoder.channels; k++)
+			for (k = 0; k < mChannels; k++)
 			{
-				mData[k * mSampleCount + i + j] = tmp[j * decoder.channels + k];
+				mData[k * mSampleCount + i + j] = tmp[j * mChannels + k];
 			}
 		}
 	}
@@ -152,20 +156,17 @@ result Wav::loadogg(MemoryFile *aReader)
 	}
 
 	stb_vorbis_info info = stb_vorbis_get_info(vorbis);
-	mBaseSamplerate = (float)info.sample_rate;
-	int samples = stb_vorbis_stream_length_in_samples(vorbis);
+	unsigned int samples = stb_vorbis_stream_length_in_samples(vorbis);
 
-	if (info.channels > MAX_CHANNELS)
-	{
+	mChannels = (unsigned int)info.channels;
+	if (mChannels > MAX_CHANNELS)
 		mChannels = MAX_CHANNELS;
-	}
-	else
-	{
-		mChannels = info.channels;
-	}
-	mData = new float[samples * mChannels];
-	memset(mData, 0, samples * mChannels * sizeof(float));
+
+	mBaseSamplerate = (float)info.sample_rate;
 	mSampleCount = samples;
+	mData = new float[(size_t)(mSampleCount * mChannels)];
+	memset(mData, 0, (size_t)(mSampleCount * mChannels) * sizeof(float));
+
 	samples = 0;
 	while (1)
 	{
@@ -206,13 +207,12 @@ result Wav::loadmpg123(MemoryFile *aReader)
 
 	mChannels = (unsigned int)channels;
 	if (mChannels > MAX_CHANNELS)
-	{
 		mChannels = MAX_CHANNELS;
-	}
 
 	mBaseSamplerate = (float)sampleRate;
 	mSampleCount = (unsigned int)totalFrames;
-	mData = new float[mSampleCount * mChannels];
+	mData = new float[(size_t)(mSampleCount * mChannels)];
+	memset(mData, 0, (size_t)(mSampleCount * mChannels) * sizeof(float));
 
 	unsigned int i, j, k;
 	for (i = 0; i < mSampleCount; i += SAMPLE_GRANULARITY)
@@ -257,10 +257,15 @@ result Wav::loaddrmp3(MemoryFile *aReader)
 		return FILE_LOAD_FAILED;
 	}
 
-	mData = new float[(unsigned int)(samples * decoder.channels)];
+	mChannels = (unsigned int)decoder.channels;
+	if (mChannels > MAX_CHANNELS)
+		mChannels = MAX_CHANNELS;
+
 	mBaseSamplerate = (float)decoder.sampleRate;
 	mSampleCount = (unsigned int)samples;
-	mChannels = decoder.channels;
+	mData = new float[(size_t)(mSampleCount * mChannels)];
+	memset(mData, 0, (size_t)(mSampleCount * mChannels) * sizeof(float));
+
 	drmp3_seek_to_pcm_frame(&decoder, 0);
 
 	unsigned int i, j, k;
@@ -271,9 +276,9 @@ result Wav::loaddrmp3(MemoryFile *aReader)
 		drmp3_read_pcm_frames_f32(&decoder, blockSize, tmp);
 		for (j = 0; j < blockSize; j++)
 		{
-			for (k = 0; k < decoder.channels; k++)
+			for (k = 0; k < mChannels; k++)
 			{
-				mData[k * mSampleCount + i + j] = tmp[j * decoder.channels + k];
+				mData[k * mSampleCount + i + j] = tmp[j * mChannels + k];
 			}
 		}
 	}
@@ -299,10 +304,15 @@ result Wav::loadflac(MemoryFile *aReader)
 		return FILE_LOAD_FAILED;
 	}
 
-	mData = new float[(unsigned int)(samples * decoder->channels)];
+	mChannels = (unsigned int)decoder->channels;
+	if (mChannels > MAX_CHANNELS)
+		mChannels = MAX_CHANNELS;
+
 	mBaseSamplerate = (float)decoder->sampleRate;
 	mSampleCount = (unsigned int)samples;
-	mChannels = decoder->channels;
+	mData = new float[(size_t)(mSampleCount * mChannels)];
+	memset(mData, 0, (size_t)(mSampleCount * mChannels) * sizeof(float));
+
 	drflac_seek_to_pcm_frame(decoder, 0);
 
 	unsigned int i, j, k;
@@ -313,9 +323,9 @@ result Wav::loadflac(MemoryFile *aReader)
 		drflac_read_pcm_frames_f32(decoder, blockSize, tmp);
 		for (j = 0; j < blockSize; j++)
 		{
-			for (k = 0; k < decoder->channels; k++)
+			for (k = 0; k < mChannels; k++)
 			{
-				mData[k * mSampleCount + i + j] = tmp[j * decoder->channels + k];
+				mData[k * mSampleCount + i + j] = tmp[j * mChannels + k];
 			}
 		}
 	}
