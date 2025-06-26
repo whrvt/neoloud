@@ -27,7 +27,7 @@ freely, subject to the following restrictions:
 #include "soloud_internal.h"
 #include "soloud_thread.h"
 
-#include <cmath>   // sin
+#include <cmath> // sin
 #include <cstdlib>
 #include <cstring>
 
@@ -492,18 +492,22 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 		return availableSamples; // Buffer is full
 	}
 
-	// Read one chunk at a time to maintain low latency
-	// Using SAMPLE_GRANULARITY ensures consistent chunk sizes across the audio pipeline
-	unsigned int samplesToRead = SAMPLE_GRANULARITY;
+	// Read only as much data is necessary (rounded to a power of 2, and with a reasonable minimum), up to SAMPLE_GRANULARITY, to maintain low latency
+	unsigned int samplesToRead = samplesNeeded < 64U ? 64U : samplesNeeded;
+	if (samplesToRead & (samplesToRead-1)) {
+			unsigned int i = 1;
+			while (i < samplesToRead) i *= 2;
+			samplesToRead = i;
+	}
+	if (samplesToRead > SAMPLE_GRANULARITY)
+		samplesToRead = SAMPLE_GRANULARITY;
 	if (samplesToRead > spaceAvailable)
 		samplesToRead = spaceAvailable;
 	if (samplesToRead > scratchSize / voice->mChannels)
 		samplesToRead = scratchSize / voice->mChannels;
 
 	if (samplesToRead == 0)
-	{
 		return availableSamples;
-	}
 
 	unsigned int samplesRead = 0;
 	bool shouldTryToRead = !voice->hasEnded() || (voice->mFlags & AudioSourceInstance::LOOPING) || availableSamples < samplesNeeded;
