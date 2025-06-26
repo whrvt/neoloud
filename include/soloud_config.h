@@ -77,7 +77,7 @@ freely, subject to the following restrictions:
 
 // Number of samples to process on one go
 #ifndef SAMPLE_GRANULARITY
-#define SAMPLE_GRANULARITY 256
+#define SAMPLE_GRANULARITY 512
 #endif
 
 // Maximum number of concurrent voices (hard limit is 4095)
