@@ -331,7 +331,7 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, cons
 	data->contextInitialized = true;
 
 	// use timeout for device initialization
-	auto deviceInitFuture = std::async(std::launch::async, [&data, &config]() -> ma_result {
+	auto deviceInitFuture = std::async(std::launch::deferred, [&data, &config]() -> ma_result {
 		ma_result initResult = ma_device_init(&data->context, &config, &data->device);
 
 		// check if we've been abandoned due to timeout
