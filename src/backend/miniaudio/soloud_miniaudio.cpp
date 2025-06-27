@@ -38,7 +38,6 @@ distribution.
 
 // disable unneeded miniaudio features, we just want playback functionality
 #define MA_NO_NULL // no null audio backend
-#define MA_NO_JACK // we have pulse and alsa already, this just bloats the device struct
 #define MA_NO_DECODING
 #define MA_NO_ENCODING
 #define MA_NO_WAV
@@ -51,10 +50,13 @@ distribution.
 #include "miniaudio.h"
 
 #include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <future>
 #include <mutex>
+#include <array>
 
 namespace SoLoud
 {
@@ -68,12 +70,19 @@ struct MiniaudioData
 	bool contextInitialized{false};
 	bool deviceInitialized{false};
 	bool logInitialized{false};
-	ma_uint32 maxLogLevel{0};
 
 	std::atomic<bool> deviceValid{true};
 	std::mutex deviceMutex; // protects device operations during shutdown
 
+	struct logCbData {
+		ma_uint32 maxLogLevel{0};
+		std::mutex logMutex; // logging messages can come from multiple threads
+	} logData{};
+
 	Soloud *soloudInstance{nullptr};
+
+	// flag to track if initialization has timed out to prevent background thread interference
+	std::atomic<bool> initAbandoned{false};
 };
 
 namespace // static
@@ -81,7 +90,8 @@ namespace // static
 
 void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char *pMessage)
 {
-	ma_uint32 maxLevel = *static_cast<ma_uint32 *>(pUserData);
+	auto &data = *static_cast<MiniaudioData::logCbData*>(pUserData);
+	ma_uint32 maxLevel = data.maxLogLevel;
 
 	if (level > maxLevel)
 		return; // don't log if level is more verbose than our max
@@ -105,6 +115,8 @@ void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char 
 		levelStr = "UNKNOWN";
 		break;
 	}
+
+	std::lock_guard<std::mutex> lock(data.logMutex);
 
 	fprintf(stderr, "[MiniAudio %s] %s", levelStr, pMessage); // it seems that the log messages are pre-newline-terminated
 }
@@ -149,37 +161,37 @@ void soloud_miniaudio_notification_callback(const ma_device_notification *pNotif
 	switch (pNotification->type)
 	{
 	case ma_device_notification_type_stopped:
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 			fprintf(stderr, "[MiniAudio INFO] Device stopped\n");
 		data->deviceValid.store(false);
 		break;
 
 	case ma_device_notification_type_rerouted:
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 			fprintf(stderr, "[MiniAudio INFO] Device rerouted\n");
 		// device should continue working after reroute
 		break;
 
 	case ma_device_notification_type_interruption_began:
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 			fprintf(stderr, "[MiniAudio INFO] Device interruption began\n");
 		data->deviceValid.store(false);
 		break;
 
 	case ma_device_notification_type_interruption_ended:
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 			fprintf(stderr, "[MiniAudio INFO] Device interruption ended\n");
 		data->deviceValid.store(true);
 		break;
 
 	case ma_device_notification_type_started:
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 			fprintf(stderr, "[MiniAudio INFO] Device started\n");
 		data->deviceValid.store(true);
 		break;
 
 	case ma_device_notification_type_unlocked:
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 			fprintf(stderr, "[MiniAudio INFO] Device unlocked\n");
 		break;
 	}
@@ -242,6 +254,8 @@ void soloud_miniaudio_deinit(SoLoud::Soloud *aSoloud)
 	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
 	if (data)
 	{
+		// mark as abandoned to prevent any ongoing background operations from interfering
+		data->initAbandoned.store(true);
 		data->deviceValid.store(false);
 
 		// stop and uninitialize device
@@ -302,6 +316,79 @@ result soloud_miniaudio_resume(SoLoud::Soloud *aSoloud)
 	return SO_NO_ERROR;
 }
 
+// helper function to attempt device initialization with a specific backend and timeout
+ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, const ma_device_config &config)
+{
+	// create context with specific backend
+	ma_context_config contextConfig = ma_context_config_init();
+	contextConfig.threadPriority = ma_thread_priority_highest;
+	if (data->logInitialized)
+		contextConfig.pLog = &data->log;
+
+	ma_result contextResult = ma_context_init(std::array <ma_backend, 1>{backend}.data(), 1, &contextConfig, &data->context);
+	if (contextResult != MA_SUCCESS)
+		return contextResult;
+	data->contextInitialized = true;
+
+	// use timeout for device initialization
+	auto deviceInitFuture = std::async(std::launch::async, [&data, &config]() -> ma_result {
+		ma_result initResult = ma_device_init(&data->context, &config, &data->device);
+
+		// check if we've been abandoned due to timeout
+		if (data->initAbandoned.load())
+		{
+			// we timed out - clean up the device if initialization succeeded
+			if (initResult == MA_SUCCESS)
+				ma_device_uninit(&data->device);
+			return MA_ERROR;
+		}
+
+		return initResult;
+	});
+
+	// wait for up to 2 seconds for device initialization
+	if (deviceInitFuture.wait_for(std::chrono::seconds(2)) == std::future_status::timeout)
+	{
+		// timeout occurred - mark as abandoned and cleanup
+		data->initAbandoned.store(true);
+
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_WARNING)
+			fprintf(stderr, "[MiniAudio WARNING] Backend '%s' timed out after 2 seconds\n", ma_get_backend_name(backend));
+
+		// cleanup context
+		ma_context_uninit(&data->context);
+		data->contextInitialized = false;
+
+		return MA_ERROR;
+	}
+
+	// get the result from the async operation
+	ma_result deviceResult = deviceInitFuture.get();
+
+	// check if we were abandoned during initialization (race condition protection)
+	if (data->initAbandoned.load())
+	{
+		// we were marked as abandoned, cleanup and return error
+		if (deviceResult == MA_SUCCESS)
+			ma_device_uninit(&data->device);
+		ma_context_uninit(&data->context);
+		data->contextInitialized = false;
+		return MA_ERROR;
+	}
+
+	if (deviceResult != MA_SUCCESS)
+	{
+		// device init failed, cleanup context
+		ma_context_uninit(&data->context);
+		data->contextInitialized = false;
+		return deviceResult;
+	}
+
+	// success - device is initialized
+	data->deviceInitialized = true;
+	return MA_SUCCESS;
+}
+
 } // namespace
 
 result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
@@ -311,50 +398,30 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	data->soloudInstance = aSoloud;
 
 	// setup logging
-	data->maxLogLevel = parse_log_level_from_env();
-	if (data->maxLogLevel > 0)
+	data->logData.maxLogLevel = parse_log_level_from_env();
+	if (data->logData.maxLogLevel > 0)
 	{
 		ma_result logResult = ma_log_init(nullptr, &data->log);
 		if (logResult == MA_SUCCESS)
 		{
 			data->logInitialized = true;
-			ma_log_callback callback = ma_log_callback_init(soloud_miniaudio_log_callback, &data->maxLogLevel);
+			ma_log_callback callback = ma_log_callback_init(soloud_miniaudio_log_callback, &data->logData);
 			ma_log_register_callback(&data->log, callback);
 		}
 	}
 
-	ma_context_config contextConfig = ma_context_config_init();
-	contextConfig.threadPriority = ma_thread_priority_highest;
-	if (data->logInitialized)
-		contextConfig.pLog = &data->log;
-
-	// this can be set+reordered if we want a different priority
-	// const ma_backend backends[] = {ma_backend_wasapi, ma_backend_dsound, ma_backend_winmm,    ma_backend_coreaudio,  ma_backend_sndio,
-	//                                ma_backend_audio4, ma_backend_oss,    ma_backend_alsa,     ma_backend_pulseaudio, ma_backend_jack,
-	//                                ma_backend_aaudio, ma_backend_opensl, ma_backend_webaudio, ma_backend_custom,     ma_backend_null};
-
-	// ma_result result = ma_context_init(&backends[0], sizeof(backends) / sizeof((backends)[0]), &contextConfig, &data->context);
-
-	ma_result result = ma_context_init(nullptr, 0, &contextConfig, &data->context);
+	// get list of enabled backends
+	size_t enabledBackendCount = 0;
+	std::array<ma_backend, MA_BACKEND_COUNT> enabledBackends{};
+	ma_result result = ma_get_enabled_backends(enabledBackends.data(), MA_BACKEND_COUNT, &enabledBackendCount);
 	if (result != MA_SUCCESS)
 	{
 		if (data->logInitialized)
 			ma_log_uninit(&data->log);
 		delete data;
 		aSoloud->mBackendData = nullptr;
-		switch (result)
-		{
-		case MA_INVALID_ARGS:
-			return INVALID_PARAMETER;
-		case MA_OUT_OF_MEMORY:
-			return OUT_OF_MEMORY;
-		case MA_NO_BACKEND:
-			return NOT_IMPLEMENTED;
-		default:
-			return UNKNOWN_ERROR;
-		}
+		return UNKNOWN_ERROR;
 	}
-	data->contextInitialized = true;
 
 	// configure device
 	ma_device_config config = ma_device_config_init(ma_device_type_playback);
@@ -389,32 +456,54 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	config.alsa.noAutoChannels = true;
 	config.alsa.noAutoResample = true;
 
-	result = ma_device_init(&data->context, &config, &data->device);
-	if (result != MA_SUCCESS)
+	// try each backend individually with timeout
+	bool initialized = false;
+	for (size_t i = 0; i < enabledBackendCount && !initialized; ++i)
 	{
-		ma_context_uninit(&data->context);
+		ma_backend backend = enabledBackends[i];
+
+		// skip null backend since we disabled it
+		if (backend == ma_backend_null)
+			continue;
+
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
+			fprintf(stderr, "[MiniAudio INFO] Trying backend: %s\n", ma_get_backend_name(backend));
+
+		// reset abandoned flag for this attempt
+		data->initAbandoned.store(false);
+
+		result = try_backend_with_timeout(data, backend, config);
+
+		if (result == MA_SUCCESS)
+		{
+			initialized = true;
+			if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
+				fprintf(stderr, "[MiniAudio INFO] Successfully initialized with backend: %s\n", ma_get_backend_name(backend));
+		}
+		else
+		{
+			if (data->logData.maxLogLevel >= MA_LOG_LEVEL_WARNING)
+			{
+				if (result == MA_ERROR) // this indicates timeout
+					fprintf(stderr, "[MiniAudio WARNING] Backend '%s' failed due to timeout\n", ma_get_backend_name(backend));
+				else
+					fprintf(stderr, "[MiniAudio WARNING] Backend '%s' failed with error: %d\n", ma_get_backend_name(backend), result);
+			}
+		}
+	}
+
+	if (!initialized)
+	{
 		if (data->logInitialized)
 			ma_log_uninit(&data->log);
 		delete data;
 		aSoloud->mBackendData = nullptr;
 
-		switch (result)
-		{
-		case MA_INVALID_ARGS:
-			return INVALID_PARAMETER;
-		case MA_OUT_OF_MEMORY:
-			return OUT_OF_MEMORY;
-		case MA_FORMAT_NOT_SUPPORTED:
-			return INVALID_PARAMETER;
-		case MA_DEVICE_NOT_INITIALIZED:
-		case MA_DEVICE_ALREADY_INITIALIZED:
-		case MA_DEVICE_NOT_STARTED:
-		case MA_DEVICE_NOT_STOPPED:
-		default:
-			return UNKNOWN_ERROR;
-		}
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_ERROR)
+			fprintf(stderr, "[MiniAudio ERROR] All backends failed to initialize\n");
+
+		return UNKNOWN_ERROR; // this will cause soloud to try other backends like SDL3
 	}
-	data->deviceInitialized = true;
 
 	// use the actual device configuration that was negotiated
 	unsigned int actualSampleRate = data->device.sampleRate;

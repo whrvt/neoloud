@@ -299,7 +299,7 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 	if (strcasecmp(driver, "wasapi") != 0)
 		requestedBufferSize = std::max(((deviceRequestSpec.freq * 10) + 999) / 1000u, requestedBufferSize);
 #elif defined(__linux__)
-	if (strcasecmp(driver, "pulseaudio") == 0) // SDL seems to always return a buffer size 2x of what was requested (but only for pulseaudio)... why?
+	if (strcasecmp(driver, "pulseaudio") == 0)               // SDL seems to always return a buffer size 2x of what was requested (but only for pulseaudio)... why?
 		requestedBufferSize = (requestedBufferSize + 1) / 2; // curse integer truncation
 #else // other platforms/drivers, just clamp to min 10ms (like windows non-wasapi)
 	requestedBufferSize = std::max(((deviceRequestSpec.freq * 10) + 999) / 1000u, requestedBufferSize);
@@ -310,8 +310,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 	SDL_SetHintWithPriority(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, &bufferStr[0], SDL_HINT_NORMAL);
 	SDL_LogDebug(SDL_LOG_CATEGORY_AUDIO, "Setting buffer size hint: %u frames", requestedBufferSize);
 
-	SDL_LogDebug(SDL_LOG_CATEGORY_AUDIO, "Requesting device: %dHz, %d channels, format %#x, buffer %u frames (driver: %s)", deviceRequestSpec.freq, deviceRequestSpec.channels,
-	             deviceRequestSpec.format, requestedBufferSize, SDL_GetCurrentAudioDriver());
+	SDL_LogDebug(SDL_LOG_CATEGORY_AUDIO, "Requesting device: %dHz, %d channels, format %#x, buffer %u frames (driver: %s)", deviceRequestSpec.freq,
+	             deviceRequestSpec.channels, deviceRequestSpec.format, requestedBufferSize, SDL_GetCurrentAudioDriver());
 
 	// open device first
 	data->deviceID = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &deviceRequestSpec);

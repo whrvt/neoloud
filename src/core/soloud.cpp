@@ -161,6 +161,7 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 	int samplerate = 44100;
 	int buffersize = 2048;
 	int inited = 0;
+	int failed = 0;
 
 	if (aSamplerate != Soloud::AUTO)
 		samplerate = aSamplerate;
@@ -174,31 +175,28 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 
 	if (!inited && (aBackend == Soloud::MINIAUDIO || aBackend == Soloud::AUTO))
 	{
-		int ret = miniaudio_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
+		failed = miniaudio_init(this, aFlags, samplerate, buffersize, aChannels);
+		if (failed == 0)
 		{
 			inited = 1;
 			mBackendID = Soloud::MINIAUDIO;
 		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
 	}
 
 #if defined(WITH_SDL3)
-	if (!inited && (aBackend == Soloud::SDL3 || aBackend == Soloud::AUTO))
+	if (!inited && (aBackend == Soloud::SDL3 || aBackend == Soloud::AUTO || failed))
 	{
-		int ret = sdl3_init(this, aFlags, samplerate, buffersize, aChannels);
-		if (ret == 0)
+		failed = sdl3_init(this, aFlags, samplerate, buffersize, aChannels);
+		if (failed == 0)
 		{
 			inited = 1;
 			mBackendID = Soloud::SDL3;
 		}
-
-		if (ret != 0 && aBackend != Soloud::AUTO)
-			return ret;
 	}
 #endif
+
+	if (failed != 0 && aBackend != Soloud::AUTO)
+		return failed;
 
 	if (!inited && (aBackend == Soloud::NOSOUND || aBackend == Soloud::AUTO))
 	{

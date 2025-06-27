@@ -69,7 +69,7 @@ namespace SoLoud
 	public:
 		float *mData;            // SIMD-aligned pointer for vectorized operations
 		unsigned char *mBasePtr; // Raw allocated pointer (for delete)
-		int mFloats;             // Size of buffer in floats (without padding)
+		unsigned int mFloats;             // Size of buffer in floats (without padding)
 
 		// Constructor
 		AlignedFloatBuffer();
