@@ -347,7 +347,7 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, cons
 	});
 
 	// wait for up to 2 seconds for device initialization
-	if (deviceInitFuture.wait_for(std::chrono::seconds(2)) == std::future_status::timeout)
+	if (deviceInitFuture.wait_for(std::chrono::seconds(6)) == std::future_status::timeout)
 	{
 		// timeout occurred - mark as abandoned and cleanup
 		data->initAbandoned.store(true);
