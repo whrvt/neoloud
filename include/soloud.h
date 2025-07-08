@@ -47,6 +47,20 @@ namespace SoLoud
 	class QueueInstance;
 	class AudioSourceInstance3dData;
 
+	// Generic device information structure for cross-backend compatibility
+	struct DeviceInfo
+	{
+		char name[256];         // Human-readable device name
+		char identifier[128];   // Backend-specific device identifier
+		bool isDefault;         // Whether this is the default device
+		void *nativeDeviceInfo; // Backend-specific device info (optional)
+	};
+
+	// Device management function pointer types
+	typedef result (*enumerateDevicesFunc)(Soloud *aSoloud);
+	typedef result (*getCurrentDeviceFunc)(Soloud *aSoloud, DeviceInfo *pDeviceInfo);
+	typedef result (*setDeviceFunc)(Soloud *aSoloud, const char *deviceIdentifier);
+
 	// Soloud core class.
 	class Soloud
 	{
@@ -63,6 +77,15 @@ namespace SoLoud
 		// Some backends like CoreAudio on iOS must be paused/resumed in some cases. On incoming call as instance.
 		soloudResultFunction mBackendPauseFunc;
 		soloudResultFunction mBackendResumeFunc;
+
+		// Device management function pointers (set by backend during initialization)
+		enumerateDevicesFunc mEnumerateDevicesFunc;
+		getCurrentDeviceFunc mGetCurrentDeviceFunc;
+		setDeviceFunc mSetDeviceFunc;
+
+		// Internal device list storage
+		DeviceInfo *mDeviceList;
+		unsigned int mDeviceCount;
 
 		// CTor
 		Soloud();
@@ -134,6 +157,81 @@ namespace SoLoud
 		unsigned int getBackendSamplerate();
 		// Returns current backend buffer size
 		unsigned int getBackendBufferSize();
+
+		// Device management API
+		/*
+		Enumerates available playback devices.
+
+		Parameters
+		----------
+		ppDevices (out)
+		    Pointer to array of DeviceInfo structures. Points to internal storage that remains
+		    valid until the next call to enumerateDevices() or until SoLoud is destroyed.
+
+		pDeviceCount (out)
+		    Number of devices returned in ppDevices array.
+
+		Return Value
+		------------
+		SO_NO_ERROR if successful; error code otherwise.
+		NOT_IMPLEMENTED if current backend doesn't support device enumeration.
+
+		Thread Safety
+		-------------
+		Unsafe. Do not call from multiple threads simultaneously.
+
+		Remarks
+		-------
+		The returned device list points to internal storage and becomes invalid on the next
+		call to enumerateDevices(). Device availability may change over time (devices can
+		be plugged/unplugged), so re-enumerate when needed.
+		*/
+		result enumerateDevices(DeviceInfo * *ppDevices, unsigned int *pDeviceCount);
+
+		/*
+		Gets information about the currently active playback device.
+
+		Parameters
+		----------
+		pDeviceInfo (out)
+		    DeviceInfo structure to receive current device information.
+
+		Return Value
+		------------
+		SO_NO_ERROR if successful; error code otherwise.
+		NOT_IMPLEMENTED if current backend doesn't support device enumeration.
+
+		Thread Safety
+		-------------
+		Safe.
+		*/
+		result getCurrentDevice(DeviceInfo * pDeviceInfo);
+
+		/*
+		Switches to a different playback device.
+
+		Parameters
+		----------
+		deviceIdentifier (in)
+		    Device identifier string from DeviceInfo.identifier, or NULL for default device.
+
+		Return Value
+		------------
+		SO_NO_ERROR if successful; error code otherwise.
+		NOT_IMPLEMENTED if current backend doesn't support device switching.
+		INVALID_PARAMETER if device identifier is invalid.
+
+		Thread Safety
+		-------------
+		Safe.
+
+		Remarks
+		-------
+		Audio playback will continue seamlessly on the new device. If the new device has
+		different capabilities (sample rate, channels), internal buffers will be reconfigured
+		automatically. Currently playing sounds will continue from their current position.
+		*/
+		result setDevice(const char *deviceIdentifier);
 
 		// Set speaker position in 3d space
 		result setSpeakerPosition(unsigned int aChannel, float aX, float aY, float aZ);

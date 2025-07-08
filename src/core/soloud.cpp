@@ -64,6 +64,11 @@ Soloud::Soloud()
 	mBackendCleanupFunc = nullptr;
 	mBackendPauseFunc = nullptr;
 	mBackendResumeFunc = nullptr;
+	mEnumerateDevicesFunc = nullptr;
+	mGetCurrentDeviceFunc = nullptr;
+	mSetDeviceFunc = nullptr;
+	mDeviceList = nullptr;
+	mDeviceCount = 0;
 	mChannels = 2;
 	mStreamTime = 0;
 	mLastClockedTime = 0;
@@ -144,6 +149,12 @@ void Soloud::deinit()
 	if (mAudioThreadMutex)
 		Thread::destroyMutex(mAudioThreadMutex);
 	mAudioThreadMutex = nullptr;
+	mEnumerateDevicesFunc = nullptr;
+	mGetCurrentDeviceFunc = nullptr;
+	mSetDeviceFunc = nullptr;
+	delete[] mDeviceList;
+	mDeviceList = nullptr;
+	mDeviceCount = 0;
 }
 
 result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aChannels)

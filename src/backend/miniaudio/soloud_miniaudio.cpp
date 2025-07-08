@@ -49,6 +49,7 @@ distribution.
 
 #include "miniaudio.h"
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -56,7 +57,6 @@ distribution.
 #include <cstring>
 #include <future>
 #include <mutex>
-#include <array>
 
 namespace SoLoud
 {
@@ -74,7 +74,8 @@ struct MiniaudioData
 	std::atomic<bool> deviceValid{true};
 	std::mutex deviceMutex; // protects device operations during shutdown
 
-	struct logCbData {
+	struct logCbData
+	{
 		ma_uint32 maxLogLevel{0};
 		std::mutex logMutex; // logging messages can come from multiple threads
 	} logData{};
@@ -83,6 +84,17 @@ struct MiniaudioData
 
 	// flag to track if initialization has timed out to prevent background thread interference
 	std::atomic<bool> initAbandoned{false};
+
+	// device management
+	ma_device_info currentDeviceInfo{};
+	bool hasCurrentDeviceInfo{false};
+	ma_backend currentBackend{ma_backend_null};
+
+	// cached device configuration for seamless switching
+	unsigned int initFlags{0};
+	unsigned int requestedSampleRate{0};
+	unsigned int requestedBufferSize{0};
+	unsigned int requestedChannels{0};
 };
 
 namespace // static
@@ -90,7 +102,7 @@ namespace // static
 
 void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char *pMessage)
 {
-	auto &data = *static_cast<MiniaudioData::logCbData*>(pUserData);
+	auto &data = *static_cast<MiniaudioData::logCbData *>(pUserData);
 	ma_uint32 maxLevel = data.maxLogLevel;
 
 	if (level > maxLevel)
@@ -316,6 +328,47 @@ result soloud_miniaudio_resume(SoLoud::Soloud *aSoloud)
 	return SO_NO_ERROR;
 }
 
+// helper function to create device config from cached parameters
+ma_device_config create_device_config(MiniaudioData *data, const ma_device_id *pDeviceID = nullptr)
+{
+	ma_device_config config = ma_device_config_init(ma_device_type_playback);
+	config.playback.format = ma_format_unknown; // default device format, we'll do the conversion ourselves
+	config.playback.channels = data->requestedChannels;
+	config.dataCallback = soloud_miniaudio_audiomixer;
+	config.notificationCallback = soloud_miniaudio_notification_callback;
+	config.pUserData = (void *)data;
+	config.noPreSilencedOutputBuffer = true;
+	config.noClip = true;
+	config.performanceProfile = ma_performance_profile_low_latency;
+
+	if (pDeviceID)
+		config.playback.pDeviceID = pDeviceID;
+
+	if (data->requestedSampleRate > 0)
+		config.sampleRate = data->requestedSampleRate;
+	else
+		config.sampleRate = 0;
+
+	if (data->requestedBufferSize > 0)
+		config.periodSizeInFrames = data->requestedBufferSize;
+	else
+	{
+		config.periodSizeInFrames = 0;
+#if defined(_WIN32) || defined(_WIN64) || defined(_MSC_VER) || defined(__linux__)
+		config.periodSizeInMilliseconds = 1; // negotiate the lowest possible period size
+#endif
+	}
+
+	// backend-specific settings
+	config.wasapi.noAutoConvertSRC = true; // soloud handles resampling
+	config.wasapi.noDefaultQualitySRC = true;
+	config.alsa.noAutoFormat = true;
+	config.alsa.noAutoChannels = true;
+	config.alsa.noAutoResample = true;
+
+	return config;
+}
+
 // helper function to attempt device initialization with a specific backend and timeout
 ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, const ma_device_config &config)
 {
@@ -325,7 +378,7 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, cons
 	if (data->logInitialized)
 		contextConfig.pLog = &data->log;
 
-	ma_result contextResult = ma_context_init(std::array <ma_backend, 1>{backend}.data(), 1, &contextConfig, &data->context);
+	ma_result contextResult = ma_context_init(std::array<ma_backend, 1>{backend}.data(), 1, &contextConfig, &data->context);
 	if (contextResult != MA_SUCCESS)
 		return contextResult;
 	data->contextInitialized = true;
@@ -346,14 +399,14 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, cons
 		return initResult;
 	});
 
-	// wait for up to 2 seconds for device initialization
+	// wait for up to 6 seconds for device initialization
 	if (deviceInitFuture.wait_for(std::chrono::seconds(6)) == std::future_status::timeout)
 	{
 		// timeout occurred - mark as abandoned and cleanup
 		data->initAbandoned.store(true);
 
 		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_WARNING)
-			fprintf(stderr, "[MiniAudio WARNING] Backend '%s' timed out after 2 seconds\n", ma_get_backend_name(backend));
+			fprintf(stderr, "[MiniAudio WARNING] Backend '%s' timed out after 6 seconds\n", ma_get_backend_name(backend));
 
 		// cleanup context
 		ma_context_uninit(&data->context);
@@ -386,7 +439,260 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, cons
 
 	// success - device is initialized
 	data->deviceInitialized = true;
+	data->currentBackend = backend;
 	return MA_SUCCESS;
+}
+
+// helper function to initialize device with specific device ID (used during device switching)
+ma_result init_device_with_id(MiniaudioData *data, const ma_device_id *pDeviceID)
+{
+	if (!data->contextInitialized)
+		return MA_ERROR;
+
+	ma_device_config config = create_device_config(data, pDeviceID);
+
+	// reset abandoned flag for this attempt
+	data->initAbandoned.store(false);
+
+	// use timeout for device initialization
+	auto deviceInitFuture = std::async(std::launch::deferred, [&data, &config]() -> ma_result {
+		ma_result initResult = ma_device_init(&data->context, &config, &data->device);
+
+		// check if we've been abandoned due to timeout
+		if (data->initAbandoned.load())
+		{
+			// we timed out - clean up the device if initialization succeeded
+			if (initResult == MA_SUCCESS)
+				ma_device_uninit(&data->device);
+			return MA_ERROR;
+		}
+
+		return initResult;
+	});
+
+	// wait for up to 6 seconds for device initialization
+	if (deviceInitFuture.wait_for(std::chrono::seconds(6)) == std::future_status::timeout)
+	{
+		// timeout occurred - mark as abandoned and cleanup
+		data->initAbandoned.store(true);
+
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_WARNING)
+			fprintf(stderr, "[MiniAudio WARNING] Device initialization timed out after 6 seconds\n");
+
+		return MA_ERROR;
+	}
+
+	// get the result from the async operation
+	ma_result deviceResult = deviceInitFuture.get();
+
+	// check if we were abandoned during initialization
+	if (data->initAbandoned.load())
+	{
+		// we were marked as abandoned, cleanup and return error
+		if (deviceResult == MA_SUCCESS)
+			ma_device_uninit(&data->device);
+		return MA_ERROR;
+	}
+
+	if (deviceResult == MA_SUCCESS)
+		data->deviceInitialized = true;
+
+	return deviceResult;
+}
+
+// convert ma_device_info to generic DeviceInfo
+void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo)
+{
+	if (!pMaInfo || !pGenericInfo)
+		return;
+
+	// copy name with bounds checking
+	size_t nameLen = strlen(&pMaInfo->name[0]);
+	if (nameLen >= sizeof(pGenericInfo->name))
+		nameLen = sizeof(pGenericInfo->name) - 1;
+	memcpy(&pGenericInfo->name[0], &pMaInfo->name[0], nameLen);
+	pGenericInfo->name[nameLen] = '\0';
+
+	// create string representation of device ID
+	snprintf(&pGenericInfo->identifier[0], sizeof(pGenericInfo->identifier), "ma_%d_%d_%d_%s",
+	         (int)pMaInfo->id.wasapi[0], // use first few bytes as identifier
+	         (int)pMaInfo->id.wasapi[1], (int)pMaInfo->id.wasapi[2], &pMaInfo->name[0]);
+
+	pGenericInfo->isDefault = pMaInfo->isDefault != 0;
+	pGenericInfo->nativeDeviceInfo = nullptr;
+}
+
+// enumerate available playback devices
+result miniaudio_enumerate_devices(SoLoud::Soloud *aSoloud)
+{
+	if (!aSoloud)
+		return INVALID_PARAMETER;
+
+	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
+	if (!data || !data->contextInitialized)
+		return INVALID_PARAMETER;
+
+	std::lock_guard<std::mutex> lock(data->deviceMutex);
+
+	ma_device_info *maDevices = nullptr;
+	ma_uint32 maDeviceCount = 0;
+
+	ma_result result = ma_context_get_devices(&data->context, &maDevices, &maDeviceCount, nullptr, nullptr);
+	if (result != MA_SUCCESS)
+		return UNKNOWN_ERROR;
+
+	// allocate internal device array
+	aSoloud->mDeviceList = new DeviceInfo[maDeviceCount];
+	if (!aSoloud->mDeviceList)
+	{
+		aSoloud->mDeviceCount = 0;
+		return OUT_OF_MEMORY;
+	}
+
+	// convert ma_device_info to DeviceInfo
+	for (ma_uint32 i = 0; i < maDeviceCount; i++)
+	{
+		convert_device_info(&maDevices[i], &aSoloud->mDeviceList[i]);
+	}
+
+	aSoloud->mDeviceCount = maDeviceCount;
+	return SO_NO_ERROR;
+}
+
+// get current device information
+result miniaudio_get_current_device_info(SoLoud::Soloud *aSoloud, DeviceInfo *pDeviceInfo)
+{
+	if (!aSoloud || !pDeviceInfo)
+		return INVALID_PARAMETER;
+
+	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
+	if (!data || !data->hasCurrentDeviceInfo)
+		return INVALID_PARAMETER;
+
+	convert_device_info(&data->currentDeviceInfo, pDeviceInfo);
+	return SO_NO_ERROR;
+}
+
+// switch to a different playback device
+result miniaudio_set_device(SoLoud::Soloud *aSoloud, const char *deviceIdentifier)
+{
+	if (!aSoloud)
+		return INVALID_PARAMETER;
+
+	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
+	if (!data || !data->contextInitialized)
+		return INVALID_PARAMETER;
+
+	ma_device_id *targetDeviceId = nullptr;
+
+	// handle default device case
+	if (!deviceIdentifier || strlen(deviceIdentifier) == 0)
+	{
+		targetDeviceId = nullptr; // use default device
+	}
+	else
+	{
+		// enumerate devices to find matching identifier
+		ma_device_info *maDevices = nullptr;
+		ma_uint32 maDeviceCount = 0;
+		ma_result enumResult = ma_context_get_devices(&data->context, &maDevices, &maDeviceCount, nullptr, nullptr);
+		if (enumResult != MA_SUCCESS)
+			return UNKNOWN_ERROR;
+
+		// find device with matching identifier
+		for (ma_uint32 i = 0; i < maDeviceCount; i++)
+		{
+			DeviceInfo tempInfo{};
+			convert_device_info(&maDevices[i], &tempInfo);
+			if (strcmp(&tempInfo.identifier[0], deviceIdentifier) == 0)
+			{
+				targetDeviceId = &maDevices[i].id;
+				break;
+			}
+		}
+
+		if (!targetDeviceId)
+			return INVALID_PARAMETER;
+	}
+
+	// lock both audio and device mutexes to ensure safe switching
+	aSoloud->lockAudioMutex_internal();
+	std::lock_guard<std::mutex> deviceLock(data->deviceMutex);
+
+	// store current configuration
+	unsigned int oldSampleRate = data->deviceInitialized ? data->device.sampleRate : 0;
+	unsigned int oldBufferSize = data->deviceInitialized ? data->device.playback.internalPeriodSizeInFrames : 0;
+	unsigned int oldChannels = data->deviceInitialized ? data->device.playback.channels : 0;
+
+	// stop and uninitialize current device
+	if (data->deviceInitialized)
+	{
+		ma_device_stop(&data->device);
+		ma_device_uninit(&data->device);
+		data->deviceInitialized = false;
+		data->deviceValid.store(false);
+	}
+
+	// initialize new device
+	ma_result result = init_device_with_id(data, targetDeviceId);
+	if (result != MA_SUCCESS)
+	{
+		aSoloud->unlockAudioMutex_internal();
+
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_ERROR)
+			fprintf(stderr, "[MiniAudio ERROR] Failed to initialize new device\n");
+
+		return UNKNOWN_ERROR;
+	}
+
+	// update current device info
+	ma_result deviceInfoResult = ma_context_get_device_info(&data->context, ma_device_type_playback, data->device.playback.pID, &data->currentDeviceInfo);
+	data->hasCurrentDeviceInfo = (deviceInfoResult == MA_SUCCESS);
+
+	// check if device configuration changed
+	unsigned int newSampleRate = data->device.sampleRate;
+	unsigned int newBufferSize = data->device.playback.internalPeriodSizeInFrames;
+	unsigned int newChannels = data->device.playback.channels;
+
+	bool configChanged = (oldSampleRate != newSampleRate) || (oldBufferSize != newBufferSize) || (oldChannels != newChannels);
+
+	if (configChanged)
+	{
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
+		{
+			fprintf(stderr, "[MiniAudio INFO] Device configuration changed: %uHz/%uch/%uf -> %uHz/%uch/%uf\n", oldSampleRate, oldChannels, oldBufferSize,
+			        newSampleRate, newChannels, newBufferSize);
+		}
+
+		// unlock audio mutex before calling postinit_internal as it may need to reinitialize internal state
+		aSoloud->unlockAudioMutex_internal();
+
+		// update SoLoud's internal configuration
+		aSoloud->postinit_internal(newSampleRate, newBufferSize, data->initFlags, newChannels);
+
+		// re-lock for device start
+		aSoloud->lockAudioMutex_internal();
+	}
+
+	// start the new device
+	result = ma_device_start(&data->device);
+	if (result != MA_SUCCESS)
+	{
+		aSoloud->unlockAudioMutex_internal();
+
+		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_ERROR)
+			fprintf(stderr, "[MiniAudio ERROR] Failed to start new device\n");
+
+		return UNKNOWN_ERROR;
+	}
+
+	data->deviceValid.store(true);
+	aSoloud->unlockAudioMutex_internal();
+
+	if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
+		fprintf(stderr, "[MiniAudio INFO] Successfully switched to new device\n");
+
+	return SO_NO_ERROR;
 }
 
 } // namespace
@@ -396,6 +702,12 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	auto *data = new MiniaudioData();
 	aSoloud->mBackendData = data;
 	data->soloudInstance = aSoloud;
+
+	// cache initialization parameters for device switching
+	data->initFlags = aFlags;
+	data->requestedSampleRate = aSamplerate;
+	data->requestedBufferSize = aBuffer;
+	data->requestedChannels = aChannels;
 
 	// setup logging
 	data->logData.maxLogLevel = parse_log_level_from_env();
@@ -424,37 +736,7 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	}
 
 	// configure device
-	ma_device_config config = ma_device_config_init(ma_device_type_playback);
-	config.playback.format = ma_format_unknown; // default device format, we'll do the conversion ourselves
-	config.playback.channels = aChannels;
-	config.dataCallback = soloud_miniaudio_audiomixer;
-	config.notificationCallback = soloud_miniaudio_notification_callback;
-	config.pUserData = (void *)data;
-	config.noPreSilencedOutputBuffer = true;
-	config.noClip = true;
-	config.performanceProfile = ma_performance_profile_low_latency;
-
-	if (aSamplerate > 0) // respect miniaudio default (avoids extra resampling if we use the device native sample rate)
-		config.sampleRate = aSamplerate;
-	else
-		config.sampleRate = 0;
-
-	if (aBuffer > 0) // respect miniaudio default
-		config.periodSizeInFrames = aBuffer;
-	else
-	{
-		config.periodSizeInFrames = 0;
-#if defined(_WIN32) || defined(_WIN64) || defined(_MSC_VER) || defined(__linux__)
-		config.periodSizeInMilliseconds = 1; // negotiate the lowest possible period size
-#endif
-	}
-
-	// backend-specific settings
-	config.wasapi.noAutoConvertSRC = true; // soloud handles resampling
-	config.wasapi.noDefaultQualitySRC = true;
-	config.alsa.noAutoFormat = true;
-	config.alsa.noAutoChannels = true;
-	config.alsa.noAutoResample = true;
+	ma_device_config config = create_device_config(data);
 
 	// try each backend individually with timeout
 	bool initialized = false;
@@ -505,17 +787,26 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 		return UNKNOWN_ERROR; // this will cause soloud to try other backends like SDL3
 	}
 
+	// store current device info
+	ma_result deviceInfoResult = ma_context_get_device_info(&data->context, ma_device_type_playback, data->device.playback.pID, &data->currentDeviceInfo);
+	if (deviceInfoResult == MA_SUCCESS)
+		data->hasCurrentDeviceInfo = true;
+
 	// use the actual device configuration that was negotiated
 	unsigned int actualSampleRate = data->device.sampleRate;
 	unsigned int actualBufferSize = data->device.playback.internalPeriodSizeInFrames;
 	unsigned int actualChannels = data->device.playback.channels;
-	// actual format available as data->device.playback.internalFormat
 
 	aSoloud->postinit_internal(actualSampleRate, actualBufferSize, aFlags, actualChannels);
 
 	aSoloud->mBackendCleanupFunc = soloud_miniaudio_deinit;
 	aSoloud->mBackendPauseFunc = soloud_miniaudio_pause;
 	aSoloud->mBackendResumeFunc = soloud_miniaudio_resume;
+
+	// setup device management function pointers
+	aSoloud->mEnumerateDevicesFunc = miniaudio_enumerate_devices;
+	aSoloud->mGetCurrentDeviceFunc = miniaudio_get_current_device_info;
+	aSoloud->mSetDeviceFunc = miniaudio_set_device;
 
 	result = ma_device_start(&data->device);
 	if (result != MA_SUCCESS)
@@ -527,4 +818,5 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 	aSoloud->mBackendString = "MiniAudio";
 	return SO_NO_ERROR;
 }
+
 }; // namespace SoLoud

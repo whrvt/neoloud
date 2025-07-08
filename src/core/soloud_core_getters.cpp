@@ -380,6 +380,43 @@ unsigned int Soloud::getBackendBufferSize()
 	return mBufferSize;
 }
 
+result Soloud::enumerateDevices(DeviceInfo** ppDevices, unsigned int* pDeviceCount)
+{
+	if (!ppDevices || !pDeviceCount)
+		return INVALID_PARAMETER;
+
+	*ppDevices = nullptr;
+	*pDeviceCount = 0;
+
+	if (!mEnumerateDevicesFunc)
+		return NOT_IMPLEMENTED;
+
+	// free previous device list
+	delete[] mDeviceList;
+	mDeviceList = nullptr;
+	mDeviceCount = 0;
+
+	// enumerate devices (backend will populate mDeviceList and mDeviceCount)
+	result enumResult = mEnumerateDevicesFunc(this);
+	if (enumResult != SO_NO_ERROR)
+		return enumResult;
+
+	*ppDevices = mDeviceList;
+	*pDeviceCount = mDeviceCount;
+	return SO_NO_ERROR;
+}
+
+result Soloud::getCurrentDevice(DeviceInfo* pDeviceInfo)
+{
+	if (!pDeviceInfo)
+		return INVALID_PARAMETER;
+
+	if (!mGetCurrentDeviceFunc)
+		return NOT_IMPLEMENTED;
+
+	return mGetCurrentDeviceFunc(this, pDeviceInfo);
+}
+
 // Get speaker position in 3d space
 result Soloud::getSpeakerPosition(unsigned int aChannel, float &aX, float &aY, float &aZ)
 {

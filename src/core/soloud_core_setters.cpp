@@ -29,6 +29,15 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
+
+result Soloud::setDevice(const char* deviceIdentifier)
+{
+	if (!mSetDeviceFunc)
+		return NOT_IMPLEMENTED;
+
+	return mSetDeviceFunc(this, deviceIdentifier);
+}
+
 void Soloud::setPostClipScaler(float aScaler)
 {
 	mPostClipScaler = aScaler;
