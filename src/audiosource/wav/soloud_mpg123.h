@@ -27,6 +27,9 @@ freely, subject to the following restrictions:
 #define SOLOUD_MPG123_H
 
 #include <cstdio> // for off_t, size_t, ssize_t
+#ifdef _MSC_VER
+#include <sys/types.h>
+#endif
 
 namespace SoLoud
 {
