@@ -133,7 +133,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 				__m256 samples = _mm256_load_ps(&rawBuffer[c]);
 
 				// Store samples to interleaved positions
-				float temp[OPTIMAL_CHUNK_SAMPLES];
+#ifdef _MSC_VER
+				__declspec(align(32)) float temp[OPTIMAL_CHUNK_SAMPLES];
+#else
+				float temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(32)));
+#endif
 				_mm256_store_ps(temp, samples);
 
 				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
@@ -184,7 +188,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 
 				// Convert to integers and store
 				__m256i int_samples = _mm256_cvtps_epi32(samples);
-				int temp[OPTIMAL_CHUNK_SAMPLES];
+#ifdef _MSC_VER
+				__declspec(align(32)) int temp[OPTIMAL_CHUNK_SAMPLES];
+#else
+				int temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(32)));
+#endif
 				_mm256_store_si256((__m256i *)temp, int_samples);
 
 				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
@@ -232,7 +240,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 
 				// Convert to int32 and store
 				__m256i int_samples = _mm256_cvtps_epi32(samples);
-				int temp[OPTIMAL_CHUNK_SAMPLES];
+#ifdef _MSC_VER
+				__declspec(align(32)) int temp[OPTIMAL_CHUNK_SAMPLES];
+#else
+				int temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(32)));
+#endif
 				_mm256_store_si256((__m256i *)temp, int_samples);
 
 				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
@@ -281,7 +293,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 
 				// Convert to integers and store as 24-bit
 				__m256i int_samples = _mm256_cvtps_epi32(samples);
-				int temp[OPTIMAL_CHUNK_SAMPLES];
+#ifdef _MSC_VER
+				__declspec(align(32)) int temp[OPTIMAL_CHUNK_SAMPLES];
+#else
+				int temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(32)));
+#endif
 				_mm256_store_si256((__m256i *)temp, int_samples);
 
 				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
@@ -343,7 +359,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 				samples = _mm256_min_pd(samples, max_val);
 
 				// Convert back to int
-				double temp[4];
+#ifdef _MSC_VER
+				__declspec(align(32)) double temp[4];
+#else
+				double temp[4] __attribute__((aligned(32)));
+#endif
 				_mm256_store_pd(temp, samples);
 
 				for (unsigned int k = 0; k < 4; k++)
@@ -393,7 +413,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 				__m128 samples = _mm_load_ps(&rawBuffer[c]);
 
 				// Store samples to interleaved positions
-				float temp[OPTIMAL_CHUNK_SAMPLES];
+#ifdef _MSC_VER
+				__declspec(align(16)) int temp[OPTIMAL_CHUNK_SAMPLES];
+#else
+				int temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(16)));
+#endif
 				_mm_store_ps(temp, samples);
 
 				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
@@ -444,7 +468,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 
 				// Convert to integers and store
 				__m128i int_samples = _mm_cvtps_epi32(samples);
-				int temp[OPTIMAL_CHUNK_SAMPLES];
+#ifdef _MSC_VER
+				__declspec(align(16)) int temp[OPTIMAL_CHUNK_SAMPLES];
+#else
+				int temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(16)));
+#endif
 				_mm_store_si128((__m128i *)temp, int_samples);
 
 				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
@@ -492,7 +520,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 
 				// Convert to int32 and store
 				__m128i int_samples = _mm_cvtps_epi32(samples);
-				int temp[OPTIMAL_CHUNK_SAMPLES];
+#ifdef _MSC_VER
+				__declspec(align(16)) int temp[OPTIMAL_CHUNK_SAMPLES];
+#else
+				int temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(16)));
+#endif
 				_mm_store_si128((__m128i *)temp, int_samples);
 
 				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
@@ -541,7 +573,11 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 
 				// Convert to integers and store as 24-bit
 				__m128i int_samples = _mm_cvtps_epi32(samples);
-				int temp[OPTIMAL_CHUNK_SAMPLES];
+#ifdef _MSC_VER
+				__declspec(align(16)) int temp[OPTIMAL_CHUNK_SAMPLES];
+#else
+				int temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(16)));
+#endif
 				_mm_store_si128((__m128i *)temp, int_samples);
 
 				for (unsigned int k = 0; k < OPTIMAL_CHUNK_SAMPLES; k++)
