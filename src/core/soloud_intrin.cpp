@@ -414,9 +414,9 @@ void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const 
 
 				// Store samples to interleaved positions
 #ifdef _MSC_VER
-				__declspec(align(16)) int temp[OPTIMAL_CHUNK_SAMPLES];
+				__declspec(align(16)) float temp[OPTIMAL_CHUNK_SAMPLES];
 #else
-				int temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(16)));
+				float temp[OPTIMAL_CHUNK_SAMPLES] __attribute__((aligned(16)));
 #endif
 				_mm_store_ps(temp, samples);
 
