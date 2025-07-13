@@ -40,13 +40,17 @@ result Soloud::setDevice(const char* deviceIdentifier)
 
 void Soloud::setPostClipScaler(float aScaler)
 {
+	lockAudioMutex_internal();
 	mPostClipScaler = aScaler;
+	unlockAudioMutex_internal();
 }
 
 void Soloud::setMainResampler(unsigned int aResampler)
 {
+	lockAudioMutex_internal();
 	if (aResampler <= RESAMPLER_CATMULLROM)
 		mResampler = aResampler;
+	unlockAudioMutex_internal();
 }
 
 void Soloud::setGlobalVolume(float aVolume)
