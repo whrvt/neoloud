@@ -51,11 +51,9 @@ distribution.
 
 #include <array>
 #include <atomic>
-#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <future>
 #include <mutex>
 
 namespace SoLoud
@@ -81,9 +79,6 @@ struct MiniaudioData
 	} logData{};
 
 	Soloud *soloudInstance{nullptr};
-
-	// flag to track if initialization has timed out to prevent background thread interference
-	std::atomic<bool> initAbandoned{false};
 
 	// device management
 	ma_device_info currentDeviceInfo{};
@@ -266,8 +261,7 @@ void soloud_miniaudio_deinit(SoLoud::Soloud *aSoloud)
 	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
 	if (data)
 	{
-		// mark as abandoned to prevent any ongoing background operations from interfering
-		data->initAbandoned.store(true);
+		// mark as invalid to prevent any ongoing background operations from interfering
 		data->deviceValid.store(false);
 
 		// stop and uninitialize device
@@ -383,50 +377,18 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, cons
 		return contextResult;
 	data->contextInitialized = true;
 
-	// use timeout for device initialization
-	auto deviceInitFuture = std::async(std::launch::deferred, [&data, &config]() -> ma_result {
-		ma_result initResult = ma_device_init(&data->context, &config, &data->device);
+	// log start of device initialization for debugging potential hangs
+	if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
+		fprintf(stderr, "[MiniAudio INFO] Initializing device with backend '%s'...\n", ma_get_backend_name(backend));
 
-		// check if we've been abandoned due to timeout
-		if (data->initAbandoned.load())
-		{
-			// we timed out - clean up the device if initialization succeeded
-			if (initResult == MA_SUCCESS)
-				ma_device_uninit(&data->device);
-			return MA_ERROR;
-		}
+	ma_result deviceResult = ma_device_init(&data->context, &config, &data->device);
 
-		return initResult;
-	});
-
-	// wait for up to 6 seconds for device initialization
-	if (deviceInitFuture.wait_for(std::chrono::seconds(6)) == std::future_status::timeout)
+	if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 	{
-		// timeout occurred - mark as abandoned and cleanup
-		data->initAbandoned.store(true);
-
-		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_WARNING)
-			fprintf(stderr, "[MiniAudio WARNING] Backend '%s' timed out after 6 seconds\n", ma_get_backend_name(backend));
-
-		// cleanup context
-		ma_context_uninit(&data->context);
-		data->contextInitialized = false;
-
-		return MA_ERROR;
-	}
-
-	// get the result from the async operation
-	ma_result deviceResult = deviceInitFuture.get();
-
-	// check if we were abandoned during initialization (race condition protection)
-	if (data->initAbandoned.load())
-	{
-		// we were marked as abandoned, cleanup and return error
 		if (deviceResult == MA_SUCCESS)
-			ma_device_uninit(&data->device);
-		ma_context_uninit(&data->context);
-		data->contextInitialized = false;
-		return MA_ERROR;
+			fprintf(stderr, "[MiniAudio INFO] Device initialization completed successfully\n");
+		else
+			fprintf(stderr, "[MiniAudio INFO] Device initialization failed with result: %d\n", deviceResult);
 	}
 
 	if (deviceResult != MA_SUCCESS)
@@ -451,47 +413,18 @@ ma_result init_device_with_id(MiniaudioData *data, const ma_device_id *pDeviceID
 
 	ma_device_config config = create_device_config(data, pDeviceID);
 
-	// reset abandoned flag for this attempt
-	data->initAbandoned.store(false);
+	// log start of device initialization
+	if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
+		fprintf(stderr, "[MiniAudio INFO] Initializing device with specific ID...\n");
 
-	// use timeout for device initialization
-	auto deviceInitFuture = std::async(std::launch::deferred, [&data, &config]() -> ma_result {
-		ma_result initResult = ma_device_init(&data->context, &config, &data->device);
+	ma_result deviceResult = ma_device_init(&data->context, &config, &data->device);
 
-		// check if we've been abandoned due to timeout
-		if (data->initAbandoned.load())
-		{
-			// we timed out - clean up the device if initialization succeeded
-			if (initResult == MA_SUCCESS)
-				ma_device_uninit(&data->device);
-			return MA_ERROR;
-		}
-
-		return initResult;
-	});
-
-	// wait for up to 6 seconds for device initialization
-	if (deviceInitFuture.wait_for(std::chrono::seconds(6)) == std::future_status::timeout)
+	if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 	{
-		// timeout occurred - mark as abandoned and cleanup
-		data->initAbandoned.store(true);
-
-		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_WARNING)
-			fprintf(stderr, "[MiniAudio WARNING] Device initialization timed out after 6 seconds\n");
-
-		return MA_ERROR;
-	}
-
-	// get the result from the async operation
-	ma_result deviceResult = deviceInitFuture.get();
-
-	// check if we were abandoned during initialization
-	if (data->initAbandoned.load())
-	{
-		// we were marked as abandoned, cleanup and return error
 		if (deviceResult == MA_SUCCESS)
-			ma_device_uninit(&data->device);
-		return MA_ERROR;
+			fprintf(stderr, "[MiniAudio INFO] Device initialization completed successfully\n");
+		else
+			fprintf(stderr, "[MiniAudio INFO] Device initialization failed with result: %d\n", deviceResult);
 	}
 
 	if (deviceResult == MA_SUCCESS)
@@ -750,9 +683,6 @@ result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int
 
 		if (data->logData.maxLogLevel >= MA_LOG_LEVEL_INFO)
 			fprintf(stderr, "[MiniAudio INFO] Trying backend: %s\n", ma_get_backend_name(backend));
-
-		// reset abandoned flag for this attempt
-		data->initAbandoned.store(false);
 
 		result = try_backend_with_timeout(data, backend, config);
 
