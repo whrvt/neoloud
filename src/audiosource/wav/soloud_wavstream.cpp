@@ -935,7 +935,7 @@ result WavStream::parse(File *aFile)
 		return SO_NO_ERROR;
 	}
 
-	int res = SO_NO_ERROR;
+	result res = FILE_LOAD_FAILED;
 	int tag = aFile->read32();
 
 	if (tag == MAKEDWORD('O', 'g', 'g', 'S'))
@@ -950,21 +950,26 @@ result WavStream::parse(File *aFile)
 	{
 		res = loadflac(aFile);
 	}
-	else if (loadmpg123(aFile) == SO_NO_ERROR)
+
+	if (res != SO_NO_ERROR)
 	{
-		res = SO_NO_ERROR;
-	}
-	else if (loaddrmp3(aFile) == SO_NO_ERROR)
-	{
-		res = SO_NO_ERROR;
-	}
-	else if (!mPreferFFmpeg && loadffmpeg(aFile) == SO_NO_ERROR)
-	{
-		res = SO_NO_ERROR;
-	}
-	else
-	{
-		res = FILE_LOAD_FAILED;
+		aFile->seek(0);
+		if (loadmpg123(aFile) == SO_NO_ERROR)
+		{
+			res = SO_NO_ERROR;
+		}
+		else if (loaddrmp3(aFile) == SO_NO_ERROR)
+		{
+			res = SO_NO_ERROR;
+		}
+		else if (!mPreferFFmpeg && loadffmpeg(aFile) == SO_NO_ERROR)
+		{
+			res = SO_NO_ERROR;
+		}
+		else
+		{
+			res = FILE_LOAD_FAILED;
+		}
 	}
 	return res;
 }

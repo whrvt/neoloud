@@ -381,32 +381,39 @@ result Wav::testAndLoadFile(MemoryFile *aReader)
 		return SO_NO_ERROR;
 	}
 
+	result res = FILE_LOAD_FAILED;
+
 	int tag = aReader->read32();
 	if (tag == MAKEDWORD('O', 'g', 'g', 'S'))
 	{
-		return loadogg(aReader);
+		res = loadogg(aReader);
 	}
 	else if (tag == MAKEDWORD('R', 'I', 'F', 'F'))
 	{
-		return loadwav(aReader);
+		res = loadwav(aReader);
 	}
 	else if (tag == MAKEDWORD('f', 'L', 'a', 'C'))
 	{
-		return loadflac(aReader);
+		res = loadflac(aReader);
 	}
-	else if (loadmpg123(aReader) == SO_NO_ERROR)
+
+	if (res != SO_NO_ERROR)
 	{
-		return SO_NO_ERROR;
+		aReader->seek(0);
+		if (loadmpg123(aReader) == SO_NO_ERROR)
+		{
+			res = SO_NO_ERROR;
+		}
+		else if (loaddrmp3(aReader) == SO_NO_ERROR)
+		{
+			res = SO_NO_ERROR;
+		}
+		else if (!mPreferFFmpeg && loadffmpeg(aReader) == SO_NO_ERROR)
+		{
+			res = SO_NO_ERROR;
+		}
 	}
-	else if (loaddrmp3(aReader) == SO_NO_ERROR)
-	{
-		return SO_NO_ERROR;
-	}
-	else if (!mPreferFFmpeg && loadffmpeg(aReader) == SO_NO_ERROR)
-	{
-		return SO_NO_ERROR;
-	}
-	return FILE_LOAD_FAILED;
+	return res;
 }
 
 result Wav::load(const char *aFilename)
