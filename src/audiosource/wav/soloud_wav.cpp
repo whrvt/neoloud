@@ -79,9 +79,9 @@ bool WavInstance::hasEnded()
 {
 	if (!(mFlags & AudioSourceInstance::LOOPING) && mOffset >= mParent->mSampleCount)
 	{
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
 }
 
 Wav::Wav(bool preferFFmpeg)

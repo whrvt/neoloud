@@ -52,6 +52,7 @@ namespace SoLoud::MPG123
 		off_t totalFrames;
 		unsigned char *tempBuffer;
 		size_t tempBufferSize;
+		bool ended;
 	};
 
 	// decoder functions
@@ -63,6 +64,7 @@ namespace SoLoud::MPG123
 	size_t readFrames(MPG123Decoder * aDecoder, size_t aFrameCount, float *aBuffer);
 	off_t seekToFrame(MPG123Decoder * aDecoder, off_t aFrame);
 	off_t getCurrentFrame(MPG123Decoder * aDecoder);
+	bool isAtEnd(MPG123Decoder * aDecoder);
 } // namespace SoLoud::MPG123
 #else
 
@@ -78,6 +80,7 @@ namespace SoLoud::MPG123
 	inline size_t readFrames(MPG123Decoder * /*aDecoder*/, size_t /*aFrameCount*/, float * /*aBuffer*/) { return 0; }
 	inline off_t seekToFrame(MPG123Decoder * /*aDecoder*/, off_t /*aFrame*/) { return -1; }
 	inline off_t getCurrentFrame(MPG123Decoder * /*aDecoder*/) { return -1; }
+	inline bool isAtEnd(MPG123Decoder * /*aDecoder*/) { return true; }
 	//clang-format on
 } // namespace SoLoud::MPG123
 #endif // WITH_LIBMPG123

@@ -105,7 +105,8 @@ drmp3_bool32 drwav_seek_func(void *pUserData, int offset, drwav_seek_origin orig
 }
 } // namespace
 
-WavStreamInstance::WavStreamInstance(WavStream *aParent) : mCodec()
+WavStreamInstance::WavStreamInstance(WavStream *aParent)
+    : mCodec()
 {
 	mOggFrameSize = 0;
 	mParent = aParent;
@@ -562,14 +563,15 @@ bool WavStreamInstance::hasEnded()
 {
 	if (mOffset >= mParent->mSampleCount)
 	{
-		return 1;
+		return true;
 	}
-	else if (mParent->mFiletype == WAVSTREAM_DRMP3 && mCodec.mDrmp3 && mCodec.mDrmp3->atEnd)
+	else if ((mParent->mFiletype == WAVSTREAM_DRMP3 && mCodec.mDrmp3 && mCodec.mDrmp3->atEnd) ||
+	         (mParent->mFiletype == WAVSTREAM_MPG123 && mCodec.mMpg123 && MPG123::isAtEnd(mCodec.mMpg123)))
 	{
 		mOffset = mParent->mSampleCount;
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
 }
 
 WavStream::WavStream(bool preferFFmpeg)

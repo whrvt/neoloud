@@ -232,6 +232,11 @@ size_t readFrames(MPG123Decoder *aDecoder, size_t aFrameCount, float *aBuffer)
 		return 0; // caller should try again
 	}
 
+	if (result == MPG123_DONE)
+		aDecoder->ended = true;
+	else
+		aDecoder->ended = false;
+
 	if (result != MPG123_OK && result != MPG123_DONE)
 		return 0;
 
@@ -248,7 +253,14 @@ off_t seekToFrame(MPG123Decoder *aDecoder, off_t aFrame)
 	if (!aDecoder || !aDecoder->handle)
 		return -1;
 
-	return mpg123_seek(aDecoder->handle, aFrame, SEEK_SET);
+	off_t result = mpg123_seek(aDecoder->handle, aFrame, SEEK_SET);
+
+	if (result == MPG123_DONE)
+		aDecoder->ended = true;
+	else
+		aDecoder->ended = false;
+
+	return result >= 0 ? result : aDecoder->totalFrames;
 }
 
 off_t getCurrentFrame(MPG123Decoder *aDecoder)
@@ -256,7 +268,22 @@ off_t getCurrentFrame(MPG123Decoder *aDecoder)
 	if (!aDecoder || !aDecoder->handle)
 		return 0;
 
-	return mpg123_tell(aDecoder->handle);
+	off_t result = mpg123_tell(aDecoder->handle);
+
+	if (result == MPG123_DONE)
+		aDecoder->ended = true;
+	else
+		aDecoder->ended = false;
+
+	return result >= 0 ? result : aDecoder->totalFrames;
+}
+
+bool isAtEnd(MPG123Decoder *aDecoder)
+{
+	if (!aDecoder || !aDecoder->handle)
+		return true;
+
+	return aDecoder->ended;
 }
 } // namespace SoLoud::MPG123
 
