@@ -26,7 +26,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_FFMPEG_H
 #define SOLOUD_FFMPEG_H
 
-#if __has_include(<libavcodec/avcodec.h>) && ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__))
+#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__))
 
 #include "soloud.h"
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(SoLoud
-    VERSION 1.1.2
+    VERSION 1.1.3
     DESCRIPTION "SoLoud audio library"
     LANGUAGES C CXX)
 
@@ -16,6 +16,7 @@ option(SOLOUD_ASAN "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SOLOUD_TSAN "Enable ThreadSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SOLOUD_WITH_SDL3 "Try to find and use the SDL3 library as an audio playback backend" ON)
 option(SOLOUD_WITH_LIBMPG123 "Try to find and use the libmpg123 library for mp3 decoding" ON)
+option(SOLOUD_WITH_FFMPEG "Look for FFmpeg headers and try to use it at runtime" ON)
 
 # check for conflicting sanitizer options
 if(SOLOUD_ASAN AND SOLOUD_TSAN)
@@ -112,6 +113,7 @@ target_compile_definitions(soloud
     PRIVATE
         $<$<BOOL:${SOLOUD_WITH_SDL3}>:WITH_SDL3>
         $<$<BOOL:${SOLOUD_WITH_LIBMPG123}>:WITH_LIBMPG123>
+        $<$<BOOL:${SOLOUD_WITH_FFMPEG}>:WITH_FFMPEG>
 )
 
 # msvc specific settings
@@ -356,3 +358,4 @@ message(STATUS "  AddressSanitizer: ${SOLOUD_ASAN}")
 message(STATUS "  ThreadSanitizer: ${SOLOUD_TSAN}")
 message(STATUS "  SDL3 support: ${SOLOUD_WITH_SDL3}")
 message(STATUS "  libmpg123 support: ${SOLOUD_WITH_LIBMPG123}")
+message(STATUS "  ffmpeg support: ${SOLOUD_WITH_FFMPEG}")
