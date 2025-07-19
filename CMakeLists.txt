@@ -133,11 +133,11 @@ else()
     endif()
     # disable exceptions for gcc/clang
     target_compile_options(soloud PRIVATE -fno-exceptions)
-endif()
 
-# threading
-find_package(Threads REQUIRED)
-target_link_libraries(soloud PRIVATE Threads::Threads)
+    # threading
+    find_package(Threads REQUIRED)
+    target_link_libraries(soloud PRIVATE Threads::Threads)
+endif()
 
 # sanitizers
 if(SOLOUD_ASAN)
