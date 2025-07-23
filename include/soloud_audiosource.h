@@ -48,6 +48,8 @@ namespace SoLoud
 		virtual float attenuate(float aDistance, float aMinDistance, float aMaxDistance, float aRolloffFactor) = 0;
 	};
 
+	class Soloud;
+
 	// Base class for audio instances
 	class AudioSourceInstance
 	{
@@ -150,9 +152,12 @@ namespace SoLoud
 		virtual result rewind();
 		// Get information. Returns 0 by default.
 		virtual float getInfo(unsigned int aInfoKey);
+private:
+		friend class Soloud;
+		// Internal helper to zero out the resample buffer for all channels
+		// If "amount" parameter is specified, only that amount of data will be cleared per channel instead of the entire buffer 
+		void clearResampleBuffer(unsigned long amount = 0);
 	};
-
-	class Soloud;
 
 	// Base class for audio sources
 	class AudioSource

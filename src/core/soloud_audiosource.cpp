@@ -22,15 +22,18 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include "soloud.h"
 #include "soloud_audiosource.h"
+#include "soloud.h"
 
 #include <cstring>
 
 namespace SoLoud
 {
 
-AudioSourceInstance3dData::AudioSourceInstance3dData() : m3dPosition(), m3dVelocity(), mChannelVolume()
+AudioSourceInstance3dData::AudioSourceInstance3dData()
+    : m3dPosition(),
+      m3dVelocity(),
+      mChannelVolume()
 {
 	m3dAttenuationModel = 0;
 	m3dAttenuationRolloff = 1;
@@ -60,7 +63,10 @@ void AudioSourceInstance3dData::init(AudioSource &aSource)
 	mDopplerValue = 1.0f;
 }
 
-AudioSourceInstance::AudioSourceInstance() : mCurrentChannelVolume(), mFilter(), mResampleBuffer()
+AudioSourceInstance::AudioSourceInstance()
+    : mCurrentChannelVolume(),
+      mFilter(),
+      mResampleBuffer()
 {
 	mPlayIndex = 0;
 	mFlags = 0;
@@ -114,11 +120,8 @@ void AudioSourceInstance::init(AudioSource &aSource, int aPlayIndex)
 	mResampleBufferPos = 0;
 	mPreciseSrcPosition = 0.0;
 
-	// Clear resample buffers
-	for (unsigned int ch = 0; ch < MAX_CHANNELS; ch++)
-	{
-		memset(mResampleBuffer[ch], 0, sizeof(mResampleBuffer[ch]));
-	}
+	// fully zero out the resample buffer
+	clearResampleBuffer();
 
 	if (aSource.mFlags & AudioSource::SHOULD_LOOP)
 	{
@@ -177,7 +180,8 @@ result AudioSourceInstance::seek(double aSeconds, float *mScratch, unsigned int 
 	return SO_NO_ERROR;
 }
 
-AudioSource::AudioSource() : mFilter()
+AudioSource::AudioSource()
+    : mFilter()
 {
 	mFlags = 0;
 	mBaseSamplerate = 44100;
@@ -335,6 +339,26 @@ void AudioSource::setInaudibleBehavior(bool aMustTick, bool aKill)
 float AudioSourceInstance::getInfo(unsigned int /*aInfoKey*/)
 {
 	return 0;
+}
+
+void AudioSourceInstance::clearResampleBuffer(unsigned long amount)
+{
+	if (amount > 0 && amount < (RESAMPLE_BUFFER_SIZE * sizeof(float)))
+	{
+		// Clear only the specifier amount of resample buffer data
+		for (unsigned int ch = 0; ch < MAX_CHANNELS && ch < mChannels; ch++)
+		{
+			memset(mResampleBuffer[ch], 0, amount);
+		}
+	}
+	else
+	{
+		// Clear all resample buffer data from all channels
+		for (unsigned int ch = 0; ch < MAX_CHANNELS; ch++)
+		{
+			memset(mResampleBuffer[ch], 0, sizeof(mResampleBuffer[ch]));
+		}
+	}
 }
 
 }; // namespace SoLoud
