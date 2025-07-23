@@ -165,12 +165,20 @@ endif()
 
 # link libraries
 if(SOLOUD_WITH_SDL3)
+if(MSVC)
+    target_include_directories(soloud PRIVATE ${SDL3_INCLUDEDIR})
+else()
     target_include_directories(soloud PRIVATE ${SDL3_INCLUDE_DIRS})
+endif()
     target_link_libraries(soloud PRIVATE ${SDL3_LIBRARIES})
 endif()
 
 if(SOLOUD_WITH_LIBMPG123)
+if(MSVC)
+    target_include_directories(soloud PRIVATE ${MPG123_INCLUDEDIR})
+else()
     target_include_directories(soloud PRIVATE ${MPG123_INCLUDE_DIRS})
+endif()
     target_link_libraries(soloud PRIVATE ${MPG123_LIBRARIES})
 endif()
 

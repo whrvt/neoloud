@@ -137,7 +137,7 @@ namespace SoLoud
 		// 512 SAMPLE_GRANULARITY * 3 chunks = 1536 samples buffer
 		static constexpr const unsigned int RESAMPLE_BUFFER_SIZE = SAMPLE_GRANULARITY * 3;
 
-		float mResampleBuffer[MAX_CHANNELS][RESAMPLE_BUFFER_SIZE];
+		float **mResampleBuffer;          // Dynamically allocated per-channel buffers
 		unsigned int mResampleBufferFill; // How many samples currently in buffer
 		unsigned int mResampleBufferPos;  // Current read position in buffer
 		double mPreciseSrcPosition;       // Exact fractional position in source stream
@@ -152,10 +152,10 @@ namespace SoLoud
 		virtual result rewind();
 		// Get information. Returns 0 by default.
 		virtual float getInfo(unsigned int aInfoKey);
-private:
+	private:
 		friend class Soloud;
 		// Internal helper to zero out the resample buffer for all channels
-		// If "amount" parameter is specified, only that amount of data will be cleared per channel instead of the entire buffer 
+		// If "amount" parameter is specified, only that amount of data will be cleared per channel instead of the entire buffer
 		void clearResampleBuffer(unsigned long amount = 0);
 	};
 

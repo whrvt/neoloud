@@ -503,10 +503,12 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 
 	// Read only as much data is necessary (rounded to a power of 2, and with a reasonable minimum), up to SAMPLE_GRANULARITY, to maintain low latency
 	unsigned int samplesToRead = samplesNeeded < 64U ? 64U : samplesNeeded;
-	if (samplesToRead & (samplesToRead-1)) {
-			unsigned int i = 1;
-			while (i < samplesToRead) i *= 2;
-			samplesToRead = i;
+	if (samplesToRead & (samplesToRead - 1))
+	{
+		unsigned int i = 1;
+		while (i < samplesToRead)
+			i *= 2;
+		samplesToRead = i;
 	}
 	if (samplesToRead > SAMPLE_GRANULARITY)
 		samplesToRead = SAMPLE_GRANULARITY;
@@ -569,16 +571,19 @@ unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int 
 			}
 
 			// Copy from channel-interleaved scratch buffer to channel-separated resample buffers
-			for (unsigned int ch = 0; ch < voice->mChannels; ch++)
+			if (voice->mResampleBuffer != nullptr)
 			{
-				float *srcChannel = channelBuffer + ch * alignedBufferSize;
-				float *dstChannel = voice->mResampleBuffer[ch] + voice->mResampleBufferFill;
-				memcpy(dstChannel, srcChannel, samplesRead * sizeof(float));
-
-				// Clear remaining space if we read fewer samples than requested
-				if (samplesRead < samplesToRead)
+				for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 				{
-					memset(dstChannel + samplesRead, 0, (samplesToRead - samplesRead) * sizeof(float));
+					float *srcChannel = channelBuffer + ch * alignedBufferSize;
+					float *dstChannel = voice->mResampleBuffer[ch] + voice->mResampleBufferFill;
+					memcpy(dstChannel, srcChannel, samplesRead * sizeof(float));
+
+					// Clear remaining space if we read fewer samples than requested
+					if (samplesRead < samplesToRead)
+					{
+						memset(dstChannel + samplesRead, 0, (samplesToRead - samplesRead) * sizeof(float));
+					}
 				}
 			}
 		}
@@ -600,7 +605,7 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 {
 	using namespace ResamplingConstants;
 
-	if (outputSamples == 0 || !voice)
+	if (outputSamples == 0 || !voice || voice->mResampleBuffer == nullptr)
 		return 0;
 
 	// Calculate step size: how much we advance in source per output sample

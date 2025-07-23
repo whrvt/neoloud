@@ -52,6 +52,12 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 #include <mutex>
 #include <vector>
 
+#ifdef _MSC_VER
+#ifndef strcasecmp
+#define strcasecmp _stricmp
+#endif
+#endif
+
 namespace SoLoud
 {
 using namespace detail; // SAMPLE_FORMAT

@@ -38,10 +38,10 @@ namespace SoLoud::MPG123
 namespace // static
 {
 
-ssize_t readCallback(void *handle, void *buf, size_t count)
+mpg123_ssize_t readCallback(void *handle, void *buf, size_t count)
 {
 	File *file = static_cast<File *>(handle);
-	return static_cast<ssize_t>(file->read(static_cast<unsigned char *>(buf), static_cast<unsigned int>(count)));
+	return static_cast<mpg123_ssize_t>(file->read(static_cast<unsigned char *>(buf), static_cast<unsigned int>(count)));
 }
 
 off_t seekCallback(void *handle, off_t offset, int whence)

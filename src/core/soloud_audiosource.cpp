@@ -66,7 +66,7 @@ void AudioSourceInstance3dData::init(AudioSource &aSource)
 AudioSourceInstance::AudioSourceInstance()
     : mCurrentChannelVolume(),
       mFilter(),
-      mResampleBuffer()
+      mResampleBuffer(nullptr)
 {
 	mPlayIndex = 0;
 	mFlags = 0;
@@ -104,6 +104,18 @@ AudioSourceInstance::~AudioSourceInstance()
 	{
 		delete mFilter[i];
 	}
+
+	// Deallocate resample buffer if allocated
+	if (mResampleBuffer != nullptr)
+	{
+		unsigned int ch;
+		for (ch = 0; ch < mChannels; ch++)
+		{
+			delete[] mResampleBuffer[ch];
+		}
+		delete[] mResampleBuffer;
+		mResampleBuffer = nullptr;
+	}
 }
 
 void AudioSourceInstance::init(AudioSource &aSource, int aPlayIndex)
@@ -119,6 +131,17 @@ void AudioSourceInstance::init(AudioSource &aSource, int aPlayIndex)
 	mResampleBufferFill = 0;
 	mResampleBufferPos = 0;
 	mPreciseSrcPosition = 0.0;
+
+	// Allocate resample buffer if not already allocated
+	if (mResampleBuffer == nullptr)
+	{
+		mResampleBuffer = new float *[mChannels];
+		unsigned int ch;
+		for (ch = 0; ch < mChannels; ch++)
+		{
+			mResampleBuffer[ch] = new float[RESAMPLE_BUFFER_SIZE];
+		}
+	}
 
 	// fully zero out the resample buffer
 	clearResampleBuffer();
@@ -343,10 +366,14 @@ float AudioSourceInstance::getInfo(unsigned int /*aInfoKey*/)
 
 void AudioSourceInstance::clearResampleBuffer(unsigned long amount)
 {
+	if (mResampleBuffer == nullptr)
+		return;
+
 	if (amount > 0 && amount < (RESAMPLE_BUFFER_SIZE * sizeof(float)))
 	{
-		// Clear only the specifier amount of resample buffer data
-		for (unsigned int ch = 0; ch < MAX_CHANNELS && ch < mChannels; ch++)
+		// Clear only the specified amount of resample buffer data
+		unsigned int ch;
+		for (ch = 0; ch < mChannels; ch++)
 		{
 			memset(mResampleBuffer[ch], 0, amount);
 		}
@@ -354,9 +381,10 @@ void AudioSourceInstance::clearResampleBuffer(unsigned long amount)
 	else
 	{
 		// Clear all resample buffer data from all channels
-		for (unsigned int ch = 0; ch < MAX_CHANNELS; ch++)
+		unsigned int ch;
+		for (ch = 0; ch < mChannels; ch++)
 		{
-			memset(mResampleBuffer[ch], 0, sizeof(mResampleBuffer[ch]));
+			memset(mResampleBuffer[ch], 0, RESAMPLE_BUFFER_SIZE * sizeof(float));
 		}
 	}
 }
