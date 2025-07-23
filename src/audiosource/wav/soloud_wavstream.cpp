@@ -805,7 +805,7 @@ result WavStream::load(const char *aFilename)
 	mFilename = nullptr;
 	mSampleCount = 0;
 	DiskFile fp;
-	int res = fp.open(aFilename);
+	result res = fp.open(aFilename);
 	if (res != SO_NO_ERROR)
 		return res;
 
@@ -823,7 +823,7 @@ result WavStream::load(const char *aFilename)
 		return res;
 	}
 
-	return 0;
+	return res;
 }
 
 result WavStream::loadMem(const unsigned char *aData, unsigned int aDataLen, bool aCopy, bool aTakeOwnership)

@@ -1,14 +1,13 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(SoLoud
-    VERSION 1.1.3
+    VERSION 1.1.4
     DESCRIPTION "SoLoud audio library"
     LANGUAGES C CXX)
 
 # set c++ standard
-set(CMAKE_CXX_STANDARD 17) # I'm not sure how to make 17 the default but still allow 11, since the project __is__ compatible with C++11.
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS ON) # will this cause problems?
+# may decay to C++11 if compiler doesn't support C++17
+set(CMAKE_CXX_STANDARD 17)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 option(SOLOUD_TESTS "Build test executables" OFF)
@@ -31,6 +30,12 @@ endif()
 
 # find optional dependencies
 find_package(PkgConfig QUIET)
+
+# make sure pkg-config arguments are in the right syntax for msvc
+if(MSVC AND PkgConfig_FOUND)
+    set(ENV{PKG_CONFIG_MSVC_SYNTAX} 1)
+    set(PKG_CONFIG_ARGN "--msvc-syntax")
+endif()
 
 # check for sdl3
 if(SOLOUD_WITH_SDL3 AND PkgConfig_FOUND)
@@ -88,7 +93,7 @@ set(SOLOUD_SOURCES
 # create the library target
 if(BUILD_SHARED_LIBS)
     add_library(soloud SHARED ${SOLOUD_SOURCES})
-    # for shared libraries on msvc, also need to _STATIC_CPPLIB
+    # for shared libraries on msvc, also need to define _STATIC_CPPLIB
     if(MSVC)
         target_compile_definitions(soloud PRIVATE _STATIC_CPPLIB)
     endif()
@@ -114,6 +119,7 @@ target_compile_definitions(soloud
         $<$<BOOL:${SOLOUD_WITH_SDL3}>:WITH_SDL3>
         $<$<BOOL:${SOLOUD_WITH_LIBMPG123}>:WITH_LIBMPG123>
         $<$<BOOL:${SOLOUD_WITH_FFMPEG}>:WITH_FFMPEG>
+        $<$<CONFIG:Debug>:ENABLE_ASSERTS>
 )
 
 # msvc specific settings

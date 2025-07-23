@@ -256,7 +256,7 @@ void soloud_miniaudio_audiomixer(ma_device *pDevice, void *pOutput, const void *
 	soloud->mix(pOutput, frameCount, outputFormat);
 }
 
-void soloud_miniaudio_deinit(SoLoud::Soloud *aSoloud)
+void soloud_miniaudio_deinit(Soloud *aSoloud)
 {
 	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
 	if (data)
@@ -292,7 +292,7 @@ void soloud_miniaudio_deinit(SoLoud::Soloud *aSoloud)
 	}
 }
 
-result soloud_miniaudio_pause(SoLoud::Soloud *aSoloud)
+result soloud_miniaudio_pause(Soloud *aSoloud)
 {
 	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
 	if (data && data->deviceInitialized)
@@ -307,7 +307,7 @@ result soloud_miniaudio_pause(SoLoud::Soloud *aSoloud)
 	return SO_NO_ERROR;
 }
 
-result soloud_miniaudio_resume(SoLoud::Soloud *aSoloud)
+result soloud_miniaudio_resume(Soloud *aSoloud)
 {
 	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
 	if (data && data->deviceInitialized)
@@ -456,7 +456,7 @@ void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo
 }
 
 // enumerate available playback devices
-result miniaudio_enumerate_devices(SoLoud::Soloud *aSoloud)
+result miniaudio_enumerate_devices(Soloud *aSoloud)
 {
 	if (!aSoloud)
 		return INVALID_PARAMETER;
@@ -493,7 +493,7 @@ result miniaudio_enumerate_devices(SoLoud::Soloud *aSoloud)
 }
 
 // get current device information
-result miniaudio_get_current_device_info(SoLoud::Soloud *aSoloud, DeviceInfo *pDeviceInfo)
+result miniaudio_get_current_device_info(Soloud *aSoloud, DeviceInfo *pDeviceInfo)
 {
 	if (!aSoloud || !pDeviceInfo)
 		return INVALID_PARAMETER;
@@ -507,7 +507,7 @@ result miniaudio_get_current_device_info(SoLoud::Soloud *aSoloud, DeviceInfo *pD
 }
 
 // switch to a different playback device
-result miniaudio_set_device(SoLoud::Soloud *aSoloud, const char *deviceIdentifier)
+result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 {
 	if (!aSoloud)
 		return INVALID_PARAMETER;
@@ -630,7 +630,7 @@ result miniaudio_set_device(SoLoud::Soloud *aSoloud, const char *deviceIdentifie
 
 } // namespace
 
-result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
+result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
 {
 	auto *data = new MiniaudioData();
 	aSoloud->mBackendData = data;

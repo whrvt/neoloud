@@ -25,17 +25,40 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_CONFIG_H
 #define SOLOUD_CONFIG_H
 
-#ifdef SOLOUD_NO_ASSERTS
+#ifndef ENABLE_ASSERTS
 #define SOLOUD_ASSERT(x)
 #else
 #ifdef _MSC_VER
-#include <stdio.h> // for sprintf in asserts
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef NOWINRES
+#define NOWINRES
+#endif
+#ifndef NOSERVICE
+#define NOSERVICE
+#endif
+#ifndef NOMCX
+#define NOMCX
+#endif
+#ifndef NOCRYPT
+#define NOCRYPT
+#endif
+#ifndef NOMETAFILE
+#define NOMETAFILE
+#endif
+#ifndef MMNOSOUND
+#define MMNOSOUND
+#endif
 #ifndef VC_EXTRALEAN
 #define VC_EXTRALEAN
 #endif
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+
+#include <stdio.h> // for sprintf in asserts
 #include <windows.h> // only needed for OutputDebugStringA, should be solved somehow.
 #define SOLOUD_ASSERT(x) \
 	if (!(x)) \
