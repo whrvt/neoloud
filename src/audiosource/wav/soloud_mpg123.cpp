@@ -132,13 +132,22 @@ MPG123Decoder *open(File *aFile)
 
 	// get total frame count
 	decoder->totalFrames = mpg123_length(decoder->handle);
-	if (decoder->totalFrames == MPG123_ERR)
+	if (decoder->totalFrames < MPG123_OK)
 	{
 		// try to get frame length info before expensive scan
 		off_t frameLength = mpg123_framelength(decoder->handle);
 		if (frameLength > 0)
 		{
-			decoder->totalFrames = frameLength;
+			// mpg123_framelength returns mpeg frames, not pcm samples
+			int samplesPerFrame = mpg123_spf(decoder->handle);
+			if (samplesPerFrame > 0)
+			{
+				decoder->totalFrames = frameLength * samplesPerFrame;
+			}
+			else
+			{
+				decoder->totalFrames = 0;
+			}
 		}
 		else
 		{
@@ -158,7 +167,8 @@ MPG123Decoder *open(File *aFile)
 
 	// validate that this is actually MPEG audio that mpg123 can decode
 	struct mpg123_frameinfo2 frameInfo{};
-	if (decoder->totalFrames <= 0 || mpg123_info2(decoder->handle, &frameInfo) != MPG123_OK || (frameInfo.layer < 1 || frameInfo.layer > 3))
+	if (decoder->totalFrames <= 0 || mpg123_info2(decoder->handle, &frameInfo) != MPG123_OK ||
+	    (frameInfo.layer < 1 || frameInfo.layer > 3 || frameInfo.version < 0 || frameInfo.version > 2 || frameInfo.rate <= 0 || frameInfo.bitrate <= 0))
 	{
 		// frame count couldn't be determined, or no frame info, or layer isn't between 1 and 3
 		mpg123_close(decoder->handle);
