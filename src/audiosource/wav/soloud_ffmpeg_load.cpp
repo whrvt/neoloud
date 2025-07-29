@@ -43,6 +43,33 @@ typedef SDL_SharedObject(*OBJHANDLE);
 #define LIBFREE(x) SDL_UnloadObject(x)
 #define LIBGETERROR() std::string(SDL_GetError())
 #elif defined(_WIN32) || defined(_WIN64)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef NOWINRES
+#define NOWINRES
+#endif
+#ifndef NOSERVICE
+#define NOSERVICE
+#endif
+#ifndef NOMCX
+#define NOMCX
+#endif
+#ifndef NOCRYPT
+#define NOCRYPT
+#endif
+#ifndef NOMETAFILE
+#define NOMETAFILE
+#endif
+#ifndef MMNOSOUND
+#define MMNOSOUND
+#endif
+#ifndef VC_EXTRALEAN
+#define VC_EXTRALEAN
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 typedef HMODULE OBJHANDLE;
 #define LIBLOAD(x) LoadLibraryA(x)

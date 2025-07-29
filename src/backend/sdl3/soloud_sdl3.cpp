@@ -68,7 +68,7 @@ struct SDL3Data
 	SDL_AudioDeviceID deviceID{0};
 	SDL_AudioSpec deviceSpec{}; // actual device format
 	SDL_AudioSpec streamSpec{}; // stream input format (what we provide)
-	bool sdlInitialized{false};
+	bool weInitSDLAudio{false};
 	bool streamInitialized{false};
 	bool deviceInitialized{false};
 
@@ -185,10 +185,10 @@ void soloud_sdl3_deinit(SoLoud::Soloud *aSoloud)
 			}
 		}
 
-		if (data->sdlInitialized && SDL_WasInit(SDL_INIT_AUDIO))
+		if (data->weInitSDLAudio && SDL_WasInit(SDL_INIT_AUDIO))
 		{
 			SDL_QuitSubSystem(SDL_INIT_AUDIO);
-			data->sdlInitialized = false;
+			data->weInitSDLAudio = false;
 		}
 
 		delete data;
@@ -252,6 +252,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_AUDIO, "Initializing SDL3 audio backend");
 
+	bool sdlEventsWereAlreadyInit = SDL_WasInit(SDL_INIT_EVENTS);
+
 	// initialize SDL audio subsystem if needed
 	if (!SDL_WasInit(SDL_INIT_AUDIO))
 	{
@@ -262,7 +264,13 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 			aSoloud->mBackendData = nullptr;
 			return UNKNOWN_ERROR;
 		}
-		data->sdlInitialized = true;
+
+		// we don't want SDL event handling, which is automatically initialized by SDL_INIT_AUDIO
+		if (!sdlEventsWereAlreadyInit)
+			SDL_QuitSubSystem(SDL_INIT_EVENTS);
+
+		// used to keep track when exiting if we should quit the audio subsystem (which might have been externally initialized)
+		data->weInitSDLAudio = true;
 	}
 
 	// get device capabilities to choose optimal format
