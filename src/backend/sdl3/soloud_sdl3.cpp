@@ -680,7 +680,7 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 	data->soloudInstance = aSoloud;
 
 	// save starting parameters (for later implementing device switching)
-	data->initParams = {.flags = aFlags, .samplerate = aSamplerate, .bufferSize = aBuffer, .channels = aChannels};
+	data->initParams = {aFlags, aSamplerate, aBuffer, aChannels};
 
 	// setup logging based on SOLOUD_DEBUG envvar
 	SDL_LogPriority logLevel = parse_log_level_from_env();
