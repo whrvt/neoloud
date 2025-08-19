@@ -253,18 +253,21 @@ WavStreamInstance::~WavStreamInstance()
 		if (mCodec.mOgg)
 		{
 			stb_vorbis_close(mCodec.mOgg);
+			mCodec.mOgg = nullptr;
 		}
 		break;
 	case WAVSTREAM_FLAC:
 		if (mCodec.mFlac)
 		{
 			drflac_close(mCodec.mFlac);
+			mCodec.mFlac = nullptr;
 		}
 		break;
 	case WAVSTREAM_MPG123:
 		if (mCodec.mMpg123)
 		{
 			MPG123::close(mCodec.mMpg123);
+			mCodec.mMpg123 = nullptr;
 		}
 		break;
 	case WAVSTREAM_DRMP3:
@@ -294,6 +297,7 @@ WavStreamInstance::~WavStreamInstance()
 	if (mFile != mParent->mStreamFile)
 	{
 		delete mFile;
+		mFile = nullptr;
 	}
 }
 
