@@ -22,15 +22,15 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include "soloud_internal.h"
 #include "soloud_audiosource.h"
+#include "soloud_internal.h"
 
 // Setters - set various bits of SoLoud state
 
 namespace SoLoud
 {
 
-result Soloud::setDevice(const char* deviceIdentifier)
+result Soloud::setDevice(const char *deviceIdentifier)
 {
 	if (!mSetDeviceFunc)
 		return NOT_IMPLEMENTED;

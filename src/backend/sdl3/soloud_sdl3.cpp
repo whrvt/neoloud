@@ -68,18 +68,22 @@ struct SDL3Data
 	SDL_AudioDeviceID deviceID{0};
 	SDL_AudioSpec deviceSpec{}; // actual device format
 	SDL_AudioSpec streamSpec{}; // stream input format (what we provide)
-	bool weInitSDLAudio{false};
-	bool streamInitialized{false};
-	bool deviceInitialized{false};
 
-	std::atomic<bool> deviceValid{true};
+	// for init
 	std::mutex deviceMutex;
 
 	// mix buffer to avoid allocation in audio callback
 	std::vector<uint8_t> mixBuffer;
-	unsigned int bufferFrames{0};
 
+	// parent instance
 	Soloud *soloudInstance{nullptr};
+
+	unsigned int bufferFrames{0};
+	std::atomic<bool> deviceValid{true};
+
+	bool weInitSDLAudio{false};
+	bool streamInitialized{false};
+	bool deviceInitialized{false};
 };
 
 namespace // static
@@ -236,7 +240,8 @@ result soloud_sdl3_resume(SoLoud::Soloud *aSoloud)
 
 } // namespace
 
-result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
+result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROUNDOFF*/, unsigned int aSamplerate /*Soloud::AUTO (0)*/,
+                 unsigned int aBuffer /*Soloud::AUTO (0)*/, unsigned int aChannels /*2*/)
 {
 	if (!aSoloud)
 		return INVALID_PARAMETER;
@@ -252,7 +257,7 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_AUDIO, "Initializing SDL3 audio backend");
 
-	bool sdlEventsWereAlreadyInit = SDL_WasInit(SDL_INIT_EVENTS);
+	const bool sdlEventsWereAlreadyInit = SDL_WasInit(SDL_INIT_EVENTS);
 
 	// initialize SDL audio subsystem if needed
 	if (!SDL_WasInit(SDL_INIT_AUDIO))

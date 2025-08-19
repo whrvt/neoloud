@@ -29,34 +29,34 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
-	class Openmpt;
-	class File;
+class Openmpt;
+class File;
 
-	class OpenmptInstance : public AudioSourceInstance
-	{
-		Openmpt *mParent;
-		void *mModfile;
-		int mPlaying;
+class OpenmptInstance : public AudioSourceInstance
+{
+	Openmpt *mParent;
+	void *mModfile;
+	int mPlaying;
 
-	public:
-		OpenmptInstance(Openmpt * aParent);
-		virtual ~OpenmptInstance();
-		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
-		virtual bool hasEnded();
-	};
-
-	class Openmpt : public AudioSource
-	{
-	public:
-		char *mData;
-		unsigned int mDataLen;
-		Openmpt();
-		virtual ~Openmpt();
-		result load(const char *aFilename);
-		result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);
-		result loadFile(File * aFile);
-		virtual AudioSourceInstance *createInstance();
-	};
+public:
+	OpenmptInstance(Openmpt *aParent);
+	virtual ~OpenmptInstance();
+	virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
+	virtual bool hasEnded();
 };
+
+class Openmpt : public AudioSource
+{
+public:
+	char *mData;
+	unsigned int mDataLen;
+	Openmpt();
+	virtual ~Openmpt();
+	result load(const char *aFilename);
+	result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);
+	result loadFile(File *aFile);
+	virtual AudioSourceInstance *createInstance();
+};
+}; // namespace SoLoud
 
 #endif

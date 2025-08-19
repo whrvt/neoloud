@@ -248,7 +248,7 @@ static bool loadSwresampleFunctions()
 }
 
 // silence, you fool
-static void empty_log_callback(void */**/, int/**/, const char */**/, va_list/**/)
+static void empty_log_callback(void * /**/, int /**/, const char * /**/, va_list /**/)
 {
 	;
 }

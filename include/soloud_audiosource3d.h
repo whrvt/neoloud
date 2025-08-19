@@ -29,59 +29,59 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
-	class AudioSource;
-	class AudioCollider;
-	class AudioAttenuator;
+class AudioSource;
+class AudioCollider;
+class AudioAttenuator;
 
-	class AudioSourceInstance3dData
-	{
-	public:
-		// ctor
-		AudioSourceInstance3dData();
-		// Set settings from audiosource
-		void init(AudioSource & aSource);
-		// 3d position
-		float m3dPosition[3];
-		// 3d velocity
-		float m3dVelocity[3];
-		// 3d cone direction
-		/*
-		float m3dConeDirection[3];
-		// 3d cone inner angle
-		float m3dConeInnerAngle;
-		// 3d cone outer angle
-		float m3dConeOuterAngle;
-		// 3d cone outer volume multiplier
-		float m3dConeOuterVolume;
-		*/
-		// 3d min distance
-		float m3dMinDistance;
-		// 3d max distance
-		float m3dMaxDistance;
-		// 3d attenuation rolloff factor
-		float m3dAttenuationRolloff;
-		// 3d attenuation model
-		unsigned int m3dAttenuationModel;
-		// 3d doppler factor
-		float m3dDopplerFactor;
-		// Pointer to a custom audio collider object
-		AudioCollider *mCollider;
-		// Pointer to a custom audio attenuator object
-		AudioAttenuator *mAttenuator;
-		// User data related to audio collider
-		int mColliderData;
+class AudioSourceInstance3dData
+{
+public:
+	// ctor
+	AudioSourceInstance3dData();
+	// Set settings from audiosource
+	void init(AudioSource &aSource);
+	// 3d position
+	float m3dPosition[3];
+	// 3d velocity
+	float m3dVelocity[3];
+	// 3d cone direction
+	/*
+	float m3dConeDirection[3];
+	// 3d cone inner angle
+	float m3dConeInnerAngle;
+	// 3d cone outer angle
+	float m3dConeOuterAngle;
+	// 3d cone outer volume multiplier
+	float m3dConeOuterVolume;
+	*/
+	// 3d min distance
+	float m3dMinDistance;
+	// 3d max distance
+	float m3dMaxDistance;
+	// 3d attenuation rolloff factor
+	float m3dAttenuationRolloff;
+	// 3d attenuation model
+	unsigned int m3dAttenuationModel;
+	// 3d doppler factor
+	float m3dDopplerFactor;
+	// Pointer to a custom audio collider object
+	AudioCollider *mCollider;
+	// Pointer to a custom audio attenuator object
+	AudioAttenuator *mAttenuator;
+	// User data related to audio collider
+	int mColliderData;
 
-		// Doppler sample rate multiplier
-		float mDopplerValue;
-		// Overall 3d volume
-		float m3dVolume;
-		// Channel volume
-		float mChannelVolume[MAX_CHANNELS];
-		// Copy of flags
-		unsigned int mFlags;
-		// Latest handle for this voice
-		handle mHandle;
-	};
-}
+	// Doppler sample rate multiplier
+	float mDopplerValue;
+	// Overall 3d volume
+	float m3dVolume;
+	// Channel volume
+	float mChannelVolume[MAX_CHANNELS];
+	// Copy of flags
+	unsigned int mFlags;
+	// Latest handle for this voice
+	handle mHandle;
+};
+} // namespace SoLoud
 
 #endif

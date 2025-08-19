@@ -22,9 +22,9 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include "soloud_fader.h"
 #include "soloud_filter.h"
 #include "soloud_error.h"
+#include "soloud_fader.h"
 
 namespace SoLoud
 {

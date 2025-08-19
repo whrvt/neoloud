@@ -23,25 +23,25 @@ distribution.
 */
 
 /*********************************************************************************
-*
-* Testing goal is primarily for sanity checks, to verify that everything did not
-* blow up due to some innocent-looking change.
-*
-* In some cases this means that all we're testing is that yeah, there's noise, or
-* that yeah, the noise changes when we changed a parameter.
-*
-* Some tests against known good values can also be done, for deterministic processes.
-*
-**********************************************************************************/
+ *
+ * Testing goal is primarily for sanity checks, to verify that everything did not
+ * blow up due to some innocent-looking change.
+ *
+ * In some cases this means that all we're testing is that yeah, there's noise, or
+ * that yeah, the noise changes when we changed a parameter.
+ *
+ * Some tests against known good values can also be done, for deterministic processes.
+ *
+ **********************************************************************************/
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "soloud.h"
-#include "soloud_bus.h"
 #include "soloud_bassboostfilter.h"
 #include "soloud_biquadresonantfilter.h"
+#include "soloud_bus.h"
 #include "soloud_dcremovalfilter.h"
 #include "soloud_echofilter.h"
 #include "soloud_flangerfilter.h"
@@ -58,7 +58,7 @@ distribution.
 #include "soloud_wavstream.h"
 
 // This option is useful while developing tests:
-//#define NO_LASTKNOWN_CHECK
+// #define NO_LASTKNOWN_CHECK
 
 int errorcount = 0;
 int tests = 0;
@@ -68,15 +68,116 @@ float lastknownscratch[2048];
 FILE *lastknownfile = 0;
 int lastknownwrite = 0;
 
-#define CHECK_RES(x) tests++; if ((x)) { errorcount++; printf("Error on line %d, %s(): %s\n",__LINE__,__FUNCTION__, soloud.getErrorString((x)));}
-#define CHECK(x) tests++; if (!(x)) { errorcount++; printf("Error on line %d, %s(): Check \"%s\" fail\n",__LINE__,__FUNCTION__,#x);}
-#define CHECK_BUF_NONZERO(x, n) tests++; { int i, zero = 1; for (i = 0; i < (n); i++) if ((x)[i] != 0) zero = 0; if (zero) { errorcount++; printf("Error on line %d, %s(): buffer not nonzero\n",__LINE__,__FUNCTION__);}}
-#define CHECK_BUF_ZERO(x, n) tests++; { int i, diff = 0; for (i = 0; i < (n); i++) if ((x)[i] != 0) diff++; if (diff) { errorcount++; printf("Error on line %d, %s(): buffer not zero (%d / %d)\n",__LINE__,__FUNCTION__,diff,(n));}}
-#define CHECK_BUF_DIFF(x, y, n) tests++; { int i, same = 1; for (i = 0; i < (n); i++) if (fabs((x)[i] - (y)[i]) > 0.00001) same = 0; if (same) { errorcount++; printf("Error on line %d, %s(): buffers are equal\n",__LINE__,__FUNCTION__);}}
-#define CHECK_BUF_SAME(x, y, n) tests++; { int i, diff = 0; for (i = 0; i < (n); i++) if (fabs((x)[i] - (y)[i]) > 0.00001) diff++; if (diff) { errorcount++; printf("Error on line %d, %s(): buffers differ (%d / %d)\n",__LINE__,__FUNCTION__, diff, (n));}}
-#define CHECK_BUF_SAME_LASTKNOWN(x, n) tests++; { int i, diff = 0, ofs = 0; float maxdiff = 0.0f; for (i = 0; i < (n); i++) { if (fabs((x)[i] - lastknownscratch[i]) > 0.00001) diff++; if (fabs((x)[i] - lastknownscratch[i]) > maxdiff) { ofs = i; maxdiff = (float)fabs((x)[i] - lastknownscratch[i]); }} if (diff) { errorcount++; printf("Error on line %d, %s(): output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n",__LINE__,__FUNCTION__, diff, (n), maxdiff, ofs);}}
-#define CHECK_BUF_GTE(x, y, n) tests++; { int i, lt = 0; for (i = 0; i < (n); i++) if (fabs((x)[i]) - fabs((y)[i]) < 0) lt = 1; if (lt) { errorcount++; printf("Error on line %d, %s(): buffer %s magnitude not bigger than buffer %s \n",__LINE__,__FUNCTION__,#x, #y);}}
-#define CHECKLASTKNOWN(x, n) if (lastknownwrite && lastknownfile) { fwrite((x),1,(n)*sizeof(float),lastknownfile); } else if (lastknownfile) { fread(lastknownscratch,1,(n)*sizeof(float),lastknownfile); CHECK_BUF_SAME_LASTKNOWN((x), n); }
+#define CHECK_RES(x) \
+	tests++; \
+	if ((x)) \
+	{ \
+		errorcount++; \
+		printf("Error on line %d, %s(): %s\n", __LINE__, __FUNCTION__, soloud.getErrorString((x))); \
+	}
+#define CHECK(x) \
+	tests++; \
+	if (!(x)) \
+	{ \
+		errorcount++; \
+		printf("Error on line %d, %s(): Check \"%s\" fail\n", __LINE__, __FUNCTION__, #x); \
+	}
+#define CHECK_BUF_NONZERO(x, n) \
+	tests++; \
+	{ \
+		int i, zero = 1; \
+		for (i = 0; i < (n); i++) \
+			if ((x)[i] != 0) \
+				zero = 0; \
+		if (zero) \
+		{ \
+			errorcount++; \
+			printf("Error on line %d, %s(): buffer not nonzero\n", __LINE__, __FUNCTION__); \
+		} \
+	}
+#define CHECK_BUF_ZERO(x, n) \
+	tests++; \
+	{ \
+		int i, diff = 0; \
+		for (i = 0; i < (n); i++) \
+			if ((x)[i] != 0) \
+				diff++; \
+		if (diff) \
+		{ \
+			errorcount++; \
+			printf("Error on line %d, %s(): buffer not zero (%d / %d)\n", __LINE__, __FUNCTION__, diff, (n)); \
+		} \
+	}
+#define CHECK_BUF_DIFF(x, y, n) \
+	tests++; \
+	{ \
+		int i, same = 1; \
+		for (i = 0; i < (n); i++) \
+			if (fabs((x)[i] - (y)[i]) > 0.00001) \
+				same = 0; \
+		if (same) \
+		{ \
+			errorcount++; \
+			printf("Error on line %d, %s(): buffers are equal\n", __LINE__, __FUNCTION__); \
+		} \
+	}
+#define CHECK_BUF_SAME(x, y, n) \
+	tests++; \
+	{ \
+		int i, diff = 0; \
+		for (i = 0; i < (n); i++) \
+			if (fabs((x)[i] - (y)[i]) > 0.00001) \
+				diff++; \
+		if (diff) \
+		{ \
+			errorcount++; \
+			printf("Error on line %d, %s(): buffers differ (%d / %d)\n", __LINE__, __FUNCTION__, diff, (n)); \
+		} \
+	}
+#define CHECK_BUF_SAME_LASTKNOWN(x, n) \
+	tests++; \
+	{ \
+		int i, diff = 0, ofs = 0; \
+		float maxdiff = 0.0f; \
+		for (i = 0; i < (n); i++) \
+		{ \
+			if (fabs((x)[i] - lastknownscratch[i]) > 0.00001) \
+				diff++; \
+			if (fabs((x)[i] - lastknownscratch[i]) > maxdiff) \
+			{ \
+				ofs = i; \
+				maxdiff = (float)fabs((x)[i] - lastknownscratch[i]); \
+			} \
+		} \
+		if (diff) \
+		{ \
+			errorcount++; \
+			printf("Error on line %d, %s(): output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", __LINE__, __FUNCTION__, diff, (n), maxdiff, ofs); \
+		} \
+	}
+#define CHECK_BUF_GTE(x, y, n) \
+	tests++; \
+	{ \
+		int i, lt = 0; \
+		for (i = 0; i < (n); i++) \
+			if (fabs((x)[i]) - fabs((y)[i]) < 0) \
+				lt = 1; \
+		if (lt) \
+		{ \
+			errorcount++; \
+			printf("Error on line %d, %s(): buffer %s magnitude not bigger than buffer %s \n", __LINE__, __FUNCTION__, #x, #y); \
+		} \
+	}
+#define CHECKLASTKNOWN(x, n) \
+	if (lastknownwrite && lastknownfile) \
+	{ \
+		fwrite((x), 1, (n) * sizeof(float), lastknownfile); \
+	} \
+	else if (lastknownfile) \
+	{ \
+		fread(lastknownscratch, 1, (n) * sizeof(float), lastknownfile); \
+		CHECK_BUF_SAME_LASTKNOWN((x), n); \
+	}
 
 #if defined(_MSC_VER)
 #include <windows.h>
@@ -105,28 +206,36 @@ long getmsec()
 }
 #endif
 
-
 void writeHeader()
 {
 	unsigned char buf[46] = {
-		0x52, 0x49, 0x46, 0x46, // RIFF
-		0xa4, 0x3e, 0x00, 0x00, // length of file - 8
-		0x57, 0x41, 0x56, 0x45, // WAVE
-		0x66, 0x6d, 0x74, 0x20, // fmt
-		0x12, 0x00, 0x00, 0x00, // PCM block
-		0x03, 0x00,             // Uncompressed PCM, float
-		0x02, 0x00,             // Channels (stereo)
-		0x44, 0xac, 0x00, 0x00, // 44100Hz
-		0x20, 0x62, 0x05, 0x00, // 44100*8=352800 bytes per sec
-		0x08, 0x00,             // Number of bytes per sample for all channels
-		0x20, 0x00,             // Bits per channel (32)
-		0x00, 0x00,             // 0 bytes of extension
-		0x64, 0x61, 0x74, 0x61, // data
-		0x80, 0x3e, 0x00, 0x00  // bytes of data
-		// 46 bytes up to this point
+	    0x52, 0x49, 0x46,
+	    0x46, // RIFF
+	    0xa4, 0x3e, 0x00,
+	    0x00, // length of file - 8
+	    0x57, 0x41, 0x56,
+	    0x45, // WAVE
+	    0x66, 0x6d, 0x74,
+	    0x20, // fmt
+	    0x12, 0x00, 0x00,
+	    0x00,       // PCM block
+	    0x03, 0x00, // Uncompressed PCM, float
+	    0x02, 0x00, // Channels (stereo)
+	    0x44, 0xac, 0x00,
+	    0x00, // 44100Hz
+	    0x20, 0x62, 0x05,
+	    0x00,       // 44100*8=352800 bytes per sec
+	    0x08, 0x00, // Number of bytes per sample for all channels
+	    0x20, 0x00, // Bits per channel (32)
+	    0x00, 0x00, // 0 bytes of extension
+	    0x64, 0x61, 0x74,
+	    0x61, // data
+	    0x80, 0x3e, 0x00,
+	    0x00 // bytes of data
+	         // 46 bytes up to this point
 	};
-	int *flen = (int*)(buf + 4);
-	int *dlen = (int*)(buf + 42);
+	int *flen = (int *)(buf + 4);
+	int *dlen = (int *)(buf + 42);
 	if (!lastknownfile || !lastknownwrite)
 		return;
 	int len = ftell(lastknownfile);
@@ -138,32 +247,32 @@ void writeHeader()
 
 void generateTestWave(SoLoud::Wav &aWav)
 {
-	unsigned char buf[16044] = { 
-		0x52, 0x49, 0x46, 0x46, // RIFF
-		0xa4, 0x3e, 0x00, 0x00, // length of file - 8
-		0x57, 0x41, 0x56, 0x45, // WAVE
-		0x66, 0x6d, 0x74, 0x20, // fmt
-		0x10, 0x00, 0x00, 0x00, // PCM block
-		0x01, 0x00,             // Uncompressed PCM
-		0x01, 0x00,             // Channels (mono)
-		0x40, 0x1f, 0x00, 0x00, // 8000Hz
-		0x40, 0x1f, 0x00, 0x00, // 8000 bytes per sec
-		0x01, 0x00,             // Number of bytes per sample for all channels
-		0x08, 0x00,             // Bits per channel
-		0x64, 0x61, 0x74, 0x61, // data
-		0x80, 0x3e, 0x00, 0x00, // bytes of data
-		// 44 bytes up to this point
+	unsigned char buf[16044] = {
+	    0x52, 0x49, 0x46, 0x46, // RIFF
+	    0xa4, 0x3e, 0x00, 0x00, // length of file - 8
+	    0x57, 0x41, 0x56, 0x45, // WAVE
+	    0x66, 0x6d, 0x74, 0x20, // fmt
+	    0x10, 0x00, 0x00, 0x00, // PCM block
+	    0x01, 0x00,             // Uncompressed PCM
+	    0x01, 0x00,             // Channels (mono)
+	    0x40, 0x1f, 0x00, 0x00, // 8000Hz
+	    0x40, 0x1f, 0x00, 0x00, // 8000 bytes per sec
+	    0x01, 0x00,             // Number of bytes per sample for all channels
+	    0x08, 0x00,             // Bits per channel
+	    0x64, 0x61, 0x74, 0x61, // data
+	    0x80, 0x3e, 0x00, 0x00, // bytes of data
+	                            // 44 bytes up to this point
 	};
 	unsigned int buflen = sizeof(buf);
 	int i;
 	for (i = 0; i < 16000; i++)
 	{
-		buf[i + 44] = ((i&1)?1:-1)*(char)((sin(i*i * 0.000001) * 0x7f) + i);
+		buf[i + 44] = ((i & 1) ? 1 : -1) * (char)((sin(i * i * 0.000001) * 0x7f) + i);
 	}
 	aWav.loadMem(buf, buflen, true, false);
 }
 
-void printinfo(const char * format, ...)
+void printinfo(const char *format, ...)
 {
 	if (!verbose)
 		return;
@@ -205,11 +314,11 @@ void testMisc()
 	printinfo("SoLoud version %d\n", ver);
 	CHECK(soloud.getErrorString(0) != 0);
 	printinfo("Backend %d: %s, %d channels, %d samplerate, %d buffersize\n",
-		soloud.getBackendId(),
-		soloud.getBackendString(),
-		soloud.getBackendChannels(),
-		soloud.getBackendSamplerate(),
-		soloud.getBackendBufferSize());
+	          soloud.getBackendId(),
+	          soloud.getBackendString(),
+	          soloud.getBackendChannels(),
+	          soloud.getBackendSamplerate(),
+	          soloud.getBackendBufferSize());
 	CHECK(soloud.getBackendId() != 0);
 	CHECK(soloud.getBackendString() != 0);
 	CHECK(soloud.getBackendChannels() != 0);
@@ -270,7 +379,7 @@ void testGetters()
 {
 	float scratch[2048];
 	SoLoud::result res;
-	SoLoud::Soloud soloud; 
+	SoLoud::Soloud soloud;
 	SoLoud::Sfxr sfxr;
 	SoLoud::BiquadResonantFilter filter;
 	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
@@ -285,7 +394,7 @@ void testGetters()
 	CHECK(soloud.isValidVoiceHandle((SoLoud::handle)0xbaadf00d) == 0);
 	int h = soloud.play(sfxr);
 	CHECK(soloud.isValidVoiceHandle(h));
-	
+
 	CHECK(soloud.getActiveVoiceCount() == 1);
 	CHECK(soloud.getVoiceCount() == 1);
 
@@ -294,11 +403,11 @@ void testGetters()
 	soloud.setFilterParameter(h, 0, 0, v_in);
 	v_out = soloud.getFilterParameter(h, 0, 0);
 	CHECK(fabs(v_in - v_out) < 0.00001);
-	
+
 	CHECK(soloud.getStreamTime(h) < 0.00001);
 	soloud.mix(scratch, 1000);
 	CHECK(soloud.getStreamTime(h) > 0.00001);
-	
+
 	CHECK(soloud.getPause(h) == 0);
 	soloud.setPause(h, true);
 	CHECK(soloud.getPause(h) != 0);
@@ -356,7 +465,7 @@ void testVis()
 {
 	float scratch[2048];
 	SoLoud::result res;
-	SoLoud::Soloud soloud; 
+	SoLoud::Soloud soloud;
 	SoLoud::Sfxr sfxr;
 	SoLoud::Bus bus;
 	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
@@ -428,7 +537,7 @@ void testVis()
 }
 
 // Test various play-related calls
-// 
+//
 // Soloud.play
 // Soloud.playClocked
 // Soloud.playBackground
@@ -446,7 +555,7 @@ void testPlay()
 	float scratch[2048];
 	float ref[2048];
 	SoLoud::result res;
-	SoLoud::Soloud soloud; 
+	SoLoud::Soloud soloud;
 	SoLoud::Wav wav;
 	SoLoud::Bus bus;
 	generateTestWave(wav);
@@ -478,11 +587,11 @@ void testPlay()
 	CHECK_BUF_DIFF(scratch, ref, 2000);
 	soloud.stopAll();
 
-	h = soloud.play(wav,1,0,true);
+	h = soloud.play(wav, 1, 0, true);
 	soloud.setDelaySamples(h, 10);
 	soloud.setPause(h, false);
 	soloud.mix(scratch, 1000);
-	CHECK_BUF_SAME(scratch + 20, ref, 2000-20);
+	CHECK_BUF_SAME(scratch + 20, ref, 2000 - 20);
 	soloud.stopAll();
 
 	/*
@@ -544,7 +653,7 @@ void testPlay()
 	CHECK_BUF_NONZERO(scratch, 2000);
 	CHECK_BUF_DIFF(scratch, ref, 2000);
 	soloud.stopAll();
-	
+
 	h = soloud.playBackground(wav);
 	soloud.mix(scratch, 1000);
 	CHECKLASTKNOWN(scratch, 2000);
@@ -565,26 +674,18 @@ void testPlay()
 	CHECK(soloud.isValidVoiceHandle(h) != 0);
 	soloud.stopAll();
 
-
 	soloud.deinit();
 }
-
 
 class customAttenuatorCollider : public SoLoud::AudioCollider, public SoLoud::AudioAttenuator
 {
 public:
-	virtual float collide(SoLoud::Soloud *aSoloud, SoLoud::AudioSourceInstance3dData *aAudioInstance3dData, int aUserData)
-	{
-		return 0.5f;
-	}
-	virtual float attenuate(float aDistance, float aMinDistance, float aMaxDistance, float aRolloffFactor)
-	{
-		return 0.5f;
-	}
+	virtual float collide(SoLoud::Soloud *aSoloud, SoLoud::AudioSourceInstance3dData *aAudioInstance3dData, int aUserData) { return 0.5f; }
+	virtual float attenuate(float aDistance, float aMinDistance, float aMaxDistance, float aRolloffFactor) { return 0.5f; }
 };
 
 // Test various 3d functions
-// 
+//
 // Soloud.play3d
 // Soloud.play3dClocked
 // Bus.play3d
@@ -806,7 +907,7 @@ void test3d()
 	wav.set3dDistanceDelay(true);
 	soloud.play3d(wav, 10, 20, 30, 1, 1, 1);
 	soloud.update3dAudio();
-	soloud.mix(scratch, 1000); // skip time to get to when the sound starts 
+	soloud.mix(scratch, 1000); // skip time to get to when the sound starts
 	soloud.mix(scratch, 1000);
 	soloud.mix(scratch, 1000);
 	soloud.mix(scratch, 1000);
@@ -957,7 +1058,6 @@ void testFilters()
 	soloud.stopAll();
 	CHECKLASTKNOWN(ref, 2000);
 
-
 	lofi.setParams(4000, 5);
 	wav.setFilter(0, &lofi);
 	soloud.play(wav);
@@ -1105,7 +1205,7 @@ void testFilters()
 }
 
 // Test various core functionality
-// 
+//
 // Soloud.setGlobalVolume
 // Soloud.setPostClipScaler
 // Soloud.setPause
@@ -1261,7 +1361,7 @@ void testCore()
 	h = soloud.play(wav);
 	soloud.schedulePause(h, 0.015f); // note: pausescheduler works on mix granularity
 	soloud.mix(scratch, 500);
-	soloud.mix(scratch+1000, 500);
+	soloud.mix(scratch + 1000, 500);
 	CHECKLASTKNOWN(scratch, 2000);
 	CHECK_BUF_NONZERO(scratch, 2000);
 	CHECK_BUF_DIFF(ref, scratch, 2000);
@@ -1345,7 +1445,6 @@ void testCore()
 	CHECK(soloud.countAudioSource(wav) != 0);
 	soloud.stopAll();
 	CHECK(soloud.countAudioSource(wav) == 0);
-
 
 	soloud.deinit();
 }
@@ -1445,7 +1544,7 @@ void testMixer()
 	SoLoud::Wav wav;
 	soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
 
-	float val[16] = { 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f };
+	float val[16] = {0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f};
 	wav.loadRawWave(val, 2, 441, 1, true);
 	float scratch[2048];
 	wav.setLooping(true);
@@ -1520,17 +1619,25 @@ void testSpeedThings()
 		c++;
 		long d = et - st;
 		t += d;
-		if (mn > d) mn = d;
-		if (mx < d) mx = d;
+		if (mn > d)
+			mn = d;
+		if (mx < d)
+			mx = d;
 
-		printf("Mix loop took %3.3f sec, avg %3.3f, med %3.3f +- %3.3f (%3.3f - %3.3f)\n", (et - st) / 1000.0f, t / (c * 1000.0f), (mn+mx) / 2000.0f, (mx-mn) / 1000.0f, mn / 1000.0f, mx / 1000.0f);
+		printf("Mix loop took %3.3f sec, avg %3.3f, med %3.3f +- %3.3f (%3.3f - %3.3f)\n",
+		       (et - st) / 1000.0f,
+		       t / (c * 1000.0f),
+		       (mn + mx) / 2000.0f,
+		       (mx - mn) / 1000.0f,
+		       mn / 1000.0f,
+		       mx / 1000.0f);
 	}
 	long fet = getmsec();
 	printf("Total %3.3f sec\n", (fet - fst) / 1000.0f);
 	soloud.deinit();
 }
 
-int main(int parc, char ** pars)
+int main(int parc, char **pars)
 {
 #ifndef NO_LASTKNOWN_CHECK
 	lastknownfile = fopen("lastknown.wav", "rb");
@@ -1559,7 +1666,7 @@ int main(int parc, char ** pars)
 	testCore();
 	testSpeech();
 	testSpeedThings();
-//	testMixer();
+	//	testMixer();
 	printf("\n%d tests, %d error(s) ", tests, errorcount);
 	if (!lastknownwrite && errorcount)
 		printf("(To rebuild lastknown.wav, simply delete it)\n");

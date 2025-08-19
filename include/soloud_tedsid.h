@@ -32,41 +32,41 @@ class TED;
 
 namespace SoLoud
 {
-	class TedSid;
-	class File;
+class TedSid;
+class File;
 
-	class TedSidInstance : public AudioSourceInstance
-	{
-		TedSid *mParent;
-		SIDsound *mSID;
-		TED *mTED;
-		int mPos;
-		unsigned int mSampleCount;
-		int mRegValues[128];
-	public:
+class TedSidInstance : public AudioSourceInstance
+{
+	TedSid *mParent;
+	SIDsound *mSID;
+	TED *mTED;
+	int mPos;
+	unsigned int mSampleCount;
+	int mRegValues[128];
 
-		TedSidInstance(TedSid * aParent);
-		~TedSidInstance();
-		virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
-		virtual void tick();
-		virtual bool hasEnded();
-		virtual float getInfo(unsigned int aInfoKey);
-	};
-
-	class TedSid : public AudioSource
-	{
-	public:
-		int mLooppos;
-		int mLength;
-		unsigned short *mOps;
-		int mModel;
-		TedSid();
-		~TedSid();
-		result load(const char *aFilename);
-		result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);
-		result loadFile(File * aFile);
-		virtual AudioSourceInstance *createInstance();
-	};
+public:
+	TedSidInstance(TedSid *aParent);
+	~TedSidInstance();
+	virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
+	virtual void tick();
+	virtual bool hasEnded();
+	virtual float getInfo(unsigned int aInfoKey);
 };
+
+class TedSid : public AudioSource
+{
+public:
+	int mLooppos;
+	int mLength;
+	unsigned short *mOps;
+	int mModel;
+	TedSid();
+	~TedSid();
+	result load(const char *aFilename);
+	result loadMem(const unsigned char *aMem, unsigned int aLength, bool aCopy = false, bool aTakeOwnership = true);
+	result loadFile(File *aFile);
+	virtual AudioSourceInstance *createInstance();
+};
+}; // namespace SoLoud
 
 #endif

@@ -22,8 +22,8 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include "soloud_audiosource.h"
 #include "soloud_bus.h"
+#include "soloud_audiosource.h"
 #include "soloud_fft.h"
 #include "soloud_internal.h"
 

@@ -58,7 +58,7 @@ freely, subject to the following restrictions:
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <stdio.h> // for sprintf in asserts
+#include <stdio.h>   // for sprintf in asserts
 #include <windows.h> // only needed for OutputDebugStringA, should be solved somehow.
 #define SOLOUD_ASSERT(x) \
 	if (!(x)) \
@@ -126,26 +126,26 @@ freely, subject to the following restrictions:
 // includes depend on them.
 namespace SoLoud
 {
-	class Soloud;
-	typedef void (*mutexCallFunction)(void *aMutexPtr);
-	typedef void (*soloudCallFunction)(Soloud *aSoloud);
-	typedef unsigned int result;
-	typedef result (*soloudResultFunction)(Soloud *aSoloud);
-	typedef unsigned int handle;
-	typedef double time;
+class Soloud;
+typedef void (*mutexCallFunction)(void *aMutexPtr);
+typedef void (*soloudCallFunction)(Soloud *aSoloud);
+typedef unsigned int result;
+typedef result (*soloudResultFunction)(Soloud *aSoloud);
+typedef unsigned int handle;
+typedef double time;
 
-	// For use by backends to specify which format they'd like from the mixer.
-	namespace detail
-	{
-		enum SAMPLE_FORMAT : unsigned char
-		{
-			SAMPLE_FLOAT32,
-			SAMPLE_UNSIGNED8,
-			SAMPLE_SIGNED16,
-			SAMPLE_SIGNED24,
-			SAMPLE_SIGNED32
-		};
-	}
+// For use by backends to specify which format they'd like from the mixer.
+namespace detail
+{
+enum SAMPLE_FORMAT : unsigned char
+{
+	SAMPLE_FLOAT32,
+	SAMPLE_UNSIGNED8,
+	SAMPLE_SIGNED16,
+	SAMPLE_SIGNED24,
+	SAMPLE_SIGNED32
+};
+} // namespace detail
 }; // namespace SoLoud
 
 #endif

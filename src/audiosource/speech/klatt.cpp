@@ -1,8 +1,8 @@
-#include <math.h>
-#include <stdlib.h>
 #include "klatt.h"
 #include "darray.h"
 #include "resonator.h"
+#include <math.h>
+#include <stdlib.h>
 
 #ifndef PI
 #define PI 3.1415926535897932384626433832795f
@@ -17,35 +17,48 @@ class Interp
 public:
 	float mSteady;
 	float mFixed;
-	char  mProportion;
-	char  mExtDelay;
-	char  mIntDelay;
+	char mProportion;
+	char mExtDelay;
+	char mIntDelay;
 };
-
 
 enum Eparm_e
 {
-  ELM_FN, ELM_F1, ELM_F2, ELM_F3, 
-  ELM_B1, ELM_B2, ELM_B3, ELM_AN, 
-  ELM_A1, ELM_A2, ELM_A3, ELM_A4, 
-  ELM_A5, ELM_A6, ELM_AB, ELM_AV, 
-  ELM_AVC, ELM_ASP, ELM_AF, 
-  ELM_COUNT
+	ELM_FN,
+	ELM_F1,
+	ELM_F2,
+	ELM_F3,
+	ELM_B1,
+	ELM_B2,
+	ELM_B3,
+	ELM_AN,
+	ELM_A1,
+	ELM_A2,
+	ELM_A3,
+	ELM_A4,
+	ELM_A5,
+	ELM_A6,
+	ELM_AB,
+	ELM_AV,
+	ELM_AVC,
+	ELM_ASP,
+	ELM_AF,
+	ELM_COUNT
 };
- 
+
 class Element
 {
 public:
-	  const char *mName; // unused
-	  const char mRK;
-	  const char mDU;
-	  const char mUD;
-	  unsigned char mFont; // unused
-	  const char  *mDict; // unused
-	  const char  *mIpa; // unused
-	  int   mFeat; // only ELM_FEATURE_VWL
-	  Interp mInterpolator[ELM_COUNT];
- };
+	const char *mName; // unused
+	const char mRK;
+	const char mDU;
+	const char mUD;
+	unsigned char mFont; // unused
+	const char *mDict;   // unused
+	const char *mIpa;    // unused
+	int mFeat;           // only ELM_FEATURE_VWL
+	Interp mInterpolator[ELM_COUNT];
+};
 
 enum ELEMENT_FEATURES
 {
@@ -80,29 +93,84 @@ enum ELEMENT_FEATURES
 	ELM_FEATURE_VWL = 0x10000000
 };
 
-enum ELEMENTS 
+enum ELEMENTS
 {
-	ELM_END = 0,	
-	ELM_Q,	ELM_P,	ELM_PY,	ELM_PZ,	ELM_T,	ELM_TY,	
-	ELM_TZ,	ELM_K,	ELM_KY,	ELM_KZ,	ELM_B,	ELM_BY,	ELM_BZ,	
-	ELM_D,	ELM_DY,	ELM_DZ,	ELM_G,	ELM_GY,	ELM_GZ,	ELM_M,	
-	ELM_N,	ELM_NG,	ELM_F,	ELM_TH,	ELM_S,	ELM_SH,	ELM_X,
-	ELM_H,	ELM_V,	ELM_QQ,	ELM_DH,	ELM_DI,	ELM_Z,	ELM_ZZ,
-	ELM_ZH,	ELM_CH,	ELM_CI,	ELM_J,	ELM_JY,	ELM_L,	ELM_LL,
-	ELM_RX,	ELM_R,	ELM_W,	ELM_Y,	ELM_I,	ELM_E,	ELM_AA,
-	ELM_U,	ELM_O,	ELM_OO,	ELM_A,	ELM_EE,	ELM_ER,	ELM_AR,
-	ELM_AW,	ELM_UU,	ELM_AI,	ELM_IE,	ELM_OI,	ELM_OU,	ELM_OV,
-	ELM_OA,	ELM_IA,	ELM_IB,	ELM_AIR,ELM_OOR,ELM_OR
+	ELM_END = 0,
+	ELM_Q,
+	ELM_P,
+	ELM_PY,
+	ELM_PZ,
+	ELM_T,
+	ELM_TY,
+	ELM_TZ,
+	ELM_K,
+	ELM_KY,
+	ELM_KZ,
+	ELM_B,
+	ELM_BY,
+	ELM_BZ,
+	ELM_D,
+	ELM_DY,
+	ELM_DZ,
+	ELM_G,
+	ELM_GY,
+	ELM_GZ,
+	ELM_M,
+	ELM_N,
+	ELM_NG,
+	ELM_F,
+	ELM_TH,
+	ELM_S,
+	ELM_SH,
+	ELM_X,
+	ELM_H,
+	ELM_V,
+	ELM_QQ,
+	ELM_DH,
+	ELM_DI,
+	ELM_Z,
+	ELM_ZZ,
+	ELM_ZH,
+	ELM_CH,
+	ELM_CI,
+	ELM_J,
+	ELM_JY,
+	ELM_L,
+	ELM_LL,
+	ELM_RX,
+	ELM_R,
+	ELM_W,
+	ELM_Y,
+	ELM_I,
+	ELM_E,
+	ELM_AA,
+	ELM_U,
+	ELM_O,
+	ELM_OO,
+	ELM_A,
+	ELM_EE,
+	ELM_ER,
+	ELM_AR,
+	ELM_AW,
+	ELM_UU,
+	ELM_AI,
+	ELM_IE,
+	ELM_OI,
+	ELM_OU,
+	ELM_OV,
+	ELM_OA,
+	ELM_IA,
+	ELM_IB,
+	ELM_AIR,
+	ELM_OOR,
+	ELM_OR
 };
 
 #define PHONEME_COUNT 53
 #define AMP_ADJ 14
-#define StressDur(e,s) (s,((e->mDU + e->mUD)/2))
+#define StressDur(e, s) (s, ((e->mDU + e->mUD) / 2))
 
-
-
-
-class PhonemeToElements 
+class PhonemeToElements
 {
 public:
 	int mKey;
@@ -111,66 +179,64 @@ public:
 
 /* Order is important - 2 byte phonemes first, otherwise
    the search function will fail*/
-static PhonemeToElements phoneme_to_elements[PHONEME_COUNT] = 
-{
-	/* mKey, count, 0-7 elements */
-/* tS */ 0x5374, 2, ELM_CH, ELM_CI, 0, 0, 0, 0, 0,
-/* dZ */ 0x5a64, 4, ELM_J, ELM_JY, ELM_QQ, ELM_JY, 0, 0, 0,
-/* rr */ 0x7272, 3, ELM_R, ELM_QQ, ELM_R, 0, 0, 0, 0,
-/* eI */ 0x4965, 2, ELM_AI, ELM_I, 0, 0, 0, 0, 0,
-/* aI */ 0x4961, 2, ELM_IE, ELM_I, 0, 0, 0, 0, 0,
-/* oI */ 0x496f, 2, ELM_OI, ELM_I, 0, 0, 0, 0, 0,
-/* aU */ 0x5561, 2, ELM_OU, ELM_OV, 0, 0, 0, 0, 0,
-/* @U */ 0x5540, 2, ELM_OA, ELM_OV, 0, 0, 0, 0, 0,
-/* I@ */ 0x4049, 2, ELM_IA, ELM_IB, 0, 0, 0, 0, 0,
-/* e@ */ 0x4065, 2, ELM_AIR, ELM_IB, 0, 0, 0, 0, 0,
-/* U@ */ 0x4055, 2, ELM_OOR, ELM_IB, 0, 0, 0, 0, 0,
-/* O@ */ 0x404f, 2, ELM_OR, ELM_IB, 0, 0, 0, 0, 0,
-/* oU */ 0x556f, 2, ELM_OI, ELM_OV, 0, 0, 0, 0, 0,
-/*    */ 0x0020, 1, ELM_Q, 0, 0, 0, 0, 0, 0,
-/* p  */ 0x0070, 3, ELM_P, ELM_PY, ELM_PZ, 0, 0, 0, 0,
-/* t  */ 0x0074, 3, ELM_T, ELM_TY, ELM_TZ, 0, 0, 0, 0,
-/* k  */ 0x006b, 3, ELM_K, ELM_KY, ELM_KZ, 0, 0, 0, 0,
-/* b  */ 0x0062, 3, ELM_B, ELM_BY, ELM_BZ, 0, 0, 0, 0,
-/* d  */ 0x0064, 3, ELM_D, ELM_DY, ELM_DZ, 0, 0, 0, 0,
-/* g  */ 0x0067, 3, ELM_G, ELM_GY, ELM_GZ, 0, 0, 0, 0,
-/* m  */ 0x006d, 1, ELM_M, 0, 0, 0, 0, 0, 0,
-/* n  */ 0x006e, 1, ELM_N, 0, 0, 0, 0, 0, 0,
-/* N  */ 0x004e, 1, ELM_NG, 0, 0, 0, 0, 0, 0,
-/* f  */ 0x0066, 1, ELM_F, 0, 0, 0, 0, 0, 0,
-/* T  */ 0x0054, 1, ELM_TH, 0, 0, 0, 0, 0, 0,
-/* s  */ 0x0073, 1, ELM_S, 0, 0, 0, 0, 0, 0,
-/* S  */ 0x0053, 1, ELM_SH, 0, 0, 0, 0, 0, 0,
-/* h  */ 0x0068, 1, ELM_H, 0, 0, 0, 0, 0, 0,
-/* v  */ 0x0076, 3, ELM_V, ELM_QQ, ELM_V, 0, 0, 0, 0,
-/* D  */ 0x0044, 3, ELM_DH, ELM_QQ, ELM_DI, 0, 0, 0, 0,
-/* z  */ 0x007a, 3, ELM_Z, ELM_QQ, ELM_ZZ, 0, 0, 0, 0,
-/* Z  */ 0x005a, 3, ELM_ZH, ELM_QQ, ELM_ZH, 0, 0, 0, 0,
-/* l  */ 0x006c, 1, ELM_L, 0, 0, 0, 0, 0, 0,
-/* r  */ 0x0072, 1, ELM_R, 0, 0, 0, 0, 0, 0,
-/* R  */ 0x0052, 1, ELM_RX, 0, 0, 0, 0, 0, 0,
-/* w  */ 0x0077, 1, ELM_W, 0, 0, 0, 0, 0, 0,
-/* x  */ 0x0078, 1, ELM_X, 0, 0, 0, 0, 0, 0,
-/* %  */ 0x0025, 1, ELM_QQ, 0, 0, 0, 0, 0, 0,
-/* j  */ 0x006a, 1, ELM_Y, 0, 0, 0, 0, 0, 0,
-/* I  */ 0x0049, 1, ELM_I, 0, 0, 0, 0, 0, 0,
-/* e  */ 0x0065, 1, ELM_E, 0, 0, 0, 0, 0, 0,
-/* &  */ 0x0026, 1, ELM_AA, 0, 0, 0, 0, 0, 0,
-/* V  */ 0x0056, 1, ELM_U, 0, 0, 0, 0, 0, 0,
-/* 0  */ 0x0030, 1, ELM_O, 0, 0, 0, 0, 0, 0,
-/* U  */ 0x0055, 1, ELM_OO, 0, 0, 0, 0, 0, 0,
-/* @  */ 0x0040, 1, ELM_A, 0, 0, 0, 0, 0, 0,
-/* i  */ 0x0069, 1, ELM_EE, 0, 0, 0, 0, 0, 0,
-/* 3  */ 0x0033, 1, ELM_ER, 0, 0, 0, 0, 0, 0,
-/* A  */ 0x0041, 1, ELM_AR, 0, 0, 0, 0, 0, 0,
-/* O  */ 0x004f, 1, ELM_AW, 0, 0, 0, 0, 0, 0,
-/* u  */ 0x0075, 1, ELM_UU, 0, 0, 0, 0, 0, 0,
-/* o  */ 0x006f, 1, ELM_OI, 0, 0, 0, 0, 0, 0,
-/* .  */ 0x002e, 1, ELM_END,0, 0, 0, 0, 0, 0,
+static PhonemeToElements phoneme_to_elements[PHONEME_COUNT] = {
+    /* mKey, count, 0-7 elements */
+    /* tS */ 0x5374, 2, ELM_CH,  ELM_CI, 0,      0,      0, 0, 0,
+    /* dZ */ 0x5a64, 4, ELM_J,   ELM_JY, ELM_QQ, ELM_JY, 0, 0, 0,
+    /* rr */ 0x7272, 3, ELM_R,   ELM_QQ, ELM_R,  0,      0, 0, 0,
+    /* eI */ 0x4965, 2, ELM_AI,  ELM_I,  0,      0,      0, 0, 0,
+    /* aI */ 0x4961, 2, ELM_IE,  ELM_I,  0,      0,      0, 0, 0,
+    /* oI */ 0x496f, 2, ELM_OI,  ELM_I,  0,      0,      0, 0, 0,
+    /* aU */ 0x5561, 2, ELM_OU,  ELM_OV, 0,      0,      0, 0, 0,
+    /* @U */ 0x5540, 2, ELM_OA,  ELM_OV, 0,      0,      0, 0, 0,
+    /* I@ */ 0x4049, 2, ELM_IA,  ELM_IB, 0,      0,      0, 0, 0,
+    /* e@ */ 0x4065, 2, ELM_AIR, ELM_IB, 0,      0,      0, 0, 0,
+    /* U@ */ 0x4055, 2, ELM_OOR, ELM_IB, 0,      0,      0, 0, 0,
+    /* O@ */ 0x404f, 2, ELM_OR,  ELM_IB, 0,      0,      0, 0, 0,
+    /* oU */ 0x556f, 2, ELM_OI,  ELM_OV, 0,      0,      0, 0, 0,
+    /*    */ 0x0020, 1, ELM_Q,   0,      0,      0,      0, 0, 0,
+    /* p  */ 0x0070, 3, ELM_P,   ELM_PY, ELM_PZ, 0,      0, 0, 0,
+    /* t  */ 0x0074, 3, ELM_T,   ELM_TY, ELM_TZ, 0,      0, 0, 0,
+    /* k  */ 0x006b, 3, ELM_K,   ELM_KY, ELM_KZ, 0,      0, 0, 0,
+    /* b  */ 0x0062, 3, ELM_B,   ELM_BY, ELM_BZ, 0,      0, 0, 0,
+    /* d  */ 0x0064, 3, ELM_D,   ELM_DY, ELM_DZ, 0,      0, 0, 0,
+    /* g  */ 0x0067, 3, ELM_G,   ELM_GY, ELM_GZ, 0,      0, 0, 0,
+    /* m  */ 0x006d, 1, ELM_M,   0,      0,      0,      0, 0, 0,
+    /* n  */ 0x006e, 1, ELM_N,   0,      0,      0,      0, 0, 0,
+    /* N  */ 0x004e, 1, ELM_NG,  0,      0,      0,      0, 0, 0,
+    /* f  */ 0x0066, 1, ELM_F,   0,      0,      0,      0, 0, 0,
+    /* T  */ 0x0054, 1, ELM_TH,  0,      0,      0,      0, 0, 0,
+    /* s  */ 0x0073, 1, ELM_S,   0,      0,      0,      0, 0, 0,
+    /* S  */ 0x0053, 1, ELM_SH,  0,      0,      0,      0, 0, 0,
+    /* h  */ 0x0068, 1, ELM_H,   0,      0,      0,      0, 0, 0,
+    /* v  */ 0x0076, 3, ELM_V,   ELM_QQ, ELM_V,  0,      0, 0, 0,
+    /* D  */ 0x0044, 3, ELM_DH,  ELM_QQ, ELM_DI, 0,      0, 0, 0,
+    /* z  */ 0x007a, 3, ELM_Z,   ELM_QQ, ELM_ZZ, 0,      0, 0, 0,
+    /* Z  */ 0x005a, 3, ELM_ZH,  ELM_QQ, ELM_ZH, 0,      0, 0, 0,
+    /* l  */ 0x006c, 1, ELM_L,   0,      0,      0,      0, 0, 0,
+    /* r  */ 0x0072, 1, ELM_R,   0,      0,      0,      0, 0, 0,
+    /* R  */ 0x0052, 1, ELM_RX,  0,      0,      0,      0, 0, 0,
+    /* w  */ 0x0077, 1, ELM_W,   0,      0,      0,      0, 0, 0,
+    /* x  */ 0x0078, 1, ELM_X,   0,      0,      0,      0, 0, 0,
+    /* %  */ 0x0025, 1, ELM_QQ,  0,      0,      0,      0, 0, 0,
+    /* j  */ 0x006a, 1, ELM_Y,   0,      0,      0,      0, 0, 0,
+    /* I  */ 0x0049, 1, ELM_I,   0,      0,      0,      0, 0, 0,
+    /* e  */ 0x0065, 1, ELM_E,   0,      0,      0,      0, 0, 0,
+    /* &  */ 0x0026, 1, ELM_AA,  0,      0,      0,      0, 0, 0,
+    /* V  */ 0x0056, 1, ELM_U,   0,      0,      0,      0, 0, 0,
+    /* 0  */ 0x0030, 1, ELM_O,   0,      0,      0,      0, 0, 0,
+    /* U  */ 0x0055, 1, ELM_OO,  0,      0,      0,      0, 0, 0,
+    /* @  */ 0x0040, 1, ELM_A,   0,      0,      0,      0, 0, 0,
+    /* i  */ 0x0069, 1, ELM_EE,  0,      0,      0,      0, 0, 0,
+    /* 3  */ 0x0033, 1, ELM_ER,  0,      0,      0,      0, 0, 0,
+    /* A  */ 0x0041, 1, ELM_AR,  0,      0,      0,      0, 0, 0,
+    /* O  */ 0x004f, 1, ELM_AW,  0,      0,      0,      0, 0, 0,
+    /* u  */ 0x0075, 1, ELM_UU,  0,      0,      0,      0, 0, 0,
+    /* o  */ 0x006f, 1, ELM_OI,  0,      0,      0,      0, 0, 0,
+    /* .  */ 0x002e, 1, ELM_END, 0,      0,      0,      0, 0, 0,
 };
 
-static Element gElement[] =
-{
+static Element gElement[] = {
 #include "Elements.def"
 };
 
@@ -181,13 +247,12 @@ static short clip(float input)
 
 	if (temp < -32767)
 	{
-		//assert?
+		// assert?
 		temp = -32767;
 	}
-	else
-	if (temp > 32767)
+	else if (temp > 32767)
 	{
-		//assert?
+		// assert?
 		temp = 32767;
 	}
 
@@ -198,47 +263,31 @@ static short clip(float input)
 static float DBtoLIN(int dB)
 {
 	/*
-	* Convertion table, db to linear, 87 dB --> 32767
-	*                                 86 dB --> 29491 (1 dB down = 0.5**1/6)
-	*                                 ...
-	*                                 81 dB --> 16384 (6 dB down = 0.5)
-	*                                 ...
-	*                                  0 dB -->     0
-	*
-	* The just noticeable difference for a change in intensity of a vowel
-	*   is approximately 1 dB.  Thus all amplitudes are quantized to 1 dB
-	*   steps.
-	*/
+	 * Convertion table, db to linear, 87 dB --> 32767
+	 *                                 86 dB --> 29491 (1 dB down = 0.5**1/6)
+	 *                                 ...
+	 *                                 81 dB --> 16384 (6 dB down = 0.5)
+	 *                                 ...
+	 *                                  0 dB -->     0
+	 *
+	 * The just noticeable difference for a change in intensity of a vowel
+	 *   is approximately 1 dB.  Thus all amplitudes are quantized to 1 dB
+	 *   steps.
+	 */
 
-	static const float amptable[88] =
-	{
-		0.0, 0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 6.0, 7.0,
-		8.0, 9.0, 10.0, 11.0, 13.0,
-		14.0, 16.0, 18.0, 20.0, 22.0,
-		25.0, 28.0, 32.0, 35.0, 40.0,
-		45.0, 51.0, 57.0, 64.0, 71.0,
-		80.0, 90.0, 101.0, 114.0, 128.0,
-		142.0, 159.0, 179.0, 202.0, 227.0,
-		256.0, 284.0, 318.0, 359.0, 405.0,
-		455.0, 512.0, 568.0, 638.0, 719.0,
-		811.0, 911.0, 1024.0, 1137.0, 1276.0,
-		1438.0, 1622.0, 1823.0, 2048.0, 2273.0,
-		2552.0, 2875.0, 3244.0, 3645.0, 4096.0,
-		4547.0, 5104.0, 5751.0, 6488.0, 7291.0,
-		8192.0, 9093.0, 10207.0, 11502.0, 12976.0,
-		14582.0, 16384.0, 18350.0, 20644.0, 23429.0,
-		26214.0, 29491.0, 32767.0
-	};
+	static const float amptable[88] = {
+	    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     0.0,     6.0,     7.0,     8.0,    9.0,    10.0,
+	    11.0,   13.0,   14.0,   16.0,   18.0,   20.0,    22.0,    25.0,    28.0,    32.0,    35.0,    40.0,    45.0,    51.0,    57.0,    64.0,   71.0,   80.0,
+	    90.0,   101.0,  114.0,  128.0,  142.0,  159.0,   179.0,   202.0,   227.0,   256.0,   284.0,   318.0,   359.0,   405.0,   455.0,   512.0,  568.0,  638.0,
+	    719.0,  811.0,  911.0,  1024.0, 1137.0, 1276.0,  1438.0,  1622.0,  1823.0,  2048.0,  2273.0,  2552.0,  2875.0,  3244.0,  3645.0,  4096.0, 4547.0, 5104.0,
+	    5751.0, 6488.0, 7291.0, 8192.0, 9093.0, 10207.0, 11502.0, 12976.0, 14582.0, 16384.0, 18350.0, 20644.0, 23429.0, 26214.0, 29491.0, 32767.0};
 
 	// Check limits or argument (can be removed in final product)
 	if (dB < 0)
 	{
 		dB = 0;
 	}
-	else
-	if (dB >= 88)
+	else if (dB >= 88)
 	{
 		dB = 87;
 	}
@@ -246,62 +295,83 @@ static float DBtoLIN(int dB)
 	return amptable[dB] * 0.001f;
 }
 
+klatt_frame::klatt_frame()
+    : mF0FundamentalFreq(1330),
+      mVoicingAmpdb(60),
+      mFormant1Freq(500),
+      mFormant1Bandwidth(60),
+      mFormant2Freq(1500),
+      mFormant2Bandwidth(90),
+      mFormant3Freq(2800),
+      mFormant3Bandwidth(150),
+      mFormant4Freq(3250),
+      mFormant4Bandwidth(200),
+      mFormant5Freq(3700),
+      mFormant5Bandwidth(200),
+      mFormant6Freq(4990),
+      mFormant6Bandwidth(500),
+      mNasalZeroFreq(270),
+      mNasalZeroBandwidth(100),
+      mNasalPoleFreq(270),
+      mNasalPoleBandwidth(100),
+      mAspirationAmpdb(0),
+      mNoSamplesInOpenPeriod(30),
+      mVoicingBreathiness(0),
+      mVoicingSpectralTiltdb(10),
+      mFricationAmpdb(0),
+      mSkewnessOfAlternatePeriods(0),
+      mFormant1Ampdb(0),
+      mFormant1ParallelBandwidth(80),
+      mFormant2Ampdb(0),
+      mFormant2ParallelBandwidth(200),
+      mFormant3Ampdb(0),
+      mFormant3ParallelBandwidth(350),
+      mFormant4Ampdb(0),
+      mFormant4ParallelBandwidth(500),
+      mFormant5Ampdb(0),
+      mFormant5ParallelBandwidth(600),
+      mFormant6Ampdb(0),
+      mFormant6ParallelBandwidth(800),
+      mParallelNasalPoleAmpdb(0),
+      mBypassFricationAmpdb(0),
+      mPalallelVoicingAmpdb(0),
+      mOverallGaindb(62) {};
 
-
-klatt_frame::klatt_frame() :
-	mF0FundamentalFreq(1330),	mVoicingAmpdb(60),				mFormant1Freq(500),  
-	mFormant1Bandwidth(60),		mFormant2Freq(1500),			mFormant2Bandwidth(90),
-	mFormant3Freq(2800),		mFormant3Bandwidth(150),		mFormant4Freq(3250), 
-	mFormant4Bandwidth(200),	mFormant5Freq(3700),			mFormant5Bandwidth(200),  
-	mFormant6Freq(4990),		mFormant6Bandwidth(500),		mNasalZeroFreq(270),  
-	mNasalZeroBandwidth(100),	mNasalPoleFreq(270),			mNasalPoleBandwidth(100), 
-	mAspirationAmpdb(0),		mNoSamplesInOpenPeriod(30),		mVoicingBreathiness(0),      
-	mVoicingSpectralTiltdb(10), mFricationAmpdb(0),				mSkewnessOfAlternatePeriods(0),   
-	mFormant1Ampdb(0),			mFormant1ParallelBandwidth(80), mFormant2Ampdb(0),      
-	mFormant2ParallelBandwidth(200), mFormant3Ampdb(0),			mFormant3ParallelBandwidth(350),
-	mFormant4Ampdb(0),			mFormant4ParallelBandwidth(500), mFormant5Ampdb(0),      
-	mFormant5ParallelBandwidth(600), mFormant6Ampdb(0),			mFormant6ParallelBandwidth(800),    
-	mParallelNasalPoleAmpdb(0), mBypassFricationAmpdb(0),       mPalallelVoicingAmpdb(0),   
-	mOverallGaindb(62)  
-{
-};
-
-
-klatt::klatt() : 
-	mBaseF0(1330),
-	mBaseSpeed(10.0f),
-	mBaseDeclination(0.5f),
-	mBaseWaveform(KW_SAW),
-	mF0Flutter(0), 
-	mSampleRate(0), 
-	mNspFr(0),
-	mF0FundamentalFreq(0),
-	mVoicingAmpdb(0),
-	mSkewnessOfAlternatePeriods(0),
-	mTimeCount(0), 
-	mNPer(0),
-	mT0(0),
-	mNOpen(0),
-	mNMod(0),
-	mAmpVoice(0),
-	mAmpBypas(0),
-	mAmpAspir(0),
-	mAmpFrica(0),
-	mAmpBreth(0),
-	mSkew(0),
-	mVLast(0),
-	mNLast(0),
-	mGlotLast(0),
-	mDecay(0),
-	mOneMd(0),
-	mSeed(5),
-	mElementCount(0),
-	mElement(nullptr),
-	mElementIndex(0),
-	mLastElement(nullptr),
-	mTStress(0),
-	mNTStress(0),
-	mTop(0)
+klatt::klatt()
+    : mBaseF0(1330),
+      mBaseSpeed(10.0f),
+      mBaseDeclination(0.5f),
+      mBaseWaveform(KW_SAW),
+      mF0Flutter(0),
+      mSampleRate(0),
+      mNspFr(0),
+      mF0FundamentalFreq(0),
+      mVoicingAmpdb(0),
+      mSkewnessOfAlternatePeriods(0),
+      mTimeCount(0),
+      mNPer(0),
+      mT0(0),
+      mNOpen(0),
+      mNMod(0),
+      mAmpVoice(0),
+      mAmpBypas(0),
+      mAmpAspir(0),
+      mAmpFrica(0),
+      mAmpBreth(0),
+      mSkew(0),
+      mVLast(0),
+      mNLast(0),
+      mGlotLast(0),
+      mDecay(0),
+      mOneMd(0),
+      mSeed(5),
+      mElementCount(0),
+      mElement(nullptr),
+      mElementIndex(0),
+      mLastElement(nullptr),
+      mTStress(0),
+      mNTStress(0),
+      mTop(0)
 {
 }
 
@@ -318,13 +388,13 @@ slowly varying sine waves.
 void klatt::flutter()
 {
 	int original_f0 = mFrame.mF0FundamentalFreq / 10;
-	float fla = (float) mF0Flutter / 50;
-	float flb = (float) original_f0 / 100;
+	float fla = (float)mF0Flutter / 50;
+	float flb = (float)original_f0 / 100;
 	float flc = (float)sin(2 * PI * 12.7 * mTimeCount);
 	float fld = (float)sin(2 * PI * 7.1 * mTimeCount);
 	float fle = (float)sin(2 * PI * 4.7 * mTimeCount);
 	float delta_f0 = fla * flb * (flc + fld + fle) * 10;
-	mF0FundamentalFreq += (int) delta_f0;
+	mF0FundamentalFreq += (int)delta_f0;
 }
 
 /* Vwave is the differentiated glottal flow waveform, there is a weak
@@ -333,7 +403,7 @@ spectral zero around 800 Hz, magic constants a,b reset pitch-synch
 
 float klatt::natural_source(int aNper)
 {
-	// See if glottis open 
+	// See if glottis open
 	if (aNper < mNOpen)
 	{
 		switch (mBaseWaveform)
@@ -349,24 +419,23 @@ float klatt::natural_source(int aNper)
 		case KW_NOISE:
 			return (int)mNLast & 1 ? -8192.0f : 8192.0f;
 		case KW_WARBLE:
-				return (int)mNLast & 7 ? -8192.0f : 8192.0f;
+			return (int)mNLast & 7 ? -8192.0f : 8192.0f;
 		case KW_SAW: // fallthrough
 		default:
 			return (abs((aNper % 200) - 100) - 50) * 163.84f; // saw
-		}	
+		}
 	}
 	else
 	{
-		// Glottis closed 
+		// Glottis closed
 		return (0.0);
 	}
-	
 }
 
 /* Reset selected parameters pitch-synchronously */
 
 void klatt::pitch_synch_par_reset(int ns)
-{	
+{
 	if (mF0FundamentalFreq > 0)
 	{
 		mT0 = (40 * mSampleRate) / mF0FundamentalFreq;
@@ -398,7 +467,7 @@ void klatt::pitch_synch_par_reset(int ns)
 
 		if (mNOpen < 40)
 		{
-			mNOpen = 40;                  /* F0 max = 1000 Hz */
+			mNOpen = 40; /* F0 max = 1000 Hz */
 		}
 
 		int temp;
@@ -424,7 +493,7 @@ void klatt::pitch_synch_par_reset(int ns)
 
 		if (mSkew >= 0)
 		{
-			mSkew = mSkewnessOfAlternatePeriods;                /* Reset mSkew to requested mSkewnessOfAlternatePeriods */
+			mSkew = mSkewnessOfAlternatePeriods; /* Reset mSkew to requested mSkewnessOfAlternatePeriods */
 		}
 		else
 		{
@@ -438,7 +507,7 @@ void klatt::pitch_synch_par_reset(int ns)
 	}
 	else
 	{
-		mT0 = 4;                        /* Default for f0 undefined */
+		mT0 = 4; /* Default for f0 undefined */
 		mAmpVoice = 0.0;
 		mNMod = mT0;
 		mAmpBreth = 0.0;
@@ -449,7 +518,7 @@ void klatt::pitch_synch_par_reset(int ns)
 	if ((mT0 != 4) || (ns == 0))
 	{
 		/* Set one-pole ELM_FEATURE_LOW-pass filter that tilts glottal source */
-		mDecay = (0.033f * mFrame.mVoicingSpectralTiltdb);	/* Function of samp_rate ? */
+		mDecay = (0.033f * mFrame.mVoicingSpectralTiltdb); /* Function of samp_rate ? */
 
 		if (mDecay > 0.0f)
 		{
@@ -462,57 +531,57 @@ void klatt::pitch_synch_par_reset(int ns)
 	}
 }
 
-
 /* Get variable parameters from host computer,
 initially also get definition of fixed pars
 */
 
 void klatt::frame_init()
 {
-	int mOverallGaindb;                       /* Overall gain, 60 dB is unity  0 to   60  */
-	float amp_parF1;                 /* mFormant1Ampdb converted to linear gain  */
-	float amp_parFN;                 /* mParallelNasalPoleAmpdb converted to linear gain  */
-	float amp_parF2;                 /* mFormant2Ampdb converted to linear gain  */
-	float amp_parF3;                 /* mFormant3Ampdb converted to linear gain  */
-	float amp_parF4;                 /* mFormant4Ampdb converted to linear gain  */
-	float amp_parF5;                 /* mFormant5Ampdb converted to linear gain  */
-	float amp_parF6;                 /* mFormant6Ampdb converted to linear gain  */
+	int mOverallGaindb; /* Overall gain, 60 dB is unity  0 to   60  */
+	float amp_parF1;    /* mFormant1Ampdb converted to linear gain  */
+	float amp_parFN;    /* mParallelNasalPoleAmpdb converted to linear gain  */
+	float amp_parF2;    /* mFormant2Ampdb converted to linear gain  */
+	float amp_parF3;    /* mFormant3Ampdb converted to linear gain  */
+	float amp_parF4;    /* mFormant4Ampdb converted to linear gain  */
+	float amp_parF5;    /* mFormant5Ampdb converted to linear gain  */
+	float amp_parF6;    /* mFormant6Ampdb converted to linear gain  */
 
 	/* Read  speech frame definition into temp store
-       and move some parameters into active use immediately
-       (voice-excited ones are updated pitch synchronously
-       to avoid waveform glitches).
+	   and move some parameters into active use immediately
+	   (voice-excited ones are updated pitch synchronously
+	   to avoid waveform glitches).
 	 */
 
 	mF0FundamentalFreq = mFrame.mF0FundamentalFreq;
 	mVoicingAmpdb = mFrame.mVoicingAmpdb - 7;
 
-	if (mVoicingAmpdb < 0) mVoicingAmpdb = 0;
+	if (mVoicingAmpdb < 0)
+		mVoicingAmpdb = 0;
 
 	mAmpAspir = DBtoLIN(mFrame.mAspirationAmpdb) * .05f;
 	mAmpFrica = DBtoLIN(mFrame.mFricationAmpdb) * 0.25f;
 	mSkewnessOfAlternatePeriods = mFrame.mSkewnessOfAlternatePeriods;
 
 	/* Fudge factors (which comprehend affects of formants on each other?)
-       with these in place ALL_PARALLEL should sound as close as
+	   with these in place ALL_PARALLEL should sound as close as
 	   possible to CASCADE_PARALLEL.
 	   Possible problem feeding in Holmes's amplitudes given this.
 	*/
-	amp_parF1 = DBtoLIN(mFrame.mFormant1Ampdb) * 0.4f;	/* -7.96 dB */
-	amp_parF2 = DBtoLIN(mFrame.mFormant2Ampdb) * 0.15f;	/* -16.5 dB */
-	amp_parF3 = DBtoLIN(mFrame.mFormant3Ampdb) * 0.06f;	/* -24.4 dB */
-	amp_parF4 = DBtoLIN(mFrame.mFormant4Ampdb) * 0.04f;	/* -28.0 dB */
-	amp_parF5 = DBtoLIN(mFrame.mFormant5Ampdb) * 0.022f;	/* -33.2 dB */
-	amp_parF6 = DBtoLIN(mFrame.mFormant6Ampdb) * 0.03f;	/* -30.5 dB */
-	amp_parFN = DBtoLIN(mFrame.mParallelNasalPoleAmpdb) * 0.6f;	/* -4.44 dB */
-	mAmpBypas = DBtoLIN(mFrame.mBypassFricationAmpdb) * 0.05f;	/* -26.0 db */
+	amp_parF1 = DBtoLIN(mFrame.mFormant1Ampdb) * 0.4f;          /* -7.96 dB */
+	amp_parF2 = DBtoLIN(mFrame.mFormant2Ampdb) * 0.15f;         /* -16.5 dB */
+	amp_parF3 = DBtoLIN(mFrame.mFormant3Ampdb) * 0.06f;         /* -24.4 dB */
+	amp_parF4 = DBtoLIN(mFrame.mFormant4Ampdb) * 0.04f;         /* -28.0 dB */
+	amp_parF5 = DBtoLIN(mFrame.mFormant5Ampdb) * 0.022f;        /* -33.2 dB */
+	amp_parF6 = DBtoLIN(mFrame.mFormant6Ampdb) * 0.03f;         /* -30.5 dB */
+	amp_parFN = DBtoLIN(mFrame.mParallelNasalPoleAmpdb) * 0.6f; /* -4.44 dB */
+	mAmpBypas = DBtoLIN(mFrame.mBypassFricationAmpdb) * 0.05f;  /* -26.0 db */
 
-	// Set coeficients of nasal resonator and zero antiresonator 
+	// Set coeficients of nasal resonator and zero antiresonator
 	mNasalPole.initResonator(mFrame.mNasalPoleFreq, mFrame.mNasalPoleBandwidth, mSampleRate);
 
 	mNasalZero.initAntiresonator(mFrame.mNasalZeroFreq, mFrame.mNasalZeroBandwidth, mSampleRate);
 
-	// Set coefficients of parallel resonators, and amplitude of outputs 
+	// Set coefficients of parallel resonators, and amplitude of outputs
 	mParallelFormant1.initResonator(mFrame.mFormant1Freq, mFrame.mFormant1ParallelBandwidth, mSampleRate);
 	mParallelFormant1.setGain(amp_parF1);
 
@@ -533,7 +602,6 @@ void klatt::frame_init()
 
 	mParallelFormant6.initResonator(mFrame.mFormant6Freq, mFrame.mFormant6ParallelBandwidth, mSampleRate);
 	mParallelFormant6.setGain(amp_parF6);
-
 
 	/* fold overall gain into output resonator */
 	mOverallGaindb = mFrame.mOverallGaindb - 3;
@@ -567,8 +635,8 @@ void klatt::parwave(short int *jwave)
 
 	if (mF0Flutter != 0)
 	{
-		mTimeCount++;                  /* used for f0 flutter */
-		flutter();       /* add f0 flutter */
+		mTimeCount++; /* used for f0 flutter */
+		flutter();    /* add f0 flutter */
 	}
 
 	/* MAIN LOOP, for each output sample of current frame: */
@@ -578,13 +646,13 @@ void klatt::parwave(short int *jwave)
 	{
 		float noise;
 		int n4;
-		float sourc;                   /* Sound source if all-parallel config used  */
-		float glotout;                 /* Output of glottal sound source  */
-		float par_glotout;             /* Output of parallelglottal sound sourc  */
-		float voice = 0;               /* Current sample of voicing waveform  */
-		float frics;                   /* Frication sound source  */
-		float aspiration;              /* Aspiration sound source  */
-		int nrand;                    /* Varible used by random number generator  */
+		float sourc;       /* Sound source if all-parallel config used  */
+		float glotout;     /* Output of glottal sound source  */
+		float par_glotout; /* Output of parallelglottal sound sourc  */
+		float voice = 0;   /* Current sample of voicing waveform  */
+		float frics;       /* Frication sound source  */
+		float aspiration;  /* Aspiration sound source  */
+		int nrand;         /* Varible used by random number generator  */
 
 		/* Our own code like rand(), but portable
 		whole upper 31 bits of seed random
@@ -597,13 +665,13 @@ void klatt::parwave(short int *jwave)
 
 		/* Shift top bits of seed up to top of int then back down to LS 14 bits */
 		/* Assumes 8 bits per sizeof unit i.e. a "byte" */
-		nrand = (((int) mSeed) << (8 * sizeof(int) - 32)) >> (8 * sizeof(int) - 14);
+		nrand = (((int)mSeed) << (8 * sizeof(int) - 32)) >> (8 * sizeof(int) - 14);
 
 		/* Tilt down noise spectrum by soft ELM_FEATURE_LOW-pass filter having
-		*    a pole near the origin in the z-plane, i.e.
-		*    output = input + (0.75 * lastoutput) */
+		 *    a pole near the origin in the z-plane, i.e.
+		 *    output = input + (0.75 * lastoutput) */
 
-		noise = nrand + (0.75f * mNLast);	/* Function of samp_rate ? */
+		noise = nrand + (0.75f * mNLast); /* Function of samp_rate ? */
 
 		mNLast = noise;
 
@@ -641,7 +709,7 @@ void klatt::parwave(short int *jwave)
 			/* Low-pass filter voicing waveform before downsampling from 4*globals->mSampleRate */
 			/* to globals->mSampleRate samples/sec.  Resonator f=.09*globals->mSampleRate, bw=.06*globals->mSampleRate  */
 
-			voice = mDownSampLowPassFilter.resonate(voice);	/* in=voice, out=voice */
+			voice = mDownSampLowPassFilter.resonate(voice); /* in=voice, out=voice */
 
 			/* Increment counter that keeps track of 4*globals->mSampleRate samples/sec */
 			mNPer++;
@@ -679,7 +747,7 @@ void klatt::parwave(short int *jwave)
 		*/
 		par_glotout = mNasalZero.antiresonate(par_glotout);
 		par_glotout = mNasalPole.resonate(par_glotout);
-		/* And just use mParallelFormant1 NOT mParallelResoNasalPole */		
+		/* And just use mParallelFormant1 NOT mParallelResoNasalPole */
 		float out = mParallelFormant1.resonate(par_glotout);
 		/* Sound sourc for other parallel resonators is frication
 		plus first difference of voicing waveform.
@@ -703,33 +771,30 @@ void klatt::parwave(short int *jwave)
 	}
 }
 
-
-
-static char * phoneme_to_element_lookup(char *s, void ** data)
+static char *phoneme_to_element_lookup(char *s, void **data)
 {
 	int key8 = *s;
 	int key16 = key8 + (s[1] << 8);
-	if (s[1] == 0) key16 = -1; // avoid key8==key16
+	if (s[1] == 0)
+		key16 = -1; // avoid key8==key16
 	int i;
 	for (i = 0; i < PHONEME_COUNT; i++)
 	{
 		if (phoneme_to_elements[i].mKey == key16)
 		{
 			*data = &phoneme_to_elements[i].mData;
-			return s+2;
+			return s + 2;
 		}
 		if (phoneme_to_elements[i].mKey == key8)
 		{
 			*data = &phoneme_to_elements[i].mData;
-			return s+1;
+			return s + 1;
 		}
 	}
 	// should never happen
 	*data = nullptr;
-	return s+1;
+	return s + 1;
 }
-
-
 
 int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 {
@@ -741,7 +806,7 @@ int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 	while (s < limit && *s)
 	{
 		char *e = nullptr;
-		s = phoneme_to_element_lookup(s, (void**)&e);
+		s = phoneme_to_element_lookup(s, (void **)&e);
 
 		if (e)
 		{
@@ -750,7 +815,7 @@ int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 			while (n-- > 0)
 			{
 				int x = *e++;
-				Element * p = &gElement[x];
+				Element *p = &gElement[x];
 				/* This works because only vowels have mUD != mDU,
 				and we set stress just before a vowel
 				*/
@@ -759,7 +824,7 @@ int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 				if (!(p->mFeat & ELM_FEATURE_VWL))
 					stress = 0;
 
-				int stressdur = StressDur(p,stress);
+				int stressdur = StressDur(p, stress);
 
 				t += stressdur;
 
@@ -775,23 +840,23 @@ int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 			switch (ch)
 			{
 
-			case '\'':                /* Primary stress */
+			case '\'': /* Primary stress */
 				stress = 3;
 				break;
 
-			case ',':                 /* Secondary stress */
+			case ',': /* Secondary stress */
 				stress = 2;
 				break;
 
-			case '+':                 /* Tertiary stress */
+			case '+': /* Tertiary stress */
 				stress = 1;
 				break;
 
-			case '-':                 /* hyphen in input */
+			case '-': /* hyphen in input */
 				break;
 
 			default:
-//				fprintf(stderr, "Ignoring %c in '%.*s'\n", ch, aCount, aPhoneme);
+				//				fprintf(stderr, "Ignoring %c in '%.*s'\n", ch, aCount, aPhoneme);
 				break;
 			}
 		}
@@ -800,14 +865,12 @@ int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 	return t;
 }
 
-
-
 /* 'a' is dominant element, 'b' is dominated
     ext is flag to say to use external times from 'a' rather
     than internal i.e. ext != 0 if 'a' is NOT current element.
  */
 
-static void set_trans(Slope *t, Element * a, Element * b,int ext, int /* e */)
+static void set_trans(Slope *t, Element *a, Element *b, int ext, int /* e */)
 {
 	int i;
 
@@ -817,7 +880,8 @@ static void set_trans(Slope *t, Element * a, Element * b,int ext, int /* e */)
 
 		if (t[i].mTime)
 		{
-			t[i].mValue = a->mInterpolator[i].mFixed + (a->mInterpolator[i].mProportion * b->mInterpolator[i].mSteady) * 0.01f; // mProportion is in scale 0..100, so *0.01.
+			t[i].mValue =
+			    a->mInterpolator[i].mFixed + (a->mInterpolator[i].mProportion * b->mInterpolator[i].mSteady) * 0.01f; // mProportion is in scale 0..100, so *0.01.
 		}
 		else
 		{
@@ -862,7 +926,7 @@ static float interpolate(Slope *aStartSlope, Slope *aEndSlope, float aMidValue, 
 		if (aTime <= steadyTime)
 		{
 			// still at steady state
-			return aMidValue;  
+			return aMidValue;
 		}
 
 		// interpolate to the end
@@ -871,16 +935,14 @@ static float interpolate(Slope *aStartSlope, Slope *aEndSlope, float aMidValue, 
 	else
 	{
 		// No steady state
-		float f = 1.0f - ((float) aTime / (float) aDuration);
+		float f = 1.0f - ((float)aTime / (float)aDuration);
 		float sp = lerp(aStartSlope->mValue, aMidValue, aTime, aStartSlope->mTime);
 		float ep = lerp(aEndSlope->mValue, aMidValue, aDuration - aTime, aEndSlope->mTime);
-		return f * sp + ((float) 1.0 - f) * ep;
+		return f * sp + ((float)1.0 - f) * ep;
 	}
 }
 
-
-
-void klatt::initsynth(int aElementCount,unsigned char *aElement)
+void klatt::initsynth(int aElementCount, unsigned char *aElement)
 {
 	mElement = aElement;
 	mElementCount = aElementCount;
@@ -895,9 +957,9 @@ void klatt::initsynth(int aElementCount,unsigned char *aElement)
 	mFrame.mFormant1ParallelBandwidth = mFrame.mFormant1Bandwidth = 60;
 	mFrame.mFormant2ParallelBandwidth = mFrame.mFormant2Bandwidth = 90;
 	mFrame.mFormant3ParallelBandwidth = mFrame.mFormant3Bandwidth = 150;
-//	mFrame.mFormant4ParallelBandwidth = (default)
+	//	mFrame.mFormant4ParallelBandwidth = (default)
 
-	// Set stress attack/decay slope 
+	// Set stress attack/decay slope
 	mStressS.mTime = 40;
 	mStressE.mTime = 40;
 	mStressE.mValue = 0.0;
@@ -910,10 +972,10 @@ int klatt::synth(int /* aSampleCount */, short *aSamplePointer)
 	if (mElementIndex >= mElementCount)
 		return -1;
 
-	Element * currentElement = &gElement[mElement[mElementIndex++]];
+	Element *currentElement = &gElement[mElement[mElementIndex++]];
 	int dur = mElement[mElementIndex++];
-	mElementIndex++; // skip stress 
-	
+	mElementIndex++; // skip stress
+
 	if (currentElement->mRK == 31) // "END"
 	{
 		// Reset the fundamental frequency top
@@ -922,11 +984,11 @@ int klatt::synth(int /* aSampleCount */, short *aSamplePointer)
 	}
 
 	// Skip zero length elements which are only there to affect
-	// boundary values of adjacent elements		
+	// boundary values of adjacent elements
 
 	if (dur > 0)
 	{
-		Element * ne = (mElementIndex < mElementCount) ? &gElement[mElement[mElementIndex]] : &gElement[0];
+		Element *ne = (mElementIndex < mElementCount) ? &gElement[mElement[mElementIndex]] : &gElement[0];
 		Slope start[ELM_COUNT];
 		Slope end[ELM_COUNT];
 		int t;
@@ -934,28 +996,28 @@ int klatt::synth(int /* aSampleCount */, short *aSamplePointer)
 		if (currentElement->mRK > mLastElement->mRK)
 		{
 			set_trans(start, currentElement, mLastElement, 0, 's');
-			// we dominate last 
+			// we dominate last
 		}
 		else
 		{
 			set_trans(start, mLastElement, currentElement, 1, 's');
-			// last dominates us 
+			// last dominates us
 		}
 
 		if (ne->mRK > currentElement->mRK)
 		{
 			set_trans(end, ne, currentElement, 1, 'e');
-			// next dominates us 
+			// next dominates us
 		}
 		else
 		{
 			set_trans(end, currentElement, ne, 0, 'e');
-			// we dominate next 
+			// we dominate next
 		}
 
 		for (t = 0; t < dur; t++, mTStress++)
 		{
-			float base = mTop * 0.8f; // 3 * top / 5 
+			float base = mTop * 0.8f; // 3 * top / 5
 			float tp[ELM_COUNT];
 
 			if (mTStress == mNTStress)
@@ -967,18 +1029,18 @@ int klatt::synth(int /* aSampleCount */, short *aSamplePointer)
 
 				while (j <= mElementCount)
 				{
-					Element * e   = (j < mElementCount) ? &gElement[mElement[j++]] : &gElement[0];
+					Element *e = (j < mElementCount) ? &gElement[mElement[j++]] : &gElement[0];
 					int du = (j < mElementCount) ? mElement[j++] : 0;
-					int s  = (j < mElementCount) ? mElement[j++] : 3;
+					int s = (j < mElementCount) ? mElement[j++] : 3;
 
 					if (s || e->mFeat & ELM_FEATURE_VWL)
 					{
 						int d = 0;
 
 						if (s)
-							mStressE.mValue = (float) s / 3;
+							mStressE.mValue = (float)s / 3;
 						else
-							mStressE.mValue = (float) 0.1;
+							mStressE.mValue = (float)0.1;
 
 						do
 						{
@@ -1001,10 +1063,10 @@ int klatt::synth(int /* aSampleCount */, short *aSamplePointer)
 			int j;
 			for (j = 0; j < ELM_COUNT; j++)
 			{
-				tp[j] = interpolate(&start[j], &end[j], (float) currentElement->mInterpolator[j].mSteady, t, dur);
+				tp[j] = interpolate(&start[j], &end[j], (float)currentElement->mInterpolator[j].mSteady, t, dur);
 			}
 
-			// Now call the synth for each frame 
+			// Now call the synth for each frame
 
 			mFrame.mF0FundamentalFreq = (int)(base + (mTop - base) * interpolate(&mStressS, &mStressE, (float)0, mTStress, mNTStress));
 			mFrame.mVoicingAmpdb = mFrame.mPalallelVoicingAmpdb = (int)tp[ELM_AV];
@@ -1020,10 +1082,9 @@ int klatt::synth(int /* aSampleCount */, short *aSamplePointer)
 			mFrame.mFormant3Freq = (int)tp[ELM_F3];
 
 			// AMP_ADJ + is a kludge to get amplitudes up to klatt-compatible levels
-				
-				
-			//pars.mParallelNasalPoleAmpdb  = AMP_ADJ + tp[ELM_AN];
-				
+
+			// pars.mParallelNasalPoleAmpdb  = AMP_ADJ + tp[ELM_AN];
+
 			mFrame.mBypassFricationAmpdb = AMP_ADJ + (int)tp[ELM_AB];
 			mFrame.mFormant5Ampdb = AMP_ADJ + (int)tp[ELM_A5];
 			mFrame.mFormant6Ampdb = AMP_ADJ + (int)tp[ELM_A6];
@@ -1036,8 +1097,8 @@ int klatt::synth(int /* aSampleCount */, short *aSamplePointer)
 
 			samp += mNspFr;
 
-			// Declination of f0 envelope 0.25Hz / cS 
-			mTop -= mBaseDeclination;// 0.5;
+			// Declination of f0 envelope 0.25Hz / cS
+			mTop -= mBaseDeclination; // 0.5;
 		}
 	}
 
@@ -1046,7 +1107,6 @@ int klatt::synth(int /* aSampleCount */, short *aSamplePointer)
 	return (int)(samp - aSamplePointer);
 }
 
-
 void klatt::init(int aBaseFrequency, float aBaseSpeed, float aBaseDeclination, int aBaseWaveform)
 {
 	mBaseF0 = aBaseFrequency;
@@ -1054,21 +1114,21 @@ void klatt::init(int aBaseFrequency, float aBaseSpeed, float aBaseDeclination, i
 	mBaseDeclination = aBaseDeclination;
 	mBaseWaveform = aBaseWaveform;
 
-    mSampleRate = 11025;
-    mF0Flutter = 0;
+	mSampleRate = 11025;
+	mF0Flutter = 0;
 	mF0FundamentalFreq = mBaseF0;
 	mFrame.mF0FundamentalFreq = mBaseF0;
 
 	int FLPhz = (950 * mSampleRate) / 10000;
 	int BLPhz = (630 * mSampleRate) / 10000;
-	mNspFr = (int)(mSampleRate * mBaseSpeed) / 1000; 
+	mNspFr = (int)(mSampleRate * mBaseSpeed) / 1000;
 
 	mDownSampLowPassFilter.initResonator(FLPhz, BLPhz, mSampleRate);
 
-	mNPer = 0;                        /* LG */
-	mT0 = 0;                          /* LG */
+	mNPer = 0; /* LG */
+	mT0 = 0;   /* LG */
 
-	mVLast = 0;                       /* Previous output of voice  */
-	mNLast = 0;                       /* Previous output of random number generator  */
-	mGlotLast = 0;                    /* Previous value of glotout  */
+	mVLast = 0;    /* Previous output of voice  */
+	mNLast = 0;    /* Previous output of random number generator  */
+	mGlotLast = 0; /* Previous value of glotout  */
 }

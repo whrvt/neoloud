@@ -31,42 +31,43 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
-	class RobotizeFilter;
+class RobotizeFilter;
 
-	class RobotizeFilterInstance : public FilterInstance
+class RobotizeFilterInstance : public FilterInstance
+{
+	enum FILTERATTRIBUTE
 	{
-		enum FILTERATTRIBUTE
-		{
-			WET = 0,
-			FREQ,
-			WAVE
-		};
-		RobotizeFilter *mParent;
-	public:
-		virtual void filterChannel(float *aBuffer, unsigned int aSamples, float aSamplerate, time aTime, unsigned int aChannel, unsigned int aChannels);
-		RobotizeFilterInstance(RobotizeFilter * aParent);
+		WET = 0,
+		FREQ,
+		WAVE
 	};
+	RobotizeFilter *mParent;
 
-	class RobotizeFilter : public Filter
+public:
+	virtual void filterChannel(float *aBuffer, unsigned int aSamples, float aSamplerate, time aTime, unsigned int aChannel, unsigned int aChannels);
+	RobotizeFilterInstance(RobotizeFilter *aParent);
+};
+
+class RobotizeFilter : public Filter
+{
+public:
+	enum FILTERATTRIBUTE
 	{
-	public:
-		enum FILTERATTRIBUTE
-		{
-			WET = 0,
-			FREQ,
-			WAVE
-		};
-		float mFreq;
-		int mWave;
-		virtual int getParamCount();
-		virtual const char *getParamName(unsigned int aParamIndex);
-		virtual unsigned int getParamType(unsigned int aParamIndex);
-		virtual float getParamMax(unsigned int aParamIndex);
-		virtual float getParamMin(unsigned int aParamIndex);
-		void setParams(float aFreq, int aWaveform);
-		virtual FilterInstance *createInstance();
-		RobotizeFilter();
+		WET = 0,
+		FREQ,
+		WAVE
 	};
-}
+	float mFreq;
+	int mWave;
+	virtual int getParamCount();
+	virtual const char *getParamName(unsigned int aParamIndex);
+	virtual unsigned int getParamType(unsigned int aParamIndex);
+	virtual float getParamMax(unsigned int aParamIndex);
+	virtual float getParamMin(unsigned int aParamIndex);
+	void setParams(float aFreq, int aWaveform);
+	virtual FilterInstance *createInstance();
+	RobotizeFilter();
+};
+} // namespace SoLoud
 
 #endif

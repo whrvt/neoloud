@@ -380,7 +380,7 @@ unsigned int Soloud::getBackendBufferSize()
 	return mBufferSize;
 }
 
-result Soloud::enumerateDevices(DeviceInfo** ppDevices, unsigned int* pDeviceCount)
+result Soloud::enumerateDevices(DeviceInfo **ppDevices, unsigned int *pDeviceCount)
 {
 	if (!ppDevices || !pDeviceCount)
 		return INVALID_PARAMETER;
@@ -406,7 +406,7 @@ result Soloud::enumerateDevices(DeviceInfo** ppDevices, unsigned int* pDeviceCou
 	return SO_NO_ERROR;
 }
 
-result Soloud::getCurrentDevice(DeviceInfo* pDeviceInfo)
+result Soloud::getCurrentDevice(DeviceInfo *pDeviceInfo)
 {
 	if (!pDeviceInfo)
 		return INVALID_PARAMETER;

@@ -1,5 +1,2 @@
 
-extern int xlate_string (const char *string,darray *phone);
-
-
-	
+extern int xlate_string(const char *string, darray *phone);

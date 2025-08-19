@@ -22,114 +22,110 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
 #include "soloud_noise.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 namespace SoLoud
 {
 
-	NoiseInstance::NoiseInstance(Noise *aParent)
+NoiseInstance::NoiseInstance(Noise *aParent)
+{
+	for (int i = 0; i < 10; i++)
+		mOctaveScale[i] = aParent->mOctaveScale[i];
+	mPrg.srand(0xfade);
+}
+
+NoiseInstance::~NoiseInstance() {}
+
+unsigned int NoiseInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
+{
+	if (aBuffer == nullptr)
+		return 0;
+	int octavestep[10];
+	float octavevalue[10];
+	float totalscale = 0;
+	for (int j = 0; j < 10; j++)
 	{
-		for (int i = 0; i < 10; i++)
-			mOctaveScale[i] = aParent->mOctaveScale[i];
-		mPrg.srand(0xfade);
+		octavevalue[j] = 0;
+		octavestep[j] = 1 << j;
+		totalscale += mOctaveScale[j];
 	}
 
-	NoiseInstance::~NoiseInstance()
+	for (unsigned int i = 0; i < aSamplesToRead; i++)
 	{
-	    
-	}
-
-	unsigned int NoiseInstance::getAudio(float* aBuffer, unsigned int aSamplesToRead, unsigned int /*aBufferSize*/)
-	{
-		if (aBuffer == nullptr)
-			return 0;
-		int octavestep[10];
-		float octavevalue[10];
-		float totalscale = 0;
+		aBuffer[i] = mPrg.rand_float() - 0.5f;
 		for (int j = 0; j < 10; j++)
-		{		
-			octavevalue[j] = 0;
-			octavestep[j] = 1 << j;
-			totalscale += mOctaveScale[j];
-		}
-
-		for (unsigned int i = 0; i < aSamplesToRead; i++)
 		{
-			aBuffer[i] = mPrg.rand_float() - 0.5f;
-			for (int j = 0; j < 10; j++)
+			octavestep[j]++;
+			if (octavestep[j] > (1 << (j + 1)))
 			{
-				octavestep[j]++;
-				if (octavestep[j] > (1 << (j + 1)))
-				{
-					octavestep[j] = 0;
-					octavevalue[j] = mPrg.rand_float() - 0.5f;
-				}
-				aBuffer[i] += octavevalue[j] * mOctaveScale[j];
+				octavestep[j] = 0;
+				octavevalue[j] = mPrg.rand_float() - 0.5f;
 			}
-			aBuffer[i] *= 1.0f/totalscale;
+			aBuffer[i] += octavevalue[j] * mOctaveScale[j];
 		}
-
-		return aSamplesToRead;
+		aBuffer[i] *= 1.0f / totalscale;
 	}
 
-	bool NoiseInstance::hasEnded()
+	return aSamplesToRead;
+}
+
+bool NoiseInstance::hasEnded()
+{
+	return false;
+}
+
+void Noise::setOctaveScale(float aOct0, float aOct1, float aOct2, float aOct3, float aOct4, float aOct5, float aOct6, float aOct7, float aOct8, float aOct9)
+{
+	mOctaveScale[0] = aOct0;
+	mOctaveScale[1] = aOct1;
+	mOctaveScale[2] = aOct2;
+	mOctaveScale[3] = aOct3;
+	mOctaveScale[4] = aOct4;
+	mOctaveScale[5] = aOct5;
+	mOctaveScale[6] = aOct6;
+	mOctaveScale[7] = aOct7;
+	mOctaveScale[8] = aOct8;
+	mOctaveScale[9] = aOct9;
+}
+
+void Noise::setType(int aType)
+{
+	switch (aType)
 	{
-		return false;
+	default:
+	case WHITE:
+		setOctaveScale(1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+		break;
+	case PINK:
+		setOctaveScale(1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
+		break;
+	case BROWNISH:
+		setOctaveScale(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+		break;
+	case BLUEISH:
+		setOctaveScale(10, 9, 8, 7, 6, 5, 4, 3, 2, 1);
+		break;
 	}
+}
 
-	void Noise::setOctaveScale(float aOct0, float aOct1, float aOct2, float aOct3, float aOct4, float aOct5, float aOct6, float aOct7, float aOct8, float aOct9)
-	{
-		mOctaveScale[0] = aOct0;
-		mOctaveScale[1] = aOct1;
-		mOctaveScale[2] = aOct2;
-		mOctaveScale[3] = aOct3;
-		mOctaveScale[4] = aOct4;
-		mOctaveScale[5] = aOct5;
-		mOctaveScale[6] = aOct6;
-		mOctaveScale[7] = aOct7;
-		mOctaveScale[8] = aOct8;
-		mOctaveScale[9] = aOct9;
-	}
+Noise::Noise()
+{
+	mBaseSamplerate = 44100;
+	setType(WHITE);
+}
 
-	void Noise::setType(int aType)
-	{
-		switch (aType)
-		{
-		default:
-		case WHITE:
-			setOctaveScale(1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-			break;
-		case PINK:
-			setOctaveScale(1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
-			break;
-		case BROWNISH:
-			setOctaveScale(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-			break;
-		case BLUEISH:
-			setOctaveScale(10, 9, 8, 7, 6, 5, 4, 3, 2, 1);
-			break;
-		}
-	}
+Noise::~Noise()
+{
+	stop();
+}
 
-	Noise::Noise()
-	{
-		mBaseSamplerate = 44100;
-		setType(WHITE);
-	}
+AudioSourceInstance *Noise::createInstance()
+{
+	return new NoiseInstance(this);
+}
 
-	Noise::~Noise()
-	{
-		stop();
-	}
-
-
-	AudioSourceInstance * Noise::createInstance() 
-	{
-		return new NoiseInstance(this);
-	}
-
-};
+}; // namespace SoLoud

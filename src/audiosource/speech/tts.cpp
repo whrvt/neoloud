@@ -1,66 +1,201 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <string.h>
-#include "darray.h"
 #include "tts.h"
+#include "darray.h"
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-static const char *ASCII[] =
-{
-	"null", "", "", "",
-	"", "", "", "",
-	"", "", "", "",
-	"", "", "", "",
-	"", "", "", "",
-	"", "", "", "",
-	"", "", "", "",
-	"", "", "", "",
-	"space", "exclamation mark", "double quote", "hash",
-	"dollar", "percent", "ampersand", "quote",
-	"open parenthesis", "close parenthesis", "asterisk", "plus",
-	"comma", "minus", "full stop", "slash",
-	"zero", "one", "two", "three",
-	"four", "five", "six", "seven",
-	"eight", "nine", "colon", "semi colon",
-	"less than", "equals", "greater than", "question mark",
+static const char *ASCII[] = {"null",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "space",
+                              "exclamation mark",
+                              "double quote",
+                              "hash",
+                              "dollar",
+                              "percent",
+                              "ampersand",
+                              "quote",
+                              "open parenthesis",
+                              "close parenthesis",
+                              "asterisk",
+                              "plus",
+                              "comma",
+                              "minus",
+                              "full stop",
+                              "slash",
+                              "zero",
+                              "one",
+                              "two",
+                              "three",
+                              "four",
+                              "five",
+                              "six",
+                              "seven",
+                              "eight",
+                              "nine",
+                              "colon",
+                              "semi colon",
+                              "less than",
+                              "equals",
+                              "greater than",
+                              "question mark",
 #ifndef ALPHA_IN_DICT
-	"at", "ay", "bee", "see",
-	"dee", "e", "eff", "gee",
-	"aych", "i", "jay", "kay",
-	"ell", "em", "en", "ohe",
-	"pee", "kju", "are", "es",
-	"tee", "you", "vee", "double you",
-	"eks", "why", "zed", "open bracket",
-#else                             /* ALPHA_IN_DICT */
-	"at", "A", "B", "C",
-	"D", "E", "F", "G",
-	"H", "I", "J", "K",
-	"L", "M", "N", "O",
-	"P", "Q", "R", "S",
-	"T", "U", "V", "W",
-	"X", "Y", "Z", "open bracket",
-#endif                            /* ALPHA_IN_DICT */
-	"back slash", "close bracket", "circumflex", "underscore",
+                              "at",
+                              "ay",
+                              "bee",
+                              "see",
+                              "dee",
+                              "e",
+                              "eff",
+                              "gee",
+                              "aych",
+                              "i",
+                              "jay",
+                              "kay",
+                              "ell",
+                              "em",
+                              "en",
+                              "ohe",
+                              "pee",
+                              "kju",
+                              "are",
+                              "es",
+                              "tee",
+                              "you",
+                              "vee",
+                              "double you",
+                              "eks",
+                              "why",
+                              "zed",
+                              "open bracket",
+#else  /* ALPHA_IN_DICT */
+                              "at",
+                              "A",
+                              "B",
+                              "C",
+                              "D",
+                              "E",
+                              "F",
+                              "G",
+                              "H",
+                              "I",
+                              "J",
+                              "K",
+                              "L",
+                              "M",
+                              "N",
+                              "O",
+                              "P",
+                              "Q",
+                              "R",
+                              "S",
+                              "T",
+                              "U",
+                              "V",
+                              "W",
+                              "X",
+                              "Y",
+                              "Z",
+                              "open bracket",
+#endif /* ALPHA_IN_DICT */
+                              "back slash",
+                              "close bracket",
+                              "circumflex",
+                              "underscore",
 #ifndef ALPHA_IN_DICT
-	"back quote", "ay", "bee", "see",
-	"dee", "e", "eff", "gee",
-	"aych", "i", "jay", "kay",
-	"ell", "em", "en", "ohe",
-	"pee", "kju", "are", "es",
-	"tee", "you", "vee", "double you",
-	"eks", "why", "zed", "open brace",
-#else                             /* ALPHA_IN_DICT */
-	"back quote", "A", "B", "C",
-	"D", "E", "F", "G",
-	"H", "I", "J", "K",
-	"L", "M", "N", "O",
-	"P", "Q", "R", "S",
-	"T", "U", "V", "W",
-	"X", "Y", "Z", "open brace",
-#endif                            /* ALPHA_IN_DICT */
-	"vertical bar", "close brace", "tilde", "delete",
-	nullptr
-};
+                              "back quote",
+                              "ay",
+                              "bee",
+                              "see",
+                              "dee",
+                              "e",
+                              "eff",
+                              "gee",
+                              "aych",
+                              "i",
+                              "jay",
+                              "kay",
+                              "ell",
+                              "em",
+                              "en",
+                              "ohe",
+                              "pee",
+                              "kju",
+                              "are",
+                              "es",
+                              "tee",
+                              "you",
+                              "vee",
+                              "double you",
+                              "eks",
+                              "why",
+                              "zed",
+                              "open brace",
+#else  /* ALPHA_IN_DICT */
+                              "back quote",
+                              "A",
+                              "B",
+                              "C",
+                              "D",
+                              "E",
+                              "F",
+                              "G",
+                              "H",
+                              "I",
+                              "J",
+                              "K",
+                              "L",
+                              "M",
+                              "N",
+                              "O",
+                              "P",
+                              "Q",
+                              "R",
+                              "S",
+                              "T",
+                              "U",
+                              "V",
+                              "W",
+                              "X",
+                              "Y",
+                              "Z",
+                              "open brace",
+#endif /* ALPHA_IN_DICT */
+                              "vertical bar",
+                              "close brace",
+                              "tilde",
+                              "delete",
+                              nullptr};
 
 /* Context definitions */
 static const char Anything[] = "";
@@ -72,559 +207,500 @@ static const char Nothing[] = " ";
 static const char Silent[] = "";
 /* No phonemes */
 
-
-#define LEFT_PART       0
-#define MATCH_PART      1
-#define RIGHT_PART      2
-#define OUT_PART        3
+#define LEFT_PART 0
+#define MATCH_PART 1
+#define RIGHT_PART 2
+#define OUT_PART 3
 
 typedef const char *Rule[4];
 /* Rule is an array of 4 character pointers */
-
 
 /*0 = Punctuation */
 /*
 **      LEFT_PART       MATCH_PART      RIGHT_PART      OUT_PART
 */
 
-
-static Rule punct_rules[] =
-{
-	{Anything, " ", Anything, " "},
-	{Anything, "-", Anything, ""},
-	{".", "'S", Anything, "z"},
-	{"#:.E", "'S", Anything, "z"},
-	{"#", "'S", Anything, "z"},
-	{Anything, "'", Anything, ""},
-	{Anything, ",", Anything, " "},
-	{Anything, ".", Anything, " "},
-	{Anything, "?", Anything, " "},
-	{Anything, "!", Anything, " "},
-	{Anything, nullptr, Anything, Silent},
+static Rule punct_rules[] = {
+    {Anything, " ",     Anything, " "   },
+    {Anything, "-",     Anything, ""    },
+    {".",      "'S",    Anything, "z"   },
+    {"#:.E",   "'S",    Anything, "z"   },
+    {"#",      "'S",    Anything, "z"   },
+    {Anything, "'",     Anything, ""    },
+    {Anything, ",",     Anything, " "   },
+    {Anything, ".",     Anything, " "   },
+    {Anything, "?",     Anything, " "   },
+    {Anything, "!",     Anything, " "   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule A_rules[] =
-{
-	{Anything, "A", Nothing, "@"},
-	{Nothing, "ARE", Nothing, "0r"},
-	{Nothing, "AR", "O", "@r"},
-	{Anything, "AR", "#", "er"},
-	{"^", "AS", "#", "eIs"},
-	{Anything, "A", "WA", "@"},
-	{Anything, "AW", Anything, "O"},
-	{" :", "ANY", Anything, "eni"},
-	{Anything, "A", "^+#", "eI"},
-	{"#:", "ALLY", Anything, "@li"},
-	{Nothing, "AL", "#", "@l"},
-	{Anything, "AGAIN", Anything, "@gen"},
-	{"#:", "AG", "E", "IdZ"},
-	{Anything, "A", "^+:#", "&"},
-	{" :", "A", "^+ ", "eI"},
-	{Anything, "A", "^%", "eI"},
-	{Nothing, "ARR", Anything, "@r"},
-	{Anything, "ARR", Anything, "&r"},
-	{" :", "AR", Nothing, "0r"},
-	{Anything, "AR", Nothing, "3"},
-	{Anything, "AR", Anything, "0r"},
-	{Anything, "AIR", Anything, "er"},
-	{Anything, "AI", Anything, "eI"},
-	{Anything, "AY", Anything, "eI"},
-	{Anything, "AU", Anything, "O"},
-	{"#:", "AL", Nothing, "@l"},
-	{"#:", "ALS", Nothing, "@lz"},
-	{Anything, "ALK", Anything, "Ok"},
-	{Anything, "AL", "^", "Ol"},
-	{" :", "ABLE", Anything, "eIb@l"},
-	{Anything, "ABLE", Anything, "@b@l"},
-	{Anything, "ANG", "+", "eIndZ"},
-	{"^", "A", "^#", "eI"},
-	{Anything, "A", Anything, "&"},
-	{Anything, nullptr, Anything, Silent},
+static Rule A_rules[] = {
+    {Anything, "A",     Nothing,  "@"    },
+    {Nothing,  "ARE",   Nothing,  "0r"   },
+    {Nothing,  "AR",    "O",      "@r"   },
+    {Anything, "AR",    "#",      "er"   },
+    {"^",      "AS",    "#",      "eIs"  },
+    {Anything, "A",     "WA",     "@"    },
+    {Anything, "AW",    Anything, "O"    },
+    {" :",     "ANY",   Anything, "eni"  },
+    {Anything, "A",     "^+#",    "eI"   },
+    {"#:",     "ALLY",  Anything, "@li"  },
+    {Nothing,  "AL",    "#",      "@l"   },
+    {Anything, "AGAIN", Anything, "@gen" },
+    {"#:",     "AG",    "E",      "IdZ"  },
+    {Anything, "A",     "^+:#",   "&"    },
+    {" :",     "A",     "^+ ",    "eI"   },
+    {Anything, "A",     "^%",     "eI"   },
+    {Nothing,  "ARR",   Anything, "@r"   },
+    {Anything, "ARR",   Anything, "&r"   },
+    {" :",     "AR",    Nothing,  "0r"   },
+    {Anything, "AR",    Nothing,  "3"    },
+    {Anything, "AR",    Anything, "0r"   },
+    {Anything, "AIR",   Anything, "er"   },
+    {Anything, "AI",    Anything, "eI"   },
+    {Anything, "AY",    Anything, "eI"   },
+    {Anything, "AU",    Anything, "O"    },
+    {"#:",     "AL",    Nothing,  "@l"   },
+    {"#:",     "ALS",   Nothing,  "@lz"  },
+    {Anything, "ALK",   Anything, "Ok"   },
+    {Anything, "AL",    "^",      "Ol"   },
+    {" :",     "ABLE",  Anything, "eIb@l"},
+    {Anything, "ABLE",  Anything, "@b@l" },
+    {Anything, "ANG",   "+",      "eIndZ"},
+    {"^",      "A",     "^#",     "eI"   },
+    {Anything, "A",     Anything, "&"    },
+    {Anything, nullptr, Anything, Silent },
 };
 
-static Rule B_rules[] =
-{
-	{Nothing, "BE", "^#", "bI"},
-	{Anything, "BEING", Anything, "biIN"},
-	{Nothing, "BOTH", Nothing, "b@UT"},
-	{Nothing, "BUS", "#", "bIz"},
-	{Anything, "BUIL", Anything, "bIl"},
-	{Anything, "B", Anything, "b"},
-	{Anything, nullptr, Anything, Silent},
+static Rule B_rules[] = {
+    {Nothing,  "BE",    "^#",     "bI"  },
+    {Anything, "BEING", Anything, "biIN"},
+    {Nothing,  "BOTH",  Nothing,  "b@UT"},
+    {Nothing,  "BUS",   "#",      "bIz" },
+    {Anything, "BUIL",  Anything, "bIl" },
+    {Anything, "B",     Anything, "b"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule C_rules[] =
-{
-	{Nothing, "CH", "^", "k"},
-	{"^E", "CH", Anything, "k"},
-	{Anything, "CH", Anything, "tS"},
-	{" S", "CI", "#", "saI"},
-	{Anything, "CI", "A", "S"},
-	{Anything, "CI", "O", "S"},
-	{Anything, "CI", "EN", "S"},
-	{Anything, "C", "+", "s"},
-	{Anything, "CK", Anything, "k"},
-	{Anything, "COM", "%", "kVm"},
-	{Anything, "C", Anything, "k"},
-	{Anything, nullptr, Anything, Silent},
+static Rule C_rules[] = {
+    {Nothing,  "CH",    "^",      "k"   },
+    {"^E",     "CH",    Anything, "k"   },
+    {Anything, "CH",    Anything, "tS"  },
+    {" S",     "CI",    "#",      "saI" },
+    {Anything, "CI",    "A",      "S"   },
+    {Anything, "CI",    "O",      "S"   },
+    {Anything, "CI",    "EN",     "S"   },
+    {Anything, "C",     "+",      "s"   },
+    {Anything, "CK",    Anything, "k"   },
+    {Anything, "COM",   "%",      "kVm" },
+    {Anything, "C",     Anything, "k"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule D_rules[] =
-{
-	{"#:", "DED", Nothing, "dId"},
-	{".E", "D", Nothing, "d"},
-	{"#:^E", "D", Nothing, "t"},
-	{Nothing, "DE", "^#", "dI"},
-	{Nothing, "DO", Nothing, "mDU"},
-	{Nothing, "DOES", Anything, "dVz"},
-	{Nothing, "DOING", Anything, "duIN"},
-	{Nothing, "DOW", Anything, "daU"},
-	{Anything, "DU", "A", "dZu"},
-	{Anything, "D", Anything, "d"},
-	{Anything, nullptr, Anything, Silent},
+static Rule D_rules[] = {
+    {"#:",     "DED",   Nothing,  "dId" },
+    {".E",     "D",     Nothing,  "d"   },
+    {"#:^E",   "D",     Nothing,  "t"   },
+    {Nothing,  "DE",    "^#",     "dI"  },
+    {Nothing,  "DO",    Nothing,  "mDU" },
+    {Nothing,  "DOES",  Anything, "dVz" },
+    {Nothing,  "DOING", Anything, "duIN"},
+    {Nothing,  "DOW",   Anything, "daU" },
+    {Anything, "DU",    "A",      "dZu" },
+    {Anything, "D",     Anything, "d"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule E_rules[] =
-{
-	{"#:", "E", Nothing, ""},
-	{"':^", "E", Nothing, ""},
-	{" :", "E", Nothing, "i"},
-	{"#", "ED", Nothing, "d"},
-	{"#:", "E", "D ", ""},
-	{Anything, "EV", "ER", "ev"},
-	{Anything, "E", "^%", "i"},
-	{Anything, "ERI", "#", "iri"},
-	{Anything, "ERI", Anything, "erI"},
-	{"#:", "ER", "#", "3"},
-	{Anything, "ER", "#", "er"},
-	{Anything, "ER", Anything, "3"},
-	{Nothing, "EVEN", Anything, "iven"},
-	{"#:", "E", "W", ""},
-	{"T", "EW", Anything, "u"},
-	{"S", "EW", Anything, "u"},
-	{"R", "EW", Anything, "u"},
-	{"D", "EW", Anything, "u"},
-	{"L", "EW", Anything, "u"},
-	{"Z", "EW", Anything, "u"},
-	{"N", "EW", Anything, "u"},
-	{"J", "EW", Anything, "u"},
-	{"TH", "EW", Anything, "u"},
-	{"CH", "EW", Anything, "u"},
-	{"SH", "EW", Anything, "u"},
-	{Anything, "EW", Anything, "ju"},
-	{Anything, "E", "O", "i"},
-	{"#:S", "ES", Nothing, "Iz"},
-	{"#:C", "ES", Nothing, "Iz"},
-	{"#:G", "ES", Nothing, "Iz"},
-	{"#:Z", "ES", Nothing, "Iz"},
-	{"#:X", "ES", Nothing, "Iz"},
-	{"#:J", "ES", Nothing, "Iz"},
-	{"#:CH", "ES", Nothing, "Iz"},
-	{"#:SH", "ES", Nothing, "Iz"},
-	{"#:", "E", "S ", ""},
-	{"#:", "ELY", Nothing, "li"},
-	{"#:", "EMENT", Anything, "ment"},
-	{Anything, "EFUL", Anything, "fUl"},
-	{Anything, "EE", Anything, "i"},
-	{Anything, "EARN", Anything, "3n"},
-	{Nothing, "EAR", "^", "3"},
-	{Anything, "EAD", Anything, "ed"},
-	{"#:", "EA", Nothing, "i@"},
-	{Anything, "EA", "SU", "e"},
-	{Anything, "EA", Anything, "i"},
-	{Anything, "EIGH", Anything, "eI"},
-	{Anything, "EI", Anything, "i"},
-	{Nothing, "EYE", Anything, "aI"},
-	{Anything, "EY", Anything, "i"},
-	{Anything, "EU", Anything, "ju"},
-	{Anything, "E", Anything, "e"},
-	{Anything, nullptr, Anything, Silent},
+static Rule E_rules[] = {
+    {"#:",     "E",     Nothing,  ""    },
+    {"':^",    "E",     Nothing,  ""    },
+    {" :",     "E",     Nothing,  "i"   },
+    {"#",      "ED",    Nothing,  "d"   },
+    {"#:",     "E",     "D ",     ""    },
+    {Anything, "EV",    "ER",     "ev"  },
+    {Anything, "E",     "^%",     "i"   },
+    {Anything, "ERI",   "#",      "iri" },
+    {Anything, "ERI",   Anything, "erI" },
+    {"#:",     "ER",    "#",      "3"   },
+    {Anything, "ER",    "#",      "er"  },
+    {Anything, "ER",    Anything, "3"   },
+    {Nothing,  "EVEN",  Anything, "iven"},
+    {"#:",     "E",     "W",      ""    },
+    {"T",      "EW",    Anything, "u"   },
+    {"S",      "EW",    Anything, "u"   },
+    {"R",      "EW",    Anything, "u"   },
+    {"D",      "EW",    Anything, "u"   },
+    {"L",      "EW",    Anything, "u"   },
+    {"Z",      "EW",    Anything, "u"   },
+    {"N",      "EW",    Anything, "u"   },
+    {"J",      "EW",    Anything, "u"   },
+    {"TH",     "EW",    Anything, "u"   },
+    {"CH",     "EW",    Anything, "u"   },
+    {"SH",     "EW",    Anything, "u"   },
+    {Anything, "EW",    Anything, "ju"  },
+    {Anything, "E",     "O",      "i"   },
+    {"#:S",    "ES",    Nothing,  "Iz"  },
+    {"#:C",    "ES",    Nothing,  "Iz"  },
+    {"#:G",    "ES",    Nothing,  "Iz"  },
+    {"#:Z",    "ES",    Nothing,  "Iz"  },
+    {"#:X",    "ES",    Nothing,  "Iz"  },
+    {"#:J",    "ES",    Nothing,  "Iz"  },
+    {"#:CH",   "ES",    Nothing,  "Iz"  },
+    {"#:SH",   "ES",    Nothing,  "Iz"  },
+    {"#:",     "E",     "S ",     ""    },
+    {"#:",     "ELY",   Nothing,  "li"  },
+    {"#:",     "EMENT", Anything, "ment"},
+    {Anything, "EFUL",  Anything, "fUl" },
+    {Anything, "EE",    Anything, "i"   },
+    {Anything, "EARN",  Anything, "3n"  },
+    {Nothing,  "EAR",   "^",      "3"   },
+    {Anything, "EAD",   Anything, "ed"  },
+    {"#:",     "EA",    Nothing,  "i@"  },
+    {Anything, "EA",    "SU",     "e"   },
+    {Anything, "EA",    Anything, "i"   },
+    {Anything, "EIGH",  Anything, "eI"  },
+    {Anything, "EI",    Anything, "i"   },
+    {Nothing,  "EYE",   Anything, "aI"  },
+    {Anything, "EY",    Anything, "i"   },
+    {Anything, "EU",    Anything, "ju"  },
+    {Anything, "E",     Anything, "e"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule F_rules[] =
-{
-	{Anything, "FUL", Anything, "fUl"},
-	{Anything, "F", Anything, "f"},
-	{Anything, nullptr, Anything, Silent},
+static Rule F_rules[] = {
+    {Anything, "FUL",   Anything, "fUl" },
+    {Anything, "F",     Anything, "f"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule G_rules[] =
-{
-	{Anything, "GIV", Anything, "gIv"},
-	{Nothing, "G", "I^", "g"},
-	{Anything, "GE", "T", "ge"},
-	{"SU", "GGES", Anything, "gdZes"},
-	{Anything, "GG", Anything, "g"},
-	{" B#", "G", Anything, "g"},
-	{Anything, "G", "+", "dZ"},
-	{Anything, "GREAT", Anything, "greIt"},
-	{"#", "GH", Anything, ""},
-	{Anything, "G", Anything, "g"},
-	{Anything, nullptr, Anything, Silent},
+static Rule G_rules[] = {
+    {Anything, "GIV",   Anything, "gIv"  },
+    {Nothing,  "G",     "I^",     "g"    },
+    {Anything, "GE",    "T",      "ge"   },
+    {"SU",     "GGES",  Anything, "gdZes"},
+    {Anything, "GG",    Anything, "g"    },
+    {" B#",    "G",     Anything, "g"    },
+    {Anything, "G",     "+",      "dZ"   },
+    {Anything, "GREAT", Anything, "greIt"},
+    {"#",      "GH",    Anything, ""     },
+    {Anything, "G",     Anything, "g"    },
+    {Anything, nullptr, Anything, Silent },
 };
 
-static Rule H_rules[] =
-{
-	{Nothing, "HAV", Anything, "h&v"},
-	{Nothing, "HERE", Anything, "hir"},
-	{Nothing, "HOUR", Anything, "aU3"},
-	{Anything, "HOW", Anything, "haU"},
-	{Anything, "H", "#", "h"},
-	{Anything, "H", Anything, ""},
-	{Anything, nullptr, Anything, Silent},
+static Rule H_rules[] = {
+    {Nothing,  "HAV",   Anything, "h&v" },
+    {Nothing,  "HERE",  Anything, "hir" },
+    {Nothing,  "HOUR",  Anything, "aU3" },
+    {Anything, "HOW",   Anything, "haU" },
+    {Anything, "H",     "#",      "h"   },
+    {Anything, "H",     Anything, ""    },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule I_rules[] =
-{
-	{Nothing, "IAIN", Nothing, "I@n"},
-	{Nothing, "ING", Nothing, "IN"},
-	{Nothing, "IN", Anything, "In"},
-	{Nothing, "I", Nothing, "aI"},
-	{Anything, "IN", "D", "aIn"},
-	{Anything, "IER", Anything, "i3"},
-	{"#:R", "IED", Anything, "id"},
-	{Anything, "IED", Nothing, "aId"},
-	{Anything, "IEN", Anything, "ien"},
-	{Anything, "IE", "T", "aIe"},
-	{" :", "I", "%", "aI"},
-	{Anything, "I", "%", "i"},
-	{Anything, "IE", Anything, "i"},
-	{Anything, "I", "^+:#", "I"},
-	{Anything, "IR", "#", "aIr"},
-	{Anything, "IZ", "%", "aIz"},
-	{Anything, "IS", "%", "aIz"},
-	{Anything, "I", "D%", "aI"},
-	{"+^", "I", "^+", "I"},
-	{Anything, "I", "T%", "aI"},
-	{"#:^", "I", "^+", "I"},
-	{Anything, "I", "^+", "aI"},
-	{Anything, "IR", Anything, "3"},
-	{Anything, "IGH", Anything, "aI"},
-	{Anything, "ILD", Anything, "aIld"},
-	{Anything, "IGN", Nothing, "aIn"},
-	{Anything, "IGN", "^", "aIn"},
-	{Anything, "IGN", "%", "aIn"},
-	{Anything, "IQUE", Anything, "ik"},
-	{"^", "I", "^#", "aI"},
-	{Anything, "I", Anything, "I"},
-	{Anything, nullptr, Anything, Silent},
+static Rule I_rules[] = {
+    {Nothing,  "IAIN",  Nothing,  "I@n" },
+    {Nothing,  "ING",   Nothing,  "IN"  },
+    {Nothing,  "IN",    Anything, "In"  },
+    {Nothing,  "I",     Nothing,  "aI"  },
+    {Anything, "IN",    "D",      "aIn" },
+    {Anything, "IER",   Anything, "i3"  },
+    {"#:R",    "IED",   Anything, "id"  },
+    {Anything, "IED",   Nothing,  "aId" },
+    {Anything, "IEN",   Anything, "ien" },
+    {Anything, "IE",    "T",      "aIe" },
+    {" :",     "I",     "%",      "aI"  },
+    {Anything, "I",     "%",      "i"   },
+    {Anything, "IE",    Anything, "i"   },
+    {Anything, "I",     "^+:#",   "I"   },
+    {Anything, "IR",    "#",      "aIr" },
+    {Anything, "IZ",    "%",      "aIz" },
+    {Anything, "IS",    "%",      "aIz" },
+    {Anything, "I",     "D%",     "aI"  },
+    {"+^",     "I",     "^+",     "I"   },
+    {Anything, "I",     "T%",     "aI"  },
+    {"#:^",    "I",     "^+",     "I"   },
+    {Anything, "I",     "^+",     "aI"  },
+    {Anything, "IR",    Anything, "3"   },
+    {Anything, "IGH",   Anything, "aI"  },
+    {Anything, "ILD",   Anything, "aIld"},
+    {Anything, "IGN",   Nothing,  "aIn" },
+    {Anything, "IGN",   "^",      "aIn" },
+    {Anything, "IGN",   "%",      "aIn" },
+    {Anything, "IQUE",  Anything, "ik"  },
+    {"^",      "I",     "^#",     "aI"  },
+    {Anything, "I",     Anything, "I"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule J_rules[] =
-{
-	{Anything, "J", Anything, "dZ"},
-	{Anything, nullptr, Anything, Silent},
+static Rule J_rules[] = {
+    {Anything, "J",     Anything, "dZ"  },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule K_rules[] =
-{
-	{Nothing, "K", "N", ""},
-	{Anything, "K", Anything, "k"},
-	{Anything, nullptr, Anything, Silent},
+static Rule K_rules[] = {
+    {Nothing,  "K",     "N",      ""    },
+    {Anything, "K",     Anything, "k"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule L_rules[] =
-{
-	{Anything, "LO", "C#", "l@U"},
-	{"L", "L", Anything, ""},
-	{"#:^", "L", "%", "@l"},
-	{Anything, "LEAD", Anything, "lid"},
-	{Anything, "L", Anything, "l"},
-	{Anything, nullptr, Anything, Silent},
+static Rule L_rules[] = {
+    {Anything, "LO",    "C#",     "l@U" },
+    {"L",      "L",     Anything, ""    },
+    {"#:^",    "L",     "%",      "@l"  },
+    {Anything, "LEAD",  Anything, "lid" },
+    {Anything, "L",     Anything, "l"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule M_rules[] =
-{
-	{Anything, "MOV", Anything, "muv"},
-	{"#", "MM", "#", "m"},
-	{Anything, "M", Anything, "m"},
-	{Anything, nullptr, Anything, Silent},
+static Rule M_rules[] = {
+    {Anything, "MOV",   Anything, "muv" },
+    {"#",      "MM",    "#",      "m"   },
+    {Anything, "M",     Anything, "m"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule N_rules[] =
-{
-	{"E", "NG", "+", "ndZ"},
-	{Anything, "NG", "R", "Ng"},
-	{Anything, "NG", "#", "Ng"},
-	{Anything, "NGL", "%", "Ng@l"},
-	{Anything, "NG", Anything, "N"},
-	{Anything, "NK", Anything, "Nk"},
-	{Nothing, "NOW", Nothing, "naU"},
-	{"#", "NG", Nothing, "Ng"},
-	{Anything, "N", Anything, "n"},
-	{Anything, nullptr, Anything, Silent},
+static Rule N_rules[] = {
+    {"E",      "NG",    "+",      "ndZ" },
+    {Anything, "NG",    "R",      "Ng"  },
+    {Anything, "NG",    "#",      "Ng"  },
+    {Anything, "NGL",   "%",      "Ng@l"},
+    {Anything, "NG",    Anything, "N"   },
+    {Anything, "NK",    Anything, "Nk"  },
+    {Nothing,  "NOW",   Nothing,  "naU" },
+    {"#",      "NG",    Nothing,  "Ng"  },
+    {Anything, "N",     Anything, "n"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule O_rules[] =
-{
-	{Anything, "OF", Nothing, "@v"},
-	{Anything, "OROUGH", Anything, "3@U"},
-	{"#:", "OR", Nothing, "3"},
-	{"#:", "ORS", Nothing, "3z"},
-	{Anything, "OR", Anything, "Or"},
-	{Nothing, "ONE", Anything, "wVn"},
-	{Anything, "OW", Anything, "@U"},
-	{Nothing, "OVER", Anything, "@Uv3"},
-	{Anything, "OV", Anything, "Vv"},
-	{Anything, "O", "^%", "@U"},
-	{Anything, "O", "^EN", "@U"},
-	{Anything, "O", "^I#", "@U"},
-	{Anything, "OL", "D", "@Ul"},
-	{Anything, "OUGHT", Anything, "Ot"},
-	{Anything, "OUGH", Anything, "Vf"},
-	{Nothing, "OU", Anything, "aU"},
-	{"H", "OU", "S#", "aU"},
-	{Anything, "OUS", Anything, "@s"},
-	{Anything, "OUR", Anything, "Or"},
-	{Anything, "OULD", Anything, "Ud"},
-	{"^", "OU", "^L", "V"},
-	{Anything, "OUP", Anything, "up"},
-	{Anything, "OU", Anything, "aU"},
-	{Anything, "OY", Anything, "oI"},
-	{Anything, "OING", Anything, "@UIN"},
-	{Anything, "OI", Anything, "oI"},
-	{Anything, "OOR", Anything, "Or"},
-	{Anything, "OOK", Anything, "Uk"},
-	{Anything, "OOD", Anything, "Ud"},
-	{Anything, "OO", Anything, "u"},
-	{Anything, "O", "E", "@U"},
-	{Anything, "O", Nothing, "@U"},
-	{Anything, "OA", Anything, "@U"},
-	{Nothing, "ONLY", Anything, "@Unli"},
-	{Nothing, "ONCE", Anything, "wVns"},
-	{Anything, "ON'T", Anything, "@Unt"},
-	{"C", "O", "N", "0"},
-	{Anything, "O", "NG", "O"},
-	{" :^", "O", "N", "V"},
-	{"I", "ON", Anything, "@n"},
-	{"#:", "ON", Nothing, "@n"},
-	{"#^", "ON", Anything, "@n"},
-	{Anything, "O", "ST ", "@U"},
-	{Anything, "OF", "^", "Of"},
-	{Anything, "OTHER", Anything, "VD3"},
-	{Anything, "OSS", Nothing, "Os"},
-	{"#:^", "OM", Anything, "Vm"},
-	{Anything, "O", Anything, "0"},
-	{Anything, nullptr, Anything, Silent},
+static Rule O_rules[] = {
+    {Anything, "OF",     Nothing,  "@v"   },
+    {Anything, "OROUGH", Anything, "3@U"  },
+    {"#:",     "OR",     Nothing,  "3"    },
+    {"#:",     "ORS",    Nothing,  "3z"   },
+    {Anything, "OR",     Anything, "Or"   },
+    {Nothing,  "ONE",    Anything, "wVn"  },
+    {Anything, "OW",     Anything, "@U"   },
+    {Nothing,  "OVER",   Anything, "@Uv3" },
+    {Anything, "OV",     Anything, "Vv"   },
+    {Anything, "O",      "^%",     "@U"   },
+    {Anything, "O",      "^EN",    "@U"   },
+    {Anything, "O",      "^I#",    "@U"   },
+    {Anything, "OL",     "D",      "@Ul"  },
+    {Anything, "OUGHT",  Anything, "Ot"   },
+    {Anything, "OUGH",   Anything, "Vf"   },
+    {Nothing,  "OU",     Anything, "aU"   },
+    {"H",      "OU",     "S#",     "aU"   },
+    {Anything, "OUS",    Anything, "@s"   },
+    {Anything, "OUR",    Anything, "Or"   },
+    {Anything, "OULD",   Anything, "Ud"   },
+    {"^",      "OU",     "^L",     "V"    },
+    {Anything, "OUP",    Anything, "up"   },
+    {Anything, "OU",     Anything, "aU"   },
+    {Anything, "OY",     Anything, "oI"   },
+    {Anything, "OING",   Anything, "@UIN" },
+    {Anything, "OI",     Anything, "oI"   },
+    {Anything, "OOR",    Anything, "Or"   },
+    {Anything, "OOK",    Anything, "Uk"   },
+    {Anything, "OOD",    Anything, "Ud"   },
+    {Anything, "OO",     Anything, "u"    },
+    {Anything, "O",      "E",      "@U"   },
+    {Anything, "O",      Nothing,  "@U"   },
+    {Anything, "OA",     Anything, "@U"   },
+    {Nothing,  "ONLY",   Anything, "@Unli"},
+    {Nothing,  "ONCE",   Anything, "wVns" },
+    {Anything, "ON'T",   Anything, "@Unt" },
+    {"C",      "O",      "N",      "0"    },
+    {Anything, "O",      "NG",     "O"    },
+    {" :^",    "O",      "N",      "V"    },
+    {"I",      "ON",     Anything, "@n"   },
+    {"#:",     "ON",     Nothing,  "@n"   },
+    {"#^",     "ON",     Anything, "@n"   },
+    {Anything, "O",      "ST ",    "@U"   },
+    {Anything, "OF",     "^",      "Of"   },
+    {Anything, "OTHER",  Anything, "VD3"  },
+    {Anything, "OSS",    Nothing,  "Os"   },
+    {"#:^",    "OM",     Anything, "Vm"   },
+    {Anything, "O",      Anything, "0"    },
+    {Anything, nullptr,  Anything, Silent },
 };
 
-static Rule P_rules[] =
-{
-	{Anything, "PH", Anything, "f"},
-	{Anything, "PEOP", Anything, "pip"},
-	{Anything, "POW", Anything, "paU"},
-	{Anything, "PUT", Nothing, "pUt"},
-	{Anything, "P", Anything, "p"},
-	{Anything, nullptr, Anything, Silent},
+static Rule P_rules[] = {
+    {Anything, "PH",    Anything, "f"   },
+    {Anything, "PEOP",  Anything, "pip" },
+    {Anything, "POW",   Anything, "paU" },
+    {Anything, "PUT",   Nothing,  "pUt" },
+    {Anything, "P",     Anything, "p"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule Q_rules[] =
-{
-	{Anything, "QUAR", Anything, "kwOr"},
-	{Anything, "QU", Anything, "kw"},
-	{Anything, "Q", Anything, "k"},
-	{Anything, nullptr, Anything, Silent},
+static Rule Q_rules[] = {
+    {Anything, "QUAR",  Anything, "kwOr"},
+    {Anything, "QU",    Anything, "kw"  },
+    {Anything, "Q",     Anything, "k"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule R_rules[] =
-{
-	{Nothing, "RE", "^#", "ri"},
-	{Anything, "R", Anything, "r"},
-	{Anything, nullptr, Anything, Silent},
+static Rule R_rules[] = {
+    {Nothing,  "RE",    "^#",     "ri"  },
+    {Anything, "R",     Anything, "r"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule S_rules[] =
-{
-	{Anything, "SH", Anything, "S"},
-	{"#", "SION", Anything, "Z@n"},
-	{Anything, "SOME", Anything, "sVm"},
-	{"#", "SUR", "#", "Z3"},
-	{Anything, "SUR", "#", "S3"},
-	{"#", "SU", "#", "Zu"},
-	{"#", "SSU", "#", "Su"},
-	{"#", "SED", Nothing, "zd"},
-	{"#", "S", "#", "z"},
-	{Anything, "SAID", Anything, "sed"},
-	{"^", "SION", Anything, "S@n"},
-	{Anything, "S", "S", ""},
-	{".", "S", Nothing, "z"},
-	{"#:.E", "S", Nothing, "z"},
-	{"#:^##", "S", Nothing, "z"},
-	{"#:^#", "S", Nothing, "s"},
-	{"U", "S", Nothing, "s"},
-	{" :#", "S", Nothing, "z"},
-	{Nothing, "SCH", Anything, "sk"},
-	{Anything, "S", "C+", ""},
-	{"#", "SM", Anything, "zm"},
-	{"#", "SN", "'", "z@n"},
-	{Anything, "S", Anything, "s"},
-	{Anything, nullptr, Anything, Silent},
+static Rule S_rules[] = {
+    {Anything, "SH",    Anything, "S"   },
+    {"#",      "SION",  Anything, "Z@n" },
+    {Anything, "SOME",  Anything, "sVm" },
+    {"#",      "SUR",   "#",      "Z3"  },
+    {Anything, "SUR",   "#",      "S3"  },
+    {"#",      "SU",    "#",      "Zu"  },
+    {"#",      "SSU",   "#",      "Su"  },
+    {"#",      "SED",   Nothing,  "zd"  },
+    {"#",      "S",     "#",      "z"   },
+    {Anything, "SAID",  Anything, "sed" },
+    {"^",      "SION",  Anything, "S@n" },
+    {Anything, "S",     "S",      ""    },
+    {".",      "S",     Nothing,  "z"   },
+    {"#:.E",   "S",     Nothing,  "z"   },
+    {"#:^##",  "S",     Nothing,  "z"   },
+    {"#:^#",   "S",     Nothing,  "s"   },
+    {"U",      "S",     Nothing,  "s"   },
+    {" :#",    "S",     Nothing,  "z"   },
+    {Nothing,  "SCH",   Anything, "sk"  },
+    {Anything, "S",     "C+",     ""    },
+    {"#",      "SM",    Anything, "zm"  },
+    {"#",      "SN",    "'",      "z@n" },
+    {Anything, "S",     Anything, "s"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule T_rules[] =
-{
-	{Nothing, "THE", Nothing, "D@"},
-	{Anything, "TO", Nothing, "tu"},
-	{Anything, "THAT", Nothing, "D&t"},
-	{Nothing, "THIS", Nothing, "DIs"},
-	{Nothing, "THEY", Anything, "DeI"},
-	{Nothing, "THERE", Anything, "Der"},
-	{Anything, "THER", Anything, "D3"},
-	{Anything, "THEIR", Anything, "Der"},
-	{Nothing, "THAN", Nothing, "D&n"},
-	{Nothing, "THEM", Nothing, "Dem"},
-	{Anything, "THESE", Nothing, "Diz"},
-	{Nothing, "THEN", Anything, "Den"},
-	{Anything, "THROUGH", Anything, "Tru"},
-	{Anything, "THOSE", Anything, "D@Uz"},
-	{Anything, "THOUGH", Nothing, "D@U"},
-	{Nothing, "THUS", Anything, "DVs"},
-	{Anything, "TH", Anything, "T"},
-	{"#:", "TED", Nothing, "tId"},
-	{"S", "TI", "#N", "tS"},
-	{Anything, "TI", "O", "S"},
-	{Anything, "TI", "A", "S"},
-	{Anything, "TIEN", Anything, "S@n"},
-	{Anything, "TUR", "#", "tS3"},
-	{Anything, "TU", "A", "tSu"},
-	{Nothing, "TWO", Anything, "tu"},
-	{Anything, "T", Anything, "t"},
-	{Anything, nullptr, Anything, Silent},
+static Rule T_rules[] = {
+    {Nothing,  "THE",     Nothing,  "D@"  },
+    {Anything, "TO",      Nothing,  "tu"  },
+    {Anything, "THAT",    Nothing,  "D&t" },
+    {Nothing,  "THIS",    Nothing,  "DIs" },
+    {Nothing,  "THEY",    Anything, "DeI" },
+    {Nothing,  "THERE",   Anything, "Der" },
+    {Anything, "THER",    Anything, "D3"  },
+    {Anything, "THEIR",   Anything, "Der" },
+    {Nothing,  "THAN",    Nothing,  "D&n" },
+    {Nothing,  "THEM",    Nothing,  "Dem" },
+    {Anything, "THESE",   Nothing,  "Diz" },
+    {Nothing,  "THEN",    Anything, "Den" },
+    {Anything, "THROUGH", Anything, "Tru" },
+    {Anything, "THOSE",   Anything, "D@Uz"},
+    {Anything, "THOUGH",  Nothing,  "D@U" },
+    {Nothing,  "THUS",    Anything, "DVs" },
+    {Anything, "TH",      Anything, "T"   },
+    {"#:",     "TED",     Nothing,  "tId" },
+    {"S",      "TI",      "#N",     "tS"  },
+    {Anything, "TI",      "O",      "S"   },
+    {Anything, "TI",      "A",      "S"   },
+    {Anything, "TIEN",    Anything, "S@n" },
+    {Anything, "TUR",     "#",      "tS3" },
+    {Anything, "TU",      "A",      "tSu" },
+    {Nothing,  "TWO",     Anything, "tu"  },
+    {Anything, "T",       Anything, "t"   },
+    {Anything, nullptr,   Anything, Silent},
 };
 
-static Rule U_rules[] =
-{
-	{Nothing, "UN", "I", "jun"},
-	{Nothing, "UN", Anything, "Vn"},
-	{Nothing, "UPON", Anything, "@pOn"},
-	{"T", "UR", "#", "Ur"},
-	{"S", "UR", "#", "Ur"},
-	{"R", "UR", "#", "Ur"},
-	{"D", "UR", "#", "Ur"},
-	{"L", "UR", "#", "Ur"},
-	{"Z", "UR", "#", "Ur"},
-	{"N", "UR", "#", "Ur"},
-	{"J", "UR", "#", "Ur"},
-	{"TH", "UR", "#", "Ur"},
-	{"CH", "UR", "#", "Ur"},
-	{"SH", "UR", "#", "Ur"},
-	{Anything, "UR", "#", "jUr"},
-	{Anything, "UR", Anything, "3"},
-	{Anything, "U", "^ ", "V"},
-	{Anything, "U", "^^", "V"},
-	{Anything, "UY", Anything, "aI"},
-	{" G", "U", "#", ""},
-	{"G", "U", "%", ""},
-	{"G", "U", "#", "w"},
-	{"#N", "U", Anything, "ju"},
-	{"T", "U", Anything, "u"},
-	{"S", "U", Anything, "u"},
-	{"R", "U", Anything, "u"},
-	{"D", "U", Anything, "u"},
-	{"L", "U", Anything, "u"},
-	{"Z", "U", Anything, "u"},
-	{"N", "U", Anything, "u"},
-	{"J", "U", Anything, "u"},
-	{"TH", "U", Anything, "u"},
-	{"CH", "U", Anything, "u"},
-	{"SH", "U", Anything, "u"},
-	{Anything, "U", Anything, "ju"},
-	{Anything, nullptr, Anything, Silent},
+static Rule U_rules[] = {
+    {Nothing,  "UN",    "I",      "jun" },
+    {Nothing,  "UN",    Anything, "Vn"  },
+    {Nothing,  "UPON",  Anything, "@pOn"},
+    {"T",      "UR",    "#",      "Ur"  },
+    {"S",      "UR",    "#",      "Ur"  },
+    {"R",      "UR",    "#",      "Ur"  },
+    {"D",      "UR",    "#",      "Ur"  },
+    {"L",      "UR",    "#",      "Ur"  },
+    {"Z",      "UR",    "#",      "Ur"  },
+    {"N",      "UR",    "#",      "Ur"  },
+    {"J",      "UR",    "#",      "Ur"  },
+    {"TH",     "UR",    "#",      "Ur"  },
+    {"CH",     "UR",    "#",      "Ur"  },
+    {"SH",     "UR",    "#",      "Ur"  },
+    {Anything, "UR",    "#",      "jUr" },
+    {Anything, "UR",    Anything, "3"   },
+    {Anything, "U",     "^ ",     "V"   },
+    {Anything, "U",     "^^",     "V"   },
+    {Anything, "UY",    Anything, "aI"  },
+    {" G",     "U",     "#",      ""    },
+    {"G",      "U",     "%",      ""    },
+    {"G",      "U",     "#",      "w"   },
+    {"#N",     "U",     Anything, "ju"  },
+    {"T",      "U",     Anything, "u"   },
+    {"S",      "U",     Anything, "u"   },
+    {"R",      "U",     Anything, "u"   },
+    {"D",      "U",     Anything, "u"   },
+    {"L",      "U",     Anything, "u"   },
+    {"Z",      "U",     Anything, "u"   },
+    {"N",      "U",     Anything, "u"   },
+    {"J",      "U",     Anything, "u"   },
+    {"TH",     "U",     Anything, "u"   },
+    {"CH",     "U",     Anything, "u"   },
+    {"SH",     "U",     Anything, "u"   },
+    {Anything, "U",     Anything, "ju"  },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule V_rules[] =
-{
-	{Anything, "VIEW", Anything, "vju"},
-	{Anything, "V", Anything, "v"},
-	{Anything, nullptr, Anything, Silent},
+static Rule V_rules[] = {
+    {Anything, "VIEW",  Anything, "vju" },
+    {Anything, "V",     Anything, "v"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule W_rules[] =
-{
-	{Nothing, "WERE", Anything, "w3"},
-	{Anything, "WA", "S", "w0"},
-	{Anything, "WA", "T", "w0"},
-	{Anything, "WHERE", Anything, "hwer"},
-	{Anything, "WHAT", Anything, "hw0t"},
-	{Anything, "WHOL", Anything, "h@Ul"},
-	{Anything, "WHO", Anything, "hu"},
-	{Anything, "WH", Anything, "hw"},
-	{Anything, "WAR", Anything, "wOr"},
-	{Anything, "WOR", "^", "w3"},
-	{Anything, "WR", Anything, "r"},
-	{Anything, "W", Anything, "w"},
-	{Anything, nullptr, Anything, Silent},
+static Rule W_rules[] = {
+    {Nothing,  "WERE",  Anything, "w3"  },
+    {Anything, "WA",    "S",      "w0"  },
+    {Anything, "WA",    "T",      "w0"  },
+    {Anything, "WHERE", Anything, "hwer"},
+    {Anything, "WHAT",  Anything, "hw0t"},
+    {Anything, "WHOL",  Anything, "h@Ul"},
+    {Anything, "WHO",   Anything, "hu"  },
+    {Anything, "WH",    Anything, "hw"  },
+    {Anything, "WAR",   Anything, "wOr" },
+    {Anything, "WOR",   "^",      "w3"  },
+    {Anything, "WR",    Anything, "r"   },
+    {Anything, "W",     Anything, "w"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule X_rules[] =
-{
-	{Anything, "X", Anything, "ks"},
-	{Anything, nullptr, Anything, Silent},
+static Rule X_rules[] = {
+    {Anything, "X",     Anything, "ks"  },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule Y_rules[] =
-{
-	{Anything, "YOUNG", Anything, "jVN"},
-	{Nothing, "YOU", Anything, "ju"},
-	{Nothing, "YES", Anything, "jes"},
-	{Nothing, "Y", Anything, "j"},
-	{"#:^", "Y", Nothing, "i"},
-	{"#:^", "Y", "I", "i"},
-	{" :", "Y", Nothing, "aI"},
-	{" :", "Y", "#", "aI"},
-	{" :", "Y", "^+:#", "I"},
-	{" :", "Y", "^#", "aI"},
-	{Anything, "Y", Anything, "I"},
-	{Anything, nullptr, Anything, Silent},
+static Rule Y_rules[] = {
+    {Anything, "YOUNG", Anything, "jVN" },
+    {Nothing,  "YOU",   Anything, "ju"  },
+    {Nothing,  "YES",   Anything, "jes" },
+    {Nothing,  "Y",     Anything, "j"   },
+    {"#:^",    "Y",     Nothing,  "i"   },
+    {"#:^",    "Y",     "I",      "i"   },
+    {" :",     "Y",     Nothing,  "aI"  },
+    {" :",     "Y",     "#",      "aI"  },
+    {" :",     "Y",     "^+:#",   "I"   },
+    {" :",     "Y",     "^#",     "aI"  },
+    {Anything, "Y",     Anything, "I"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule Z_rules[] =
-{
-	{Anything, "Z", Anything, "z"},
-	{Anything, nullptr, Anything, Silent},
+static Rule Z_rules[] = {
+    {Anything, "Z",     Anything, "z"   },
+    {Anything, nullptr, Anything, Silent},
 };
 
-static Rule *Rules[] =
-{
-	punct_rules,
-	A_rules, B_rules, C_rules, D_rules, E_rules, F_rules, G_rules,
-	H_rules, I_rules, J_rules, K_rules, L_rules, M_rules, N_rules,
-	O_rules, P_rules, Q_rules, R_rules, S_rules, T_rules, U_rules,
-	V_rules, W_rules, X_rules, Y_rules, Z_rules
-};
+static Rule *Rules[] = {punct_rules, A_rules, B_rules, C_rules, D_rules, E_rules, F_rules, G_rules, H_rules, I_rules, J_rules, K_rules, L_rules, M_rules,
+                        N_rules,     O_rules, P_rules, Q_rules, R_rules, S_rules, T_rules, U_rules, V_rules, W_rules, X_rules, Y_rules, Z_rules};
 
+static const char *Cardinals[] = {"zero", "one",    "two",    "three",    "four",     "five",    "six",     "seven",     "eight",    "nine",
+                                  "ten",  "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"};
 
-static const char *Cardinals[] =
-{
-	"zero", "one", "two", "three", "four", 
-	"five", "six", "seven", "eight", "nine", 
-	"ten", "eleven", "twelve", "thirteen", "fourteen", 
-	"fifteen", "sixteen", "seventeen", "eighteen", "nineteen"
-};
+static const char *Twenties[] = {"twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"};
 
+static const char *Ordinals[] = {"zeroth", "first",    "second",  "third",      "fourth",     "fifth",     "sixth",     "seventh",     "eighth",     "ninth",
+                                 "tenth",  "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth"};
 
-static const char *Twenties[] =
-{
-	"twenty", "thirty", "forty", "fifty",
-	"sixty", "seventy", "eighty", "ninety"
-};
-
-
-static const char *Ordinals[] =
-{
-	"zeroth", "first", "second", "third", "fourth", 
-	"fifth", "sixth", "seventh","eighth", "ninth",
-	"tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", 
-	"fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth"
-};
-
-
-static const char *Ord_twenties[] =
-{
-	"twentieth", "thirtieth", "fortieth", "fiftieth",
-	"sixtieth", "seventieth", "eightieth", "ninetieth"
-};
-
+static const char *Ord_twenties[] = {"twentieth", "thirtieth", "fortieth", "fiftieth", "sixtieth", "seventieth", "eightieth", "ninetieth"};
 
 /*
 ** Translate a number to phonemes.  This version is for CARDINAL numbers.
@@ -639,7 +715,7 @@ static int xlate_cardinal(int value, darray *phone)
 		nph += xlate_string("minus", phone);
 		value = (-value);
 
-		if (value < 0)                 /* Overflow!  -32768 */
+		if (value < 0) /* Overflow!  -32768 */
 		{
 			nph += xlate_string("a lot", phone);
 			return nph;
@@ -647,14 +723,14 @@ static int xlate_cardinal(int value, darray *phone)
 	}
 
 	if (value >= 1000000000L)
-		/* Billions */
+	/* Billions */
 	{
 		nph += xlate_cardinal(value / 1000000000L, phone);
 		nph += xlate_string("billion", phone);
 		value = value % 1000000000;
 
 		if (value == 0)
-			return nph;                   /* Even billion */
+			return nph; /* Even billion */
 
 		if (value < 100)
 			nph += xlate_string("and", phone);
@@ -663,14 +739,14 @@ static int xlate_cardinal(int value, darray *phone)
 	}
 
 	if (value >= 1000000L)
-		/* Millions */
+	/* Millions */
 	{
 		nph += xlate_cardinal(value / 1000000L, phone);
 		nph += xlate_string("million", phone);
 		value = value % 1000000L;
 
 		if (value == 0)
-			return nph;                   /* Even million */
+			return nph; /* Even million */
 
 		if (value < 100)
 			nph += xlate_string("and", phone);
@@ -688,7 +764,7 @@ static int xlate_cardinal(int value, darray *phone)
 		value = value % 1000L;
 
 		if (value == 0)
-			return nph;                   /* Even thousand */
+			return nph; /* Even thousand */
 
 		if (value < 100)
 			nph += xlate_string("and", phone);
@@ -703,7 +779,7 @@ static int xlate_cardinal(int value, darray *phone)
 		value = value % 100;
 
 		if (value == 0)
-			return nph;                   /* Even hundred */
+			return nph; /* Even hundred */
 	}
 
 	if (value >= 20)
@@ -712,7 +788,7 @@ static int xlate_cardinal(int value, darray *phone)
 		value = value % 10;
 
 		if (value == 0)
-			return nph;                   /* Even ten */
+			return nph; /* Even ten */
 	}
 
 	nph += xlate_string(Cardinals[value], phone);
@@ -838,8 +914,7 @@ static int xlate_ordinal(int value, darray *phone)
 
 static int isvowel(int chr)
 {
-	return (chr == 'A' || chr == 'E' || chr == 'I' ||
-		chr == 'O' || chr == 'U');
+	return (chr == 'A' || chr == 'E' || chr == 'I' || chr == 'O' || chr == 'U');
 }
 
 static int isconsonant(int chr)
@@ -847,9 +922,8 @@ static int isconsonant(int chr)
 	return (isupper(chr) && !isvowel(chr));
 }
 
-static int leftmatch(
-	const char *pattern,                    /* first char of pattern to match in text */
-	const char *context)                     /* last char of text to be matched */
+static int leftmatch(const char *pattern, /* first char of pattern to match in text */
+                     const char *context) /* last char of text to be matched */
 
 {
 	const char *pat;
@@ -857,7 +931,7 @@ static int leftmatch(
 	int count;
 
 	if (*pattern == '\0')
-		/* null string matches any context */
+	/* null string matches any context */
 	{
 		return 1;
 	}
@@ -888,7 +962,7 @@ static int leftmatch(
 		switch (*pat)
 		{
 
-		case '#':                   /* One or more vowels */
+		case '#': /* One or more vowels */
 
 			if (!isvowel(*text))
 				return 0;
@@ -900,13 +974,13 @@ static int leftmatch(
 
 			break;
 
-		case ':':                   /* Zero or more consonants */
+		case ':': /* Zero or more consonants */
 			while (isconsonant(*text))
 				text--;
 
 			break;
 
-		case '^':                   /* One consonant */
+		case '^': /* One consonant */
 			if (!isconsonant(*text))
 				return 0;
 
@@ -914,18 +988,16 @@ static int leftmatch(
 
 			break;
 
-		case '.':                   /* B, D, V, G, J, L, M, N, R, W, Z */
-			if (*text != 'B' && *text != 'D' && *text != 'V'
-				&& *text != 'G' && *text != 'J' && *text != 'L'
-				&& *text != 'M' && *text != 'N' && *text != 'R'
-				&& *text != 'W' && *text != 'Z')
+		case '.': /* B, D, V, G, J, L, M, N, R, W, Z */
+			if (*text != 'B' && *text != 'D' && *text != 'V' && *text != 'G' && *text != 'J' && *text != 'L' && *text != 'M' && *text != 'N' && *text != 'R' &&
+			    *text != 'W' && *text != 'Z')
 				return 0;
 
 			text--;
 
 			break;
 
-		case '+':                   /* E, I or Y (front vowel) */
+		case '+': /* E, I or Y (front vowel) */
 			if (*text != 'E' && *text != 'I' && *text != 'Y')
 				return 0;
 
@@ -945,9 +1017,8 @@ static int leftmatch(
 	return 1;
 }
 
-static int rightmatch(
-	const char *pattern,                    /* first char of pattern to match in text */
-	const char *context)                     /* last char of text to be matched */
+static int rightmatch(const char *pattern, /* first char of pattern to match in text */
+                      const char *context) /* last char of text to be matched */
 {
 	const char *pat;
 	const char *text;
@@ -979,7 +1050,7 @@ static int rightmatch(
 		switch (*pat)
 		{
 
-		case '#':                   /* One or more vowels */
+		case '#': /* One or more vowels */
 
 			if (!isvowel(*text))
 				return 0;
@@ -991,13 +1062,13 @@ static int rightmatch(
 
 			break;
 
-		case ':':                   /* Zero or more consonants */
+		case ':': /* Zero or more consonants */
 			while (isconsonant(*text))
 				text++;
 
 			break;
 
-		case '^':                   /* One consonant */
+		case '^': /* One consonant */
 			if (!isconsonant(*text))
 				return 0;
 
@@ -1005,18 +1076,16 @@ static int rightmatch(
 
 			break;
 
-		case '.':                   /* B, D, V, G, J, L, M, N, R, W, Z */
-			if (*text != 'B' && *text != 'D' && *text != 'V'
-				&& *text != 'G' && *text != 'J' && *text != 'L'
-				&& *text != 'M' && *text != 'N' && *text != 'R'
-				&& *text != 'W' && *text != 'Z')
+		case '.': /* B, D, V, G, J, L, M, N, R, W, Z */
+			if (*text != 'B' && *text != 'D' && *text != 'V' && *text != 'G' && *text != 'J' && *text != 'L' && *text != 'M' && *text != 'N' && *text != 'R' &&
+			    *text != 'W' && *text != 'Z')
 				return 0;
 
 			text++;
 
 			break;
 
-		case '+':                   /* E, I or Y (front vowel) */
+		case '+': /* E, I or Y (front vowel) */
 			if (*text != 'E' && *text != 'I' && *text != 'Y')
 				return 0;
 
@@ -1024,7 +1093,7 @@ static int rightmatch(
 
 			break;
 
-		case '%':                   /* ER, E, ES, ED, ING, ELY (a suffix) */
+		case '%': /* ER, E, ES, ED, ING, ELY (a suffix) */
 			if (*text == 'E')
 			{
 				text++;
@@ -1041,39 +1110,37 @@ static int rightmatch(
 
 					else
 					{
-						text--;               /* Don't gobble L */
+						text--; /* Don't gobble L */
 						break;
 					}
 				}
 
-				else
-					if (*text == 'R' || *text == 'S' || *text == 'D')
-						text++;
+				else if (*text == 'R' || *text == 'S' || *text == 'D')
+					text++;
 
 				break;
 			}
 
-			else
-				if (*text == 'I')
+			else if (*text == 'I')
+			{
+				text++;
+
+				if (*text == 'N')
 				{
 					text++;
 
-					if (*text == 'N')
+					if (*text == 'G')
 					{
 						text++;
-
-						if (*text == 'G')
-						{
-							text++;
-							break;
-						}
+						break;
 					}
-
-					return 0;
 				}
 
-				else
-					return 0;
+				return 0;
+			}
+
+			else
+				return 0;
 
 		default:
 			fprintf(stderr, "Bad char in right rule:'%c'\n", *pat);
@@ -1093,26 +1160,21 @@ static void phone_cat(darray *arg, const char *s)
 		arg->put(ch);
 }
 
-
 static int find_rule(darray *arg, char *word, int index, Rule *rules)
 {
-	for (;;)                         /* Search for the rule */
+	for (;;) /* Search for the rule */
 	{
 		Rule *rule;
-		const char *left,
-			*match,
-			*right,
-			*output;
+		const char *left, *match, *right, *output;
 		int remainder;
 		rule = rules++;
 		match = (*rule)[1];
 
 		if (match == nullptr)
-			/* bad symbol! */
+		/* bad symbol! */
 		{
-			fprintf(stderr, "Error: Can't find rule for: '%c' in \"%s\"\n",
-				word[index], word);
-			return index + 1;            /* Skip it! */
+			fprintf(stderr, "Error: Can't find rule for: '%c' in \"%s\"\n", word[index], word);
+			return index + 1; /* Skip it! */
 		}
 
 		for (remainder = index; *match != '\0'; match++, remainder++)
@@ -1122,7 +1184,7 @@ static int find_rule(darray *arg, char *word, int index, Rule *rules)
 		}
 
 		if (*match != '\0')
-			continue;                     /* found missmatch */
+			continue; /* found missmatch */
 
 		left = (*rule)[0];
 
@@ -1144,9 +1206,9 @@ static int find_rule(darray *arg, char *word, int index, Rule *rules)
 
 static void guess_word(darray *arg, char *word)
 {
-	int index;                       /* Current position in word */
-	int type;                        /* First letter of match part */
-	index = 1;                       /* Skip the initial blank */
+	int index; /* Current position in word */
+	int type;  /* First letter of match part */
+	index = 1; /* Skip the initial blank */
 
 	do
 	{
@@ -1161,11 +1223,10 @@ static void guess_word(darray *arg, char *word)
 	while (word[index] != '\0');
 }
 
-
 static int NRL(const char *s, int n, darray *phone)
 {
 	int old = phone->getSize();
-	char *word = (char *) malloc(n + 3); // TODO: may return null
+	char *word = (char *)malloc(n + 3); // TODO: may return null
 	char *d = word;
 	*d++ = ' ';
 
@@ -1186,7 +1247,6 @@ static int NRL(const char *s, int n, darray *phone)
 	free(word);
 	return phone->getSize() - old;
 }
-
 
 static int spell_out(const char *word, int n, darray *phone)
 {
@@ -1260,7 +1320,6 @@ static int xlate_word(const char *word, int n, darray *phone)
 
 	return nph + 1;
 }
-
 
 int xlate_string(const char *string, darray *phone)
 {
@@ -1360,10 +1419,10 @@ int xlate_string(const char *string, darray *phone)
 
 						case '.':
 							s++;
-							phone->put('.');// (' ');
+							phone->put('.'); // (' ');
 							break;
 
-						case '"':                 /* change pitch ? */
+						case '"': /* change pitch ? */
 
 						case ':':
 
@@ -1380,8 +1439,7 @@ int xlate_string(const char *string, darray *phone)
 							phone->put(' ');
 							break;
 
-						case '[':
-						{
+						case '[': {
 							const char *e = strchr(s, ']');
 
 							if (e)

@@ -33,7 +33,7 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
-	class File;
+class File;
 }
 
 #ifdef WITH_LIBMPG123
@@ -43,34 +43,34 @@ typedef struct mpg123_handle_struct mpg123_handle;
 
 namespace SoLoud::MPG123
 {
-	struct MPG123Decoder
-	{
-		mpg123_handle *handle;
-		File *file;
-		int channels;
-		long rate;
-		off_t totalFrames;
-		unsigned char *tempBuffer;
-		size_t tempBufferSize;
-		bool ended;
-	};
+struct MPG123Decoder
+{
+	mpg123_handle *handle;
+	File *file;
+	int channels;
+	long rate;
+	off_t totalFrames;
+	unsigned char *tempBuffer;
+	size_t tempBufferSize;
+	bool ended;
+};
 
-	// decoder functions
-	MPG123Decoder *open(File * aFile);
-	void close(MPG123Decoder * aDecoder);
-	int getChannels(MPG123Decoder * aDecoder);
-	int getSampleRate(MPG123Decoder * aDecoder);
-	off_t getTotalFrameCount(MPG123Decoder * aDecoder);
-	size_t readFrames(MPG123Decoder * aDecoder, size_t aFrameCount, float *aBuffer);
-	off_t seekToFrame(MPG123Decoder * aDecoder, off_t aFrame);
-	off_t getCurrentFrame(MPG123Decoder * aDecoder);
-	bool isAtEnd(MPG123Decoder * aDecoder);
+// decoder functions
+MPG123Decoder *open(File *aFile);
+void close(MPG123Decoder *aDecoder);
+int getChannels(MPG123Decoder *aDecoder);
+int getSampleRate(MPG123Decoder *aDecoder);
+off_t getTotalFrameCount(MPG123Decoder *aDecoder);
+size_t readFrames(MPG123Decoder *aDecoder, size_t aFrameCount, float *aBuffer);
+off_t seekToFrame(MPG123Decoder *aDecoder, off_t aFrame);
+off_t getCurrentFrame(MPG123Decoder *aDecoder);
+bool isAtEnd(MPG123Decoder *aDecoder);
 } // namespace SoLoud::MPG123
 #else
 
 namespace SoLoud::MPG123
 {
-	// clang-format off
+// clang-format off
 	struct MPG123Decoder{};
 	inline MPG123Decoder *open(File * /*aFile*/) { return nullptr; }
 	inline void close(MPG123Decoder * /*aDecoder*/) { ; }

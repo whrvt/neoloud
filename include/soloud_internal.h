@@ -29,22 +29,22 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
-	// SDL3 "non-dynamic" back-end initialization call
-	result sdl3_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                       unsigned int aChannels = 2);
+// SDL3 "non-dynamic" back-end initialization call
+result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = Soloud::AUTO,
+                 unsigned int aBufferSize = Soloud::AUTO, unsigned int aChannels = 2);
 
-	// MiniAudio back-end initialization call
-	result miniaudio_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                      unsigned int aChannels = 2);
+// MiniAudio back-end initialization call
+result miniaudio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = Soloud::AUTO,
+                      unsigned int aBufferSize = Soloud::AUTO, unsigned int aChannels = 2);
 
-	// nosound back-end initialization call
-	result nosound_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                    unsigned int aChannels = 2);
+// nosound back-end initialization call
+result nosound_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
+                    unsigned int aChannels = 2);
 
-	// null driver back-end initialization call
-	result null_init(SoLoud::Soloud * aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
-	                 unsigned int aChannels = 2);
-};
+// null driver back-end initialization call
+result null_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
+                 unsigned int aChannels = 2);
+}; // namespace SoLoud
 
 #define FOR_ALL_VOICES_PRE \
 	handle *h_ = NULL; \

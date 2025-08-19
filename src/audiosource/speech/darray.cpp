@@ -1,6 +1,6 @@
+#include "darray.h"
 #include <stdlib.h>
 #include <string.h>
-#include "darray.h"
 
 darray::darray()
 {
@@ -22,7 +22,7 @@ darray::~darray()
 	clear();
 }
 
-char * darray::getDataInPos(int aPosition)
+char *darray::getDataInPos(int aPosition)
 {
 	if (aPosition < mAllocated && aPosition < mUsed)
 		return mData + aPosition;
@@ -37,7 +37,7 @@ char * darray::getDataInPos(int aPosition)
 			mAllocChunk *= 2;
 		}
 
-		char *newdata = (char*)realloc(mData, newsize);
+		char *newdata = (char *)realloc(mData, newsize);
 		if (!newdata)
 		{
 			free(mData);
@@ -51,7 +51,7 @@ char * darray::getDataInPos(int aPosition)
 		}
 
 		mData = newdata;
-		mAllocated = newsize;			
+		mAllocated = newsize;
 	}
 
 	if (aPosition >= mUsed)

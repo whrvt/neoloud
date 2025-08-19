@@ -8,6 +8,7 @@ protected:
 	int mUsed;
 	int mAllocated;
 	int mAllocChunk;
+
 public:
 	darray();
 	~darray();
@@ -15,8 +16,7 @@ public:
 	char *getDataInPos(int aPosition);
 	void put(int aData);
 	int getSize() const { return mUsed; }
-	char *getData() { return mData; } 
+	char *getData() { return mData; }
 };
 
 #endif
-
