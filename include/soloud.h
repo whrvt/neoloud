@@ -413,45 +413,6 @@ public:
 	void set3dSourceDopplerFactor(handle aVoiceHandle, float aDopplerFactor);
 
 public:
-	// Implementation details exposed for backends.
-
-	// Returns mixed float samples in buffer. Called by the back-end, or user with null driver.
-	void mix(void *aBuffer, unsigned int aSamples, detail::SAMPLE_FORMAT aFormat = detail::SAMPLE_FLOAT32);
-
-	// Handle rest of initialization (called from backend)
-	void postinit_internal(unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aFlags, unsigned int aChannels);
-
-	// Lock audio thread mutex.
-	void lockAudioMutex_internal();
-	// Unlock audio thread mutex.
-	void unlockAudioMutex_internal();
-	// Current backend ID
-	unsigned int mBackendID;
-	// Current backend string
-	const char *mBackendString;
-	// Back-end data; content is up to the back-end implementation.
-	void *mBackendData;
-	// Pointer for the audio thread mutex.
-	void *mAudioThreadMutex;
-	// Flag for when we're inside the mutex, used for debugging.
-	bool mInsideAudioThreadMutex;
-	// Called by SoLoud to shut down the back-end. If NULL, not called. Should be set by back-end.
-	soloudCallFunction mBackendCleanupFunc;
-
-	// Some backends like CoreAudio on iOS must be paused/resumed in some cases. On incoming call as instance.
-	soloudResultFunction mBackendPauseFunc;
-	soloudResultFunction mBackendResumeFunc;
-
-	// Device management function pointers (set by backend during initialization)
-	enumerateDevicesFunc mEnumerateDevicesFunc;
-	getCurrentDeviceFunc mGetCurrentDeviceFunc;
-	setDeviceFunc mSetDeviceFunc;
-
-	// Internal device list storage
-	DeviceInfo *mDeviceList;
-	unsigned int mDeviceCount;
-
-public:
 	// Rest of the stuff is used internally.
 
 	/**
@@ -590,6 +551,46 @@ public:
 	unsigned int mActiveVoiceCount;
 	// Active voices list needs to be recalculated
 	bool mActiveVoiceDirty;
+
+public:
+	// Implementation details exposed for output backends.
+
+	// Handle rest of initialization (called from backend)
+	void postinit_internal(unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aFlags, unsigned int aChannels);
+
+	// Returns mixed float samples in buffer. Called by the back-end, or user with null driver.
+	void mix(void *aBuffer, unsigned int aSamples, detail::SAMPLE_FORMAT aFormat = detail::SAMPLE_FLOAT32);
+
+	// Lock audio thread mutex.
+	void lockAudioMutex_internal();
+	// Unlock audio thread mutex.
+	void unlockAudioMutex_internal();
+
+	// Current backend ID
+	unsigned int mBackendID;
+	// Current backend string
+	const char *mBackendString;
+	// Back-end data; content is up to the back-end implementation.
+	void *mBackendData;
+	// Pointer for the audio thread mutex.
+	void *mAudioThreadMutex;
+	// Flag for when we're inside the mutex, used for debugging.
+	bool mInsideAudioThreadMutex;
+	// Called by SoLoud to shut down the back-end. If NULL, not called. Should be set by back-end.
+	soloudCallFunction mBackendCleanupFunc;
+
+	// Some backends like CoreAudio on iOS must be paused/resumed in some cases. On incoming call as instance.
+	soloudResultFunction mBackendPauseFunc;
+	soloudResultFunction mBackendResumeFunc;
+
+	// Device management function pointers (set by backend during initialization)
+	enumerateDevicesFunc mEnumerateDevicesFunc;
+	getCurrentDeviceFunc mGetCurrentDeviceFunc;
+	setDeviceFunc mSetDeviceFunc;
+
+	// Internal device list storage
+	DeviceInfo *mDeviceList;
+	unsigned int mDeviceCount;
 };
 }; // namespace SoLoud
 
