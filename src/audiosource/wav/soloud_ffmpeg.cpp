@@ -73,7 +73,7 @@ struct FFmpegDecoder
 	unsigned int frameBufferValidSamples;
 
 	// pts-based position tracking
-	int64_t lastFramePts;
+	long long lastFramePts;
 	bool validPts;
 	unsigned long long bufferedFramePosition;
 	bool bufferedFramePositionValid;
@@ -537,7 +537,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 
 	AVStream *stream = decoder->formatContext->streams[decoder->audioStreamIndex];
 	unsigned long long adjustedFrameIndex = frameIndex + decoder->encoderDelaySamples;
-	int64_t targetTimestamp = av_rescale_q(adjustedFrameIndex, {1, (int)decoder->sampleRate}, stream->time_base);
+	long long targetTimestamp = av_rescale_q(adjustedFrameIndex, {1, (int)decoder->sampleRate}, stream->time_base);
 
 #ifdef _DEBUG
 	printf("ffmpeg: seeking from frame=%llu (%.3fs) to frame %llu (%.3fs), adjusted=%llu, timestamp=%lld\n", currentPos, (double)currentPos / decoder->sampleRate,
@@ -560,7 +560,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 	// flush resampler buffers
 	if (decoder->swrContext)
 	{
-		int64_t delay = swr_get_delay(decoder->swrContext, decoder->sampleRate);
+		long long delay = swr_get_delay(decoder->swrContext, decoder->sampleRate);
 		if (delay > 0)
 		{
 #ifdef _DEBUG

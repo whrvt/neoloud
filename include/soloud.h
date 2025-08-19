@@ -65,28 +65,6 @@ typedef result (*setDeviceFunc)(Soloud *aSoloud, const char *deviceIdentifier);
 class Soloud
 {
 public:
-	// Back-end data; content is up to the back-end implementation.
-	void *mBackendData;
-	// Pointer for the audio thread mutex.
-	void *mAudioThreadMutex;
-	// Flag for when we're inside the mutex, used for debugging.
-	bool mInsideAudioThreadMutex;
-	// Called by SoLoud to shut down the back-end. If NULL, not called. Should be set by back-end.
-	soloudCallFunction mBackendCleanupFunc;
-
-	// Some backends like CoreAudio on iOS must be paused/resumed in some cases. On incoming call as instance.
-	soloudResultFunction mBackendPauseFunc;
-	soloudResultFunction mBackendResumeFunc;
-
-	// Device management function pointers (set by backend during initialization)
-	enumerateDevicesFunc mEnumerateDevicesFunc;
-	getCurrentDeviceFunc mGetCurrentDeviceFunc;
-	setDeviceFunc mSetDeviceFunc;
-
-	// Internal device list storage
-	DeviceInfo *mDeviceList;
-	unsigned int mDeviceCount;
-
 	// CTor
 	Soloud();
 	// DTor
@@ -434,6 +412,46 @@ public:
 	// Set 3d audio source doppler factor to reduce or enhance doppler effect. Default = 1.0
 	void set3dSourceDopplerFactor(handle aVoiceHandle, float aDopplerFactor);
 
+public:
+	// Implementation details exposed for backends.
+
+	// Returns mixed float samples in buffer. Called by the back-end, or user with null driver.
+	void mix(void *aBuffer, unsigned int aSamples, detail::SAMPLE_FORMAT aFormat = detail::SAMPLE_FLOAT32);
+
+	// Handle rest of initialization (called from backend)
+	void postinit_internal(unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aFlags, unsigned int aChannels);
+
+	// Lock audio thread mutex.
+	void lockAudioMutex_internal();
+	// Unlock audio thread mutex.
+	void unlockAudioMutex_internal();
+	// Current backend ID
+	unsigned int mBackendID;
+	// Current backend string
+	const char *mBackendString;
+	// Back-end data; content is up to the back-end implementation.
+	void *mBackendData;
+	// Pointer for the audio thread mutex.
+	void *mAudioThreadMutex;
+	// Flag for when we're inside the mutex, used for debugging.
+	bool mInsideAudioThreadMutex;
+	// Called by SoLoud to shut down the back-end. If NULL, not called. Should be set by back-end.
+	soloudCallFunction mBackendCleanupFunc;
+
+	// Some backends like CoreAudio on iOS must be paused/resumed in some cases. On incoming call as instance.
+	soloudResultFunction mBackendPauseFunc;
+	soloudResultFunction mBackendResumeFunc;
+
+	// Device management function pointers (set by backend during initialization)
+	enumerateDevicesFunc mEnumerateDevicesFunc;
+	getCurrentDeviceFunc mGetCurrentDeviceFunc;
+	setDeviceFunc mSetDeviceFunc;
+
+	// Internal device list storage
+	DeviceInfo *mDeviceList;
+	unsigned int mDeviceCount;
+
+public:
 	// Rest of the stuff is used internally.
 
 	/**
@@ -456,20 +474,15 @@ public:
 	 */
 	void clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const;
 
-	// Returns mixed float samples in buffer. Called by the back-end, or user with null driver.
-	void mix(void *aBuffer, unsigned int aSamples, detail::SAMPLE_FORMAT aFormat = detail::SAMPLE_FLOAT32);
-
-public:
 	// Mix N samples * M channels. Called by other mix_ functions.
 	void mix_internal(unsigned int aSamples, unsigned int aStride);
 
-	// Handle rest of initialization (called from backend)
-	void postinit_internal(unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aFlags, unsigned int aChannels);
-
 	// Update list of active voices
 	void calcActiveVoices_internal();
-	unsigned int resampleVoicePrecise_internal(AudioSourceInstance *voice, float *outputBuffer, unsigned int outputSamples, unsigned int outputStride,
-	                                           double outputSampleRate, unsigned int resampler, float *scratchBuffer, unsigned int scratchSize);
+	// Other internal mixing helpers
+	static unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int samplesNeeded, float *scratchBuffer, unsigned int scratchSize);
+	static unsigned int resampleVoicePrecise_internal(AudioSourceInstance *voice, float *outputBuffer, unsigned int outputSamples, unsigned int outputStride,
+	                                                  double outputSampleRate, unsigned int resampler, float *scratchBuffer, unsigned int scratchSize);
 	// Perform mixing for a specific bus
 	void mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize, float *aScratch, unsigned int aBus, float aSamplerate,
 	                     unsigned int aChannels, unsigned int aResampler);
@@ -500,11 +513,6 @@ public:
 	// Get pointer to the zero-terminated array of voice handles in a voice group
 	handle *voiceGroupHandleToArray_internal(handle aVoiceGroupHandle) const;
 
-	// Lock audio thread mutex.
-	void lockAudioMutex_internal();
-	// Unlock audio thread mutex.
-	void unlockAudioMutex_internal();
-
 	// Max. number of active voices. Busses and tickable inaudibles also count against this.
 	unsigned int mMaxActiveVoices;
 	// Highest voice in use so far
@@ -523,10 +531,6 @@ public:
 	unsigned int mSamplerate;
 	// Output channel count
 	unsigned int mChannels;
-	// Current backend ID
-	unsigned int mBackendID;
-	// Current backend string
-	const char *mBackendString;
 	// Maximum size of output buffer; used to calculate needed scratch.
 	unsigned int mBufferSize;
 	// Flags; see Soloud::FLAGS

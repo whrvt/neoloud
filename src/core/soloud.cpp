@@ -465,7 +465,7 @@ constexpr float CATMULLROM_CUBIC_COEFFS[4] = {-1.0f, 3.0f, -3.0f, 1.0f}; // p0, 
 } // namespace ResamplingConstants
 
 // Helper function to ensure we have enough source data in the resample buffer
-unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int samplesNeeded, float *scratchBuffer, unsigned int scratchSize)
+unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsigned int samplesNeeded, float *scratchBuffer, unsigned int scratchSize)
 {
 	// Calculate how many samples we currently have available
 	unsigned int availableSamples = voice->mResampleBufferFill - voice->mResampleBufferPos;

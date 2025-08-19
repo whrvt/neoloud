@@ -1,9 +1,10 @@
-#include "tts.h"
-#include "darray.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "darray.h"
+#include "tts.h"
 
 static const char *ASCII[] = {"null",
                               "",

@@ -34,9 +34,10 @@ distribution.
  *
  **********************************************************************************/
 
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstring>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
 
 #include "soloud.h"
 #include "soloud_bassboostfilter.h"
@@ -239,8 +240,13 @@ void writeHeader()
 	if (!lastknownfile || !lastknownwrite)
 		return;
 	int len = ftell(lastknownfile);
-	*flen = len - 8;
-	*dlen = len - 46;
+
+	int temp = len - 8;
+	memcpy(flen, &temp, sizeof(int));
+
+	temp = len - 46;
+	memcpy(dlen, &temp, sizeof(int));
+
 	fseek(lastknownfile, 0, SEEK_SET);
 	fwrite(buf, 1, 46, lastknownfile);
 }
@@ -1463,6 +1469,8 @@ void testSpeech()
 {
 	float scratch[2048];
 	float ref[2048];
+	memset(scratch, 0, sizeof(scratch));
+	memset(ref, 0, sizeof(ref));
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Speech speech;
@@ -1514,6 +1522,8 @@ void testSpeech()
 	for (i = 0; i < 100; i++)
 		soloud.mix(scratch, 1000);
 	soloud.mix(ref, 1000);
+	CHECK_BUF_DIFF(scratch, ref, 2000);
+	CHECKLASTKNOWN(ref, 1000);
 	CHECK(soloud.getActiveVoiceCount() != 0);
 	speech.stop();
 	CHECK(soloud.getActiveVoiceCount() == 0);
