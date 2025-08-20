@@ -22,9 +22,11 @@ freely, subject to the following restrictions:
    distribution.
 */
 
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 #include "dr_flac.h"
 #include "dr_mp3.h"
@@ -156,18 +158,19 @@ result Wav::loadogg(MemoryFile *aReader)
 	}
 
 	stb_vorbis_info info = stb_vorbis_get_info(vorbis);
-	unsigned int samples = stb_vorbis_stream_length_in_samples(vorbis);
+	unsigned int estimatedSamples = stb_vorbis_stream_length_in_samples(vorbis);
 
 	mChannels = (unsigned int)info.channels;
 	if (mChannels > MAX_CHANNELS)
 		mChannels = MAX_CHANNELS;
 
 	mBaseSamplerate = (float)info.sample_rate;
-	mSampleCount = samples;
-	mData = new float[(size_t)(mSampleCount * mChannels)];
-	memset(mData, 0, (size_t)(mSampleCount * mChannels) * sizeof(float));
 
-	samples = 0;
+	// collect data in interleaved format first, then reorganize to planar
+	// calling stb_vorbis_get_frame_float does not add up to stb_vorbis_stream_length_in_samples, in some edge cases
+	std::vector<float> interleavedData;
+	interleavedData.reserve(static_cast<size_t>(estimatedSamples) * mChannels);
+
 	while (1)
 	{
 		float **outputs;
@@ -177,13 +180,28 @@ result Wav::loadogg(MemoryFile *aReader)
 			break;
 		}
 
-		unsigned int ch;
-		for (ch = 0; ch < mChannels; ch++)
-			memcpy(mData + samples + mSampleCount * ch, outputs[ch], sizeof(float) * n);
-
-		samples += n;
+		for (int sample = 0; sample < n; sample++)
+		{
+			for (unsigned int ch = 0; ch < mChannels; ch++)
+			{
+				interleavedData.push_back(outputs[ch][sample]);
+			}
+		}
 	}
+
 	stb_vorbis_close(vorbis);
+
+	mSampleCount = interleavedData.size() / mChannels;
+	mData = new float[static_cast<size_t>(mSampleCount * mChannels)];
+
+	// convert back to planar
+	for (unsigned int sample = 0; sample < mSampleCount; sample++)
+	{
+		for (unsigned int ch = 0; ch < mChannels; ch++)
+		{
+			mData[sample + ch * mSampleCount] = interleavedData[sample * mChannels + ch];
+		}
+	}
 
 	return 0;
 }

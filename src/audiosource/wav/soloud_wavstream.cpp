@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 */
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -315,7 +316,7 @@ static int getOggData(float **aOggOutputs, float *aBuffer, int aSamples, int aPi
 	int i;
 	for (i = 0; i < aChannels; i++)
 	{
-		memcpy(aBuffer + aPitch * i, aOggOutputs[i] + aFrameOffset, sizeof(float) * samples);
+		memcpy(aBuffer + static_cast<ptrdiff_t>(aPitch * i), aOggOutputs[i] + aFrameOffset, sizeof(float) * samples);
 	}
 	return samples;
 }

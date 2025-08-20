@@ -124,17 +124,17 @@ void soloud_sdl3_stream_callback(void *pUserData, SDL_AudioStream *stream, int a
 	auto *soloud = data->soloudInstance;
 	auto &currentBuf = data->mixBuffers[data->cb];
 
-	if (data->mixBufNumBusy[data->cb])
-		SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Mix buffer %u was in use by SDL before PutAudioStreamDataNoCopy!", data->cb);
-
-	// mark this buffer as in use
-	data->mixBufNumBusy[data->cb] = true;
-
 	// use additional_amount since that's what's actually needed right now
 	// total_amount might include data already queued in the stream
 	int bytesToProvide = (additional_amount > 0) ? additional_amount : total_amount;
 	if (bytesToProvide <= 0)
 		return;
+
+	if (data->mixBufNumBusy[data->cb])
+		SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Mix buffer %u was in use by SDL before PutAudioStreamDataNoCopy!", data->cb);
+
+	// mark this buffer as in use
+	data->mixBufNumBusy[data->cb] = true;
 
 	// calculate how many frames we need
 	int frameSize = SDL_AUDIO_FRAMESIZE(data->streamSpec);
