@@ -352,6 +352,7 @@ ma_device_config create_device_config(MiniaudioData *data, const ma_device_id *p
 	// backend-specific settings
 	config.wasapi.noAutoConvertSRC = true; // soloud handles resampling
 	config.wasapi.noDefaultQualitySRC = true;
+	config.wasapi.usage = ma_wasapi_usage_pro_audio; // sets higher priority through MMCSS
 	config.alsa.noAutoFormat = true;
 	config.alsa.noAutoChannels = true;
 	config.alsa.noAutoResample = true;
