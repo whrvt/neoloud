@@ -43,6 +43,7 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_version.h>
 
 #include <array>
 #include <atomic>
@@ -166,7 +167,11 @@ void soloud_sdl3_stream_callback(void *pUserData, SDL_AudioStream *stream, int a
 	}
 
 	// provide data to the stream
-	SDL_PutAudioStreamDataNoCopy(stream, currentBuf.data(), bytesToProvide, nocopy_complete_callback, &data->mixBufNumBusy[data->cb]);
+#if SDL_VERSION_ATLEAST(3, 3, 0)
+    SDL_PutAudioStreamDataNoCopy(stream, currentBuf.data(), bytesToProvide, nocopy_complete_callback, &data->mixBufNumBusy[data->cb]);
+#else
+    SDL_PutAudioStreamData(stream, currentBuf.data(), bytesToProvide);
+#endif
 
 	// switch buffers
 	data->cb++;
