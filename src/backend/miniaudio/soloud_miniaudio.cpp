@@ -84,6 +84,7 @@ struct MiniaudioData
 
 	// flags
 	std::atomic<bool> deviceValid{true};
+	std::atomic<bool> soloudInitialized{false}; // postinit_internal must be called before we use soloud->mix in the callback
 	bool logInitialized{false};
 	bool contextInitialized{false};
 	bool deviceInitialized{false};
@@ -206,7 +207,7 @@ void soloud_miniaudio_audiomixer(ma_device *pDevice, void *pOutput, const void *
 	auto *soloud = data->soloudInstance;
 
 	// check if device is valid
-	if (!data->deviceValid.load(std::memory_order_relaxed))
+	if (!(data->soloudInitialized.load(std::memory_order_acquire) && data->deviceValid.load(std::memory_order_relaxed)))
 	{
 		// output silence when device is invalid
 		if (pOutput)

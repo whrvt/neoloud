@@ -106,6 +106,7 @@ struct SDL3Data
 	Soloud *soloudInstance{nullptr};
 
 	std::atomic<bool> deviceValid{true};
+	std::atomic<bool> soloudInitialized{false}; // postinit_internal must be called before we use soloud->mix in the callback
 	bool weInitSDLAudio{false};
 	bool streamInitialized{false};
 	bool deviceInitialized{false};
@@ -167,7 +168,7 @@ void soloud_sdl3_stream_callback(void *pUserData, SDL_AudioStream *stream, int a
 	else if (data->streamSpec.format == SDL_AUDIO_U8)
 		outputFormat = SAMPLE_UNSIGNED8;
 
-	if (data->deviceValid.load(std::memory_order_relaxed))
+	if (data->soloudInitialized.load(std::memory_order_acquire) && data->deviceValid.load(std::memory_order_relaxed))
 	{
 		// mix audio directly into our buffer in the correct format
 		soloud->mix(currentBuf.data(), requestedFrames, outputFormat);
@@ -790,6 +791,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 		soloud_sdl3_deinit(aSoloud);
 		return UNKNOWN_ERROR;
 	}
+
+	data->soloudInitialized.store(true);
 
 	SDL_LogInfo(SDL_LOG_CATEGORY_AUDIO, "SDL3 audio backend initialized");
 
