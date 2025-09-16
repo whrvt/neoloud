@@ -43,6 +43,7 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_version.h>
 
 #include <array>
 #include <atomic>
@@ -88,6 +89,7 @@ struct SDL3Data
 	std::mutex deviceMutex;
 
 	// mix buffer to avoid allocation in audio callback
+#if SDL_VERSION_ATLEAST(3, 3, 0)
 	// switch between a few separate buffers so we can use SDL_PutAudioStreamNoCopy
 	// in practice, SDL only keeps up to 2 buffers alive at once,
 	// but using some extras to be safe (the documentation is unclear on if there is a hard limit or not)
@@ -96,6 +98,9 @@ struct SDL3Data
 	std::array<std::vector<uint8_t>, MAX_MIXBUFFERS> mixBuffers;
 	std::array<bool, MAX_MIXBUFFERS> mixBufNumBusy{}; // mostly for debugging, keep track of which buffer SDL doesn't need anymore
 	uint8_t cb{0};                                    // current mix buffer
+#else
+	std::vector<uint8_t> mixBuffer;
+#endif
 
 	// parent instance
 	Soloud *soloudInstance{nullptr};
@@ -109,6 +114,7 @@ struct SDL3Data
 namespace // static
 {
 
+#if SDL_VERSION_ATLEAST(3, 3, 0)
 void nocopy_complete_callback(void *userdata, const void * /*buf*/, int /*buflen*/)
 {
 	if (userdata)
@@ -117,12 +123,18 @@ void nocopy_complete_callback(void *userdata, const void * /*buf*/, int /*buflen
 		*busy = false;
 	}
 }
+#endif
 
 void soloud_sdl3_stream_callback(void *pUserData, SDL_AudioStream *stream, int additional_amount, int total_amount)
 {
 	auto *data = static_cast<SDL3Data *>(pUserData);
 	auto *soloud = data->soloudInstance;
+
+#if SDL_VERSION_ATLEAST(3, 3, 0)
 	auto &currentBuf = data->mixBuffers[data->cb];
+#else
+	auto &currentBuf = data->mixBuffer;
+#endif
 
 	// use additional_amount since that's what's actually needed right now
 	// total_amount might include data already queued in the stream
@@ -130,11 +142,13 @@ void soloud_sdl3_stream_callback(void *pUserData, SDL_AudioStream *stream, int a
 	if (bytesToProvide <= 0)
 		return;
 
+#if SDL_VERSION_ATLEAST(3, 3, 0)
 	if (data->mixBufNumBusy[data->cb])
 		SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Mix buffer %u was in use by SDL before PutAudioStreamDataNoCopy!", data->cb);
 
 	// mark this buffer as in use
 	data->mixBufNumBusy[data->cb] = true;
+#endif
 
 	// calculate how many frames we need
 	int frameSize = SDL_AUDIO_FRAMESIZE(data->streamSpec);
@@ -166,11 +180,15 @@ void soloud_sdl3_stream_callback(void *pUserData, SDL_AudioStream *stream, int a
 	}
 
 	// provide data to the stream
+#if SDL_VERSION_ATLEAST(3, 3, 0)
 	SDL_PutAudioStreamDataNoCopy(stream, currentBuf.data(), bytesToProvide, nocopy_complete_callback, &data->mixBufNumBusy[data->cb]);
 
 	// switch buffers
 	data->cb++;
 	data->cb = data->cb % data->MAX_MIXBUFFERS;
+#else
+	SDL_PutAudioStreamData(stream, currentBuf.data(), bytesToProvide);
+#endif
 }
 
 void soloud_sdl3_deinit(SoLoud::Soloud *aSoloud)
@@ -458,11 +476,16 @@ result setup_device_and_stream(SDL3Data *data, SDL_AudioDeviceID targetDeviceID,
 
 	// resize mix buffers if needed
 	size_t maxBufferBytes = static_cast<size_t>(actualDeviceFrames) * data->streamSpec.channels * SDL_AUDIO_BYTESIZE(data->streamSpec.format);
+#if SDL_VERSION_ATLEAST(3, 3, 0)
 	for (auto &buf : data->mixBuffers)
 	{
 		if (buf.size() < maxBufferBytes)
 			buf.resize(maxBufferBytes);
 	}
+#else
+	if (data->mixBuffer.size() < maxBufferBytes)
+		data->mixBuffer.resize(maxBufferBytes);
+#endif
 
 	// return actual configuration for caller
 	if (outDeviceSpec)
