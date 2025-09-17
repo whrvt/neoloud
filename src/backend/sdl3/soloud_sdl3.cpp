@@ -772,6 +772,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 	// initialize SoLoud with our configuration
 	aSoloud->postinit_internal(data->streamSpec.freq, actualDeviceFrames, aFlags, data->streamSpec.channels);
 
+	data->soloudInitialized.store(true);
+
 	// set up control functions
 	aSoloud->mBackendCleanupFunc = soloud_sdl3_deinit;
 	aSoloud->mBackendPauseFunc = soloud_sdl3_pause;
@@ -791,8 +793,6 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 		soloud_sdl3_deinit(aSoloud);
 		return UNKNOWN_ERROR;
 	}
-
-	data->soloudInitialized.store(true);
 
 	SDL_LogInfo(SDL_LOG_CATEGORY_AUDIO, "SDL3 audio backend initialized");
 

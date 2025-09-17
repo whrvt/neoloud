@@ -726,6 +726,7 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 	unsigned int actualChannels = data->device.playback.channels;
 
 	aSoloud->postinit_internal(actualSampleRate, actualBufferSize, aFlags, actualChannels);
+	data->soloudInitialized.store(true);
 
 	aSoloud->mBackendCleanupFunc = soloud_miniaudio_deinit;
 	aSoloud->mBackendPauseFunc = soloud_miniaudio_pause;
@@ -744,6 +745,7 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 	}
 
 	aSoloud->mBackendString = "MiniAudio";
+
 	return SO_NO_ERROR;
 }
 
