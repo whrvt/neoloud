@@ -66,7 +66,7 @@ unsigned int MonotoneInstance::getAudio(float *aBuffer, unsigned int aSamplesToR
 {
 	if (aBuffer == nullptr)
 		return 0;
-	int samplesPerTick = (int)floor(mSamplerate / 60);
+	int samplesPerTick = (int)std::floor(mSamplerate / 60);
 	unsigned int i;
 	for (i = 0; i < 12; i++)
 	{
@@ -297,20 +297,20 @@ Monotone::Monotone()
 	int maxnote = 3 + (8 * IBO) + 1;
 
 	mNotesHz[0] = 440;
-	mNotesHz[1 * IBN] = (int)floor(temphz + 0.5f);
+	mNotesHz[1 * IBN] = (int)std::floor(temphz + 0.5f);
 
 	for (i = (1 * IBN) - 1; i > 1; i--)
 	{
 		temphz = temphz / interval;
 		if (temphz < 19)
 			temphz = 19; // orig limitation, we could go lower though
-		mNotesHz[i] = (int)floor(temphz + 0.5f);
+		mNotesHz[i] = (int)std::floor(temphz + 0.5f);
 	}
 	temphz = 27.5f;
 	for (i = (1 * IBN) + 1; i < maxnote * IBN; i++)
 	{
 		temphz = temphz * interval;
-		mNotesHz[i] = (int)floor(temphz + 0.5f);
+		mNotesHz[i] = (int)std::floor(temphz + 0.5f);
 	}
 
 	for (i = 0; i < 32; i++)

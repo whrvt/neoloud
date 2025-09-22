@@ -52,7 +52,7 @@ void WaveShaperFilterInstance::filterChannel(float *aBuffer, unsigned int aSampl
 	for (i = 0; i < aSamples; i++)
 	{
 		float dry = aBuffer[i];
-		float wet = (1 + k) * aBuffer[i] / (1 + k * (float)fabs(aBuffer[i]));
+		float wet = (1 + k) * aBuffer[i] / (1 + k * (float)std::fabs(aBuffer[i]));
 		aBuffer[i] += (wet - dry) * mParam[WaveShaperFilter::WET];
 	}
 }

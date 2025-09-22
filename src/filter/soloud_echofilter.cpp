@@ -47,7 +47,7 @@ void EchoFilterInstance::filter(float *aBuffer, unsigned int aSamples, unsigned 
 	if (mBuffer == nullptr)
 	{
 		// We only know channels and sample rate at this point.. not really optimal
-		mBufferMaxLength = (int)ceil(mParam[EchoFilter::DELAY] * aSamplerate);
+		mBufferMaxLength = (int)std::ceil(mParam[EchoFilter::DELAY] * aSamplerate);
 		mBuffer = new float[mBufferMaxLength * aChannels];
 		unsigned int i;
 		for (i = 0; i < mBufferMaxLength * aChannels; i++)
@@ -56,7 +56,7 @@ void EchoFilterInstance::filter(float *aBuffer, unsigned int aSamples, unsigned 
 		}
 	}
 
-	mBufferLength = (int)ceil(mParam[EchoFilter::DELAY] * aSamplerate);
+	mBufferLength = (int)std::ceil(mParam[EchoFilter::DELAY] * aSamplerate);
 	if (mBufferLength > mBufferMaxLength)
 		mBufferLength = mBufferMaxLength;
 

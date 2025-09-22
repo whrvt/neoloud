@@ -408,7 +408,7 @@ void testGetters()
 	v_in = 0.7447f;
 	soloud.setFilterParameter(h, 0, 0, v_in);
 	v_out = soloud.getFilterParameter(h, 0, 0);
-	CHECK(fabs(v_in - v_out) < 0.00001);
+	CHECK(std::fabs(v_in - v_out) < 0.00001);
 
 	CHECK(soloud.getStreamTime(h) < 0.00001);
 	soloud.mix(scratch, 1000);
@@ -421,27 +421,27 @@ void testGetters()
 	float oldvol = soloud.getOverallVolume(h);
 	soloud.setVolume(h, v_in);
 	v_out = soloud.getVolume(h);
-	CHECK(fabs(v_in - v_out) < 0.00001);
-	CHECK(fabs(oldvol - v_out) > 0.00001);
+	CHECK(std::fabs(v_in - v_out) < 0.00001);
+	CHECK(std::fabs(oldvol - v_out) > 0.00001);
 
 	soloud.setPan(h, v_in);
-	CHECK(fabs(v_in - soloud.getPan(h)) < 0.00001);
+	CHECK(std::fabs(v_in - soloud.getPan(h)) < 0.00001);
 
 	soloud.setSamplerate(h, v_in);
-	CHECK(fabs(v_in - soloud.getSamplerate(h)) < 0.00001);
+	CHECK(std::fabs(v_in - soloud.getSamplerate(h)) < 0.00001);
 
 	CHECK(soloud.getProtectVoice(h) == 0);
 	soloud.setProtectVoice(h, true);
 	CHECK(soloud.getProtectVoice(h) != 0);
 
 	soloud.setRelativePlaySpeed(h, v_in);
-	CHECK(fabs(v_in - soloud.getRelativePlaySpeed(h)) < 0.00001);
+	CHECK(std::fabs(v_in - soloud.getRelativePlaySpeed(h)) < 0.00001);
 
 	soloud.setPostClipScaler(v_in);
-	CHECK(fabs(v_in - soloud.getPostClipScaler()) < 0.00001);
+	CHECK(std::fabs(v_in - soloud.getPostClipScaler()) < 0.00001);
 
 	soloud.setGlobalVolume(v_in);
-	CHECK(fabs(v_in - soloud.getGlobalVolume()) < 0.00001);
+	CHECK(std::fabs(v_in - soloud.getGlobalVolume()) < 0.00001);
 
 	CHECK(soloud.getLooping(h) == 0);
 	soloud.setLooping(h, true);

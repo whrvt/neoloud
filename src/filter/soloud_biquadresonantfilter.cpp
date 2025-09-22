@@ -38,8 +38,8 @@ void BiquadResonantFilterInstance::calcBQRParams()
 	mDirty = 0;
 
 	float omega = (float)((2.0f * M_PI * mParam[FREQUENCY]) / mSamplerate);
-	float sin_omega = (float)sin(omega);
-	float cos_omega = (float)cos(omega);
+	float sin_omega = (float)std::sin(omega);
+	float cos_omega = (float)std::cos(omega);
 	float alpha = sin_omega / (2.0f * mParam[RESONANCE]);
 	float scalar = 1.0f / (1.0f + alpha);
 

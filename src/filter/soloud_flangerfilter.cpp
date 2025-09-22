@@ -49,7 +49,7 @@ void FlangerFilterInstance::filter(float *aBuffer, unsigned int aSamples, unsign
 	if (mBufferLength < mParam[FlangerFilter::DELAY] * aSamplerate)
 	{
 		delete[] mBuffer;
-		mBufferLength = (int)ceil(mParam[FlangerFilter::DELAY] * aSamplerate);
+		mBufferLength = (int)std::ceil(mParam[FlangerFilter::DELAY] * aSamplerate);
 		mBuffer = new float[mBufferLength * aChannels];
 		if (mBuffer == nullptr)
 		{
@@ -60,7 +60,7 @@ void FlangerFilterInstance::filter(float *aBuffer, unsigned int aSamples, unsign
 	}
 
 	unsigned int i, j;
-	int maxsamples = (int)ceil(mParam[FlangerFilter::DELAY] * aSamplerate);
+	int maxsamples = (int)std::ceil(mParam[FlangerFilter::DELAY] * aSamplerate);
 	double inc = mParam[FlangerFilter::FREQ] * M_PI * 2 / aSamplerate;
 	for (i = 0; i < aChannels; i++)
 	{

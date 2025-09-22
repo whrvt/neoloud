@@ -45,7 +45,7 @@ void DCRemovalFilterInstance::filter(float *aBuffer, unsigned int aSamples, unsi
 
 	if (mBuffer == nullptr)
 	{
-		mBufferLength = (int)ceil(mParent->mLength * aSamplerate);
+		mBufferLength = (int)std::ceil(mParent->mLength * aSamplerate);
 		mBuffer = new float[mBufferLength * aChannels];
 		mTotals = new float[aChannels];
 		unsigned int i;

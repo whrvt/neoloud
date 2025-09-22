@@ -40,6 +40,8 @@ freely, subject to the following restrictions:
 #include "soloud_fft.h"
 #include <string.h>
 
+#include <cmath>
+
 namespace SoLoud
 {
 
@@ -161,8 +163,8 @@ void FFTFilterInstance::comp2MagPhase(float *aFFTBuffer, unsigned int aSamples)
 	{
 		float re = aFFTBuffer[i * 2];
 		float im = aFFTBuffer[i * 2 + 1];
-		aFFTBuffer[i * 2] = (float)sqrt(re * re + im * im) * 2;
-		aFFTBuffer[i * 2 + 1] = (float)atan2(im, re);
+		aFFTBuffer[i * 2] = (float)std::sqrt(re * re + im * im) * 2;
+		aFFTBuffer[i * 2 + 1] = (float)std::atan2(im, re);
 	}
 }
 
@@ -238,8 +240,8 @@ void FFTFilterInstance::magPhase2Comp(float *aFFTBuffer, unsigned int aSamples)
 	{
 		float mag = aFFTBuffer[i * 2];
 		float pha = aFFTBuffer[i * 2 + 1];
-		aFFTBuffer[i * 2] = (float)cos(pha) * mag;
-		aFFTBuffer[i * 2 + 1] = (float)sin(pha) * mag;
+		aFFTBuffer[i * 2] = (float)std::cos(pha) * mag;
+		aFFTBuffer[i * 2 + 1] = (float)std::sin(pha) * mag;
 	}
 }
 

@@ -56,7 +56,7 @@ void EqFilterInstance::fftFilterChannel(float *aFFTBuffer, unsigned int aSamples
 	unsigned int p;
 	for (p = 0; p < aSamples / 2; p++)
 	{
-		int i = (int)floor(sqrt(p / (float)(aSamples / 2)) * (aSamples / 2));
+		int i = (int)floor(std::sqrt(p / (float)(aSamples / 2)) * (aSamples / 2));
 		int p2 = (i / (aSamples / 16));
 		int p1 = p2 - 1;
 		int p0 = p1 - 1;

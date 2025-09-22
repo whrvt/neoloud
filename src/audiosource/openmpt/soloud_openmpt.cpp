@@ -24,6 +24,7 @@ freely, subject to the following restrictions:
 
 #include "soloud_openmpt.h"
 #include "soloud_file.h"
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
@@ -57,7 +58,7 @@ unsigned int OpenmptInstance::getAudio(float *aBuffer, unsigned int aSamplesToRe
 		int samples = SAMPLE_GRANULARITY;
 		if (s < samples)
 			samples = s;
-		int res = openmpt_module_read_float_stereo(mModfile, (int)floor(mSamplerate), samples, aBuffer + outofs, aBuffer + outofs + aBufferSize);
+		int res = openmpt_module_read_float_stereo(mModfile, (int)std::floor(mSamplerate), samples, aBuffer + outofs, aBuffer + outofs + aBufferSize);
 		if (res == 0)
 		{
 			mPlaying = 0;

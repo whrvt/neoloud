@@ -375,7 +375,7 @@ float VizsnInstance::genwave()
 
 	s = mBank0.frica * noise;
 
-	voice = vcsrc((int)floor(mBank0.pitch), mCurrentVoiceType);
+	voice = vcsrc((int)std::floor(mBank0.pitch), mCurrentVoiceType);
 	voice = mBank0.r[RLP].resonate(voice);
 
 	if (mNper < mNopen)
@@ -401,7 +401,7 @@ float VizsnInstance::genwave()
 
 	/*********/
 
-	ob = (int)floor(o * 400 * 256 + (mEchobuf[mPtr] / 4));
+	ob = (int)std::floor(o * 400 * 256 + (mEchobuf[mPtr] / 4));
 	mEchobuf[mPtr] = ob;
 	mPtr = (mPtr + 1) & 1023;
 

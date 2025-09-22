@@ -26,6 +26,8 @@ freely, subject to the following restrictions:
 
 #include "soloud_fft.h"
 
+#include <cmath>
+
 namespace fftimpl
 {
 // Based on http://www.kurims.kyoto-u.ac.jp/~ooura/fft.html
@@ -1010,8 +1012,8 @@ void cftb1st(int n, float *a)
 	wd3r = 1;
 	wd3i = 0;
 	ew = M_PI_2 / m;
-	w1r = (float)cos(2 * ew);
-	w1i = (float)sin(2 * ew);
+	w1r = (float)std::cos(2 * ew);
+	w1i = (float)std::sin(2 * ew);
 	wk1r = w1r;
 	wk1i = w1i;
 	ss1 = 2 * w1i;
@@ -1129,8 +1131,8 @@ void cftb1st(int n, float *a)
 		{
 			break;
 		}
-		wd1r = (float)cos(ew * i0);
-		wd1i = (float)sin(ew * i0);
+		wd1r = (float)std::cos(ew * i0);
+		wd1i = (float)std::sin(ew * i0);
 		wd3i = 4 * wd1i * wd1r;
 		wd3r = wd1r - wd3i * wd1i;
 		wd3i = wd1i - wd3i * wd1r;
@@ -1240,8 +1242,8 @@ void cftmdl1(int n, float *a)
 	wd3r = 1;
 	wd3i = 0;
 	ew = M_PI_2 / m;
-	w1r = (float)cos(2 * ew);
-	w1i = (float)sin(2 * ew);
+	w1r = (float)std::cos(2 * ew);
+	w1i = (float)std::sin(2 * ew);
 	wk1r = w1r;
 	wk1i = w1i;
 	ss1 = 2 * w1i;
@@ -1359,8 +1361,8 @@ void cftmdl1(int n, float *a)
 		{
 			break;
 		}
-		wd1r = (float)cos(ew * i0);
-		wd1i = (float)sin(ew * i0);
+		wd1r = (float)std::cos(ew * i0);
+		wd1i = (float)std::sin(ew * i0);
 		wd3i = 4 * wd1i * wd1r;
 		wd3r = wd1r - wd3i * wd1i;
 		wd3i = wd1i - wd3i * wd1r;
@@ -1479,8 +1481,8 @@ void cftmdl2(int n, float *a)
 	we3r = -wn4r;
 	we3i = -wn4r;
 	ew = M_PI_2 / (2 * m);
-	w1r = (float)cos(2 * ew);
-	w1i = (float)sin(2 * ew);
+	w1r = (float)std::cos(2 * ew);
+	w1i = (float)std::sin(2 * ew);
 	wk1r = w1r;
 	wk1i = w1i;
 	wd1r = wn4r * (w1r - w1i);
@@ -1626,8 +1628,8 @@ void cftmdl2(int n, float *a)
 		{
 			break;
 		}
-		wl1r = (float)cos(ew * i0);
-		wl1i = (float)sin(ew * i0);
+		wl1r = (float)std::cos(ew * i0);
+		wl1i = (float)std::sin(ew * i0);
 		wl3i = 4 * wl1i * wl1r;
 		wl3r = wl1r - wl3i * wl1i;
 		wl3i = wl1i - wl3i * wl1r;

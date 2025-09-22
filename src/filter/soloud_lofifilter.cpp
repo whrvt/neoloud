@@ -53,7 +53,7 @@ void LofiFilterInstance::filterChannel(float *aBuffer, unsigned int aSamples, fl
 		{
 			mChannelData[aChannel].mSamplesToSkip += (aSamplerate / mParam[SAMPLERATE]) - 1;
 			float q = (float)pow(2, mParam[BITDEPTH]);
-			mChannelData[aChannel].mSample = (float)floor(q * aBuffer[i]) / q;
+			mChannelData[aChannel].mSample = (float)std::floor(q * aBuffer[i]) / q;
 		}
 		else
 		{

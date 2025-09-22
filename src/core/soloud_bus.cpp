@@ -23,6 +23,8 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud_bus.h"
+
+#include <cmath>
 #include "soloud_audiosource.h"
 #include "soloud_fft.h"
 #include "soloud_internal.h"
@@ -74,7 +76,7 @@ unsigned int BusInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, 
 				for (j = 0; j < (signed)mChannels; j++)
 				{
 					float sample = aBuffer[i + aBufferSize * j];
-					float absvol = (float)fabs(sample);
+					float absvol = (float)std::fabs(sample);
 					if (absvol > mVisualizationChannelVolume[j])
 						mVisualizationChannelVolume[j] = absvol;
 					mVisualizationWaveData[i] += sample;
@@ -91,7 +93,7 @@ unsigned int BusInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, 
 				for (j = 0; j < (signed)mChannels; j++)
 				{
 					float sample = aBuffer[(i % aSamplesToRead) + aBufferSize * j];
-					float absvol = (float)fabs(sample);
+					float absvol = (float)std::fabs(sample);
 					if (absvol > mVisualizationChannelVolume[j])
 						mVisualizationChannelVolume[j] = absvol;
 					mVisualizationWaveData[i] += sample;
@@ -298,7 +300,7 @@ float *Bus::calcFFT()
 		{
 			float real = temp[i * 2];
 			float imag = temp[i * 2 + 1];
-			mFFTData[i] = (float)sqrt(real * real + imag * imag);
+			mFFTData[i] = (float)std::sqrt(real * real + imag * imag);
 		}
 	}
 

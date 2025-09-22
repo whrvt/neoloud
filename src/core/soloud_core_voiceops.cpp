@@ -25,6 +25,7 @@ freely, subject to the following restrictions:
 #include "soloud.h"
 #include "soloud_audiosource.h"
 
+#include <cmath>
 #include <cstring>
 
 // Direct voice operations (no mutexes - called from other functions)
@@ -90,14 +91,14 @@ void Soloud::setVoicePan_internal(unsigned int aVoice, float aPan)
 		}
 		if (mVoice[aVoice]->mChannels == 6)
 		{
-			mVoice[aVoice]->mChannelVolume[2] = 1.0f / (float)sqrt(2.0f);
+			mVoice[aVoice]->mChannelVolume[2] = 1.0f / (float)std::sqrt(2.0f);
 			mVoice[aVoice]->mChannelVolume[3] = 1;
 			mVoice[aVoice]->mChannelVolume[4] = l;
 			mVoice[aVoice]->mChannelVolume[5] = r;
 		}
 		if (mVoice[aVoice]->mChannels == 8)
 		{
-			mVoice[aVoice]->mChannelVolume[2] = 1.0f / (float)sqrt(2.0f);
+			mVoice[aVoice]->mChannelVolume[2] = 1.0f / (float)std::sqrt(2.0f);
 			mVoice[aVoice]->mChannelVolume[3] = 1;
 			mVoice[aVoice]->mChannelVolume[4] = l;
 			mVoice[aVoice]->mChannelVolume[5] = r;

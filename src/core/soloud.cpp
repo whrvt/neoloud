@@ -1207,7 +1207,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 				for (j = 0; j < (signed)mChannels; j++)
 				{
 					float sample = mScratch.mData[i + j * aStride];
-					float absvol = (float)fabs(sample);
+					float absvol = (float)std::fabs(sample);
 					if (mVisualizationChannelVolume[j] < absvol)
 						mVisualizationChannelVolume[j] = absvol;
 					mVisualizationWaveData[i] += sample;
@@ -1224,7 +1224,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 				for (j = 0; j < (signed)mChannels; j++)
 				{
 					float sample = mScratch.mData[(i % aSamples) + j * aStride];
-					float absvol = (float)fabs(sample);
+					float absvol = (float)std::fabs(sample);
 					if (mVisualizationChannelVolume[j] < absvol)
 						mVisualizationChannelVolume[j] = absvol;
 					mVisualizationWaveData[i] += sample;

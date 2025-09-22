@@ -87,7 +87,7 @@ unsigned int SfxrInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead,
 		if (vib_amp > 0.0f)
 		{
 			vib_phase += vib_speed;
-			rfperiod = (float)(fperiod * (1.0 + sin(vib_phase) * vib_amp));
+			rfperiod = (float)(fperiod * (1.0 + std::sin(vib_phase) * vib_amp));
 		}
 		period = (int)rfperiod;
 		if (period < 8)
@@ -131,7 +131,7 @@ unsigned int SfxrInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead,
 		{
 			if (env_length[1])
 			{
-				env_vol = 1.0f + (float)pow(1.0f - (float)env_time / env_length[1], 1.0f) * 2.0f * mParams.p_env_punch;
+				env_vol = 1.0f + (float)std::pow(1.0f - (float)env_time / env_length[1], 1.0f) * 2.0f * mParams.p_env_punch;
 			}
 			else
 			{
@@ -272,7 +272,7 @@ void SfxrInstance::resetSample(bool aRestart)
 	else
 		arp_mod = 1.0 + pow((double)mParams.p_arp_mod, 2.0) * 10.0;
 	arp_time = 0;
-	arp_limit = (int)(pow(1.0f - mParams.p_arp_speed, 2.0f) * 20000 + 32);
+	arp_limit = (int)(std::pow(1.0f - mParams.p_arp_speed, 2.0f) * 20000 + 32);
 	if (mParams.p_arp_speed == 1.0f)
 		arp_limit = 0;
 	if (!aRestart)
@@ -280,17 +280,17 @@ void SfxrInstance::resetSample(bool aRestart)
 		// reset filter
 		fltp = 0.0f;
 		fltdp = 0.0f;
-		fltw = (float)pow(mParams.p_lpf_freq, 3.0f) * 0.1f;
+		fltw = (float)std::pow(mParams.p_lpf_freq, 3.0f) * 0.1f;
 		fltw_d = 1.0f + mParams.p_lpf_ramp * 0.0001f;
-		fltdmp = 5.0f / (1.0f + (float)pow(mParams.p_lpf_resonance, 2.0f) * 20.0f) * (0.01f + fltw);
+		fltdmp = 5.0f / (1.0f + (float)std::pow(mParams.p_lpf_resonance, 2.0f) * 20.0f) * (0.01f + fltw);
 		if (fltdmp > 0.8f)
 			fltdmp = 0.8f;
 		fltphp = 0.0f;
-		flthp = (float)pow(mParams.p_hpf_freq, 2.0f) * 0.1f;
+		flthp = (float)std::pow(mParams.p_hpf_freq, 2.0f) * 0.1f;
 		flthp_d = (float)(1.0 + mParams.p_hpf_ramp * 0.0003f);
 		// reset vibrato
 		vib_phase = 0.0f;
-		vib_speed = (float)pow(mParams.p_vib_speed, 2.0f) * 0.01f;
+		vib_speed = (float)std::pow(mParams.p_vib_speed, 2.0f) * 0.01f;
 		vib_amp = mParams.p_vib_strength * 0.5f;
 		// reset envelope
 		env_vol = 0.0f;
@@ -300,10 +300,10 @@ void SfxrInstance::resetSample(bool aRestart)
 		env_length[1] = (int)(mParams.p_env_sustain * mParams.p_env_sustain * 100000.0f);
 		env_length[2] = (int)(mParams.p_env_decay * mParams.p_env_decay * 100000.0f);
 
-		fphase = (float)pow(mParams.p_pha_offset, 2.0f) * 1020.0f;
+		fphase = (float)std::pow(mParams.p_pha_offset, 2.0f) * 1020.0f;
 		if (mParams.p_pha_offset < 0.0f)
 			fphase = -fphase;
-		fdphase = (float)pow(mParams.p_pha_ramp, 2.0f) * 1.0f;
+		fdphase = (float)std::pow(mParams.p_pha_ramp, 2.0f) * 1.0f;
 		if (mParams.p_pha_ramp < 0.0f)
 			fdphase = -fdphase;
 		iphase = abs((int)fphase);
@@ -315,7 +315,7 @@ void SfxrInstance::resetSample(bool aRestart)
 			noise_buffer[i] = frnd(2.0f) - 1.0f;
 
 		rep_time = 0;
-		rep_limit = (int)(pow(1.0f - mParams.p_repeat_speed, 2.0f) * 20000 + 32);
+		rep_limit = (int)(std::pow(1.0f - mParams.p_repeat_speed, 2.0f) * 20000 + 32);
 		if (mParams.p_repeat_speed == 0.0f)
 			rep_limit = 0;
 	}
