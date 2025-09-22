@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_AUDIOSOURCE3D_H
 #define SOLOUD_AUDIOSOURCE3D_H
 
+#include <array>
+
 #include "soloud_config.h"
 
 namespace SoLoud
@@ -41,12 +43,12 @@ public:
 	// Set settings from audiosource
 	void init(AudioSource &aSource);
 	// 3d position
-	float m3dPosition[3];
+	std::array<float, 3> m3dPosition;
 	// 3d velocity
-	float m3dVelocity[3];
+	std::array<float, 3> m3dVelocity;
 	// 3d cone direction
 	/*
-	float m3dConeDirection[3];
+	std::array<float, 3> m3dConeDirection;
 	// 3d cone inner angle
 	float m3dConeInnerAngle;
 	// 3d cone outer angle
@@ -76,7 +78,7 @@ public:
 	// Overall 3d volume
 	float m3dVolume;
 	// Channel volume
-	float mChannelVolume[MAX_CHANNELS];
+	std::array<float, MAX_CHANNELS> mChannelVolume;
 	// Copy of flags
 	unsigned int mFlags;
 	// Latest handle for this voice

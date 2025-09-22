@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_INTRIN_H
 #define SOLOUD_INTRIN_H
 
+#include <array>
+
 #include "soloud_config.h"
 
 #ifdef SOLOUD_AVX_INTRINSICS
@@ -90,7 +92,7 @@ class TinyAlignedFloatBuffer
 {
 public:
 	float *mData;                                                                              // SIMD-aligned pointer
-	unsigned char mActualData[sizeof(float) * TINY_BUFFER_FLOAT_COUNT + SIMD_ALIGNMENT_BYTES]; // Space for appropriate number of floats + alignment padding
+	std::array<unsigned char, sizeof(float) * TINY_BUFFER_FLOAT_COUNT + SIMD_ALIGNMENT_BYTES> mActualData; // Space for appropriate number of floats + alignment padding
 
 	// Constructor - automatically aligns mData to proper boundary
 	TinyAlignedFloatBuffer();

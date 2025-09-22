@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_AUDIOSOURCE_H
 #define SOLOUD_AUDIOSOURCE_H
 
+#include <array>
+
 #include "soloud_audiosource3d.h"
 #include "soloud_fader.h"
 #include "soloud_filter.h"
@@ -88,7 +90,7 @@ public:
 	// Pan value, for getPan()
 	float mPan;
 	// Volume for each channel (panning)
-	float mChannelVolume[MAX_CHANNELS];
+	std::array<float, MAX_CHANNELS> mChannelVolume;
 	// Set volume
 	float mSetVolume;
 	// Overall volume overall = set * 3d
@@ -120,13 +122,13 @@ public:
 	// Affected by some fader
 	int mActiveFader;
 	// Current channel volumes, used to ramp the volume changes to avoid clicks
-	float mCurrentChannelVolume[MAX_CHANNELS];
+	std::array<float, MAX_CHANNELS> mCurrentChannelVolume;
 	// ID of the sound source that generated this instance
 	unsigned int mAudioSourceID;
 	// Handle of the bus this audio instance is playing on. 0 for root.
 	unsigned int mBusHandle;
 	// Filter pointer
-	FilterInstance *mFilter[FILTERS_PER_STREAM];
+	std::array<FilterInstance *, FILTERS_PER_STREAM> mFilter;
 	// Initialize instance. Mostly internal use.
 	void init(AudioSource &aSource, int aPlayIndex);
 	// Number of samples to delay streaming
@@ -218,7 +220,7 @@ public:
 	// 3d doppler factor
 	float m3dDopplerFactor;
 	// Filter pointer
-	Filter *mFilter[FILTERS_PER_STREAM];
+	std::array<Filter *, FILTERS_PER_STREAM> mFilter;
 	// Pointer to the Soloud object. Needed to stop all instances in dtor.
 	Soloud *mSoloud;
 	// Pointer to a custom audio collider object

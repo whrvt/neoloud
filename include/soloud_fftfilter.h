@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_FFTFILTER_H
 #define SOLOUD_FFTFILTER_H
 
+#include <array>
+
 #include "soloud_filter.h"
 
 namespace SoLoud
@@ -38,9 +40,9 @@ class FFTFilterInstance : public FilterInstance
 	float *mMixBuffer;
 	float *mLastPhase;
 	float *mSumPhase;
-	unsigned int mInputOffset[MAX_CHANNELS];
-	unsigned int mMixOffset[MAX_CHANNELS];
-	unsigned int mReadOffset[MAX_CHANNELS];
+	std::array<unsigned int, MAX_CHANNELS> mInputOffset;
+	std::array<unsigned int, MAX_CHANNELS> mMixOffset;
+	std::array<unsigned int, MAX_CHANNELS> mReadOffset;
 	FFTFilter *mParent;
 
 public:

@@ -60,7 +60,7 @@ public:
 
 public:
 	Vic *m_parent;
-	unsigned int m_phase[4];
+	std::array<unsigned int, 4> m_phase;
 	unsigned int m_noisePos;
 };
 
@@ -99,9 +99,9 @@ public:
 public:
 	virtual AudioSourceInstance *createInstance();
 	int m_model;
-	float m_clocks[4]; // base clock frequencies for oscillators, dependent on VIC model
-	unsigned char m_regs[MAX_REGS];
-	unsigned char m_noise[8192];
+	std::array<float, 4> m_clocks; // base clock frequencies for oscillators, dependent on VIC model
+	std::array<unsigned char, MAX_REGS> m_regs;
+	std::array<unsigned char, 8192> m_noise;
 };
 }; // namespace SoLoud
 

@@ -40,7 +40,7 @@ class Prg
 public:
 	// random generator
 	Prg();
-	unsigned int mState[16];
+	std::array<unsigned int, 16> mState;
 	unsigned int mIndex;
 	unsigned int rand();
 	float rand_float();

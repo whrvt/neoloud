@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_THREAD_H
 #define SOLOUD_THREAD_H
 
+#include <array>
+
 namespace SoLoud
 {
 namespace Thread
@@ -72,7 +74,7 @@ public:
 	int mThreadCount;                           // number of threads
 	ThreadHandle *mThread;                      // array of thread handles
 	void *mWorkMutex;                           // mutex to protect task array/maxtask
-	PoolTask *mTaskArray[MAX_THREADPOOL_TASKS]; // pointers to tasks
+	std::array<PoolTask *, MAX_THREADPOOL_TASKS> mTaskArray; // pointers to tasks
 	int mMaxTask;                               // how many tasks are pending
 	int mRobin;                                 // cyclic counter, used to pick jobs for threads
 	volatile int mRunning;                      // running flag, used to flag threads to stop

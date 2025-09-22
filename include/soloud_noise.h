@@ -42,7 +42,7 @@ public:
 	virtual bool hasEnded();
 
 public:
-	float mOctaveScale[10];
+	std::array<float, 10> mOctaveScale;
 	Misc::Prg mPrg;
 };
 
@@ -66,7 +66,7 @@ public:
 
 public:
 	virtual AudioSourceInstance *createInstance();
-	float mOctaveScale[10];
+	std::array<float, 10> mOctaveScale;
 };
 }; // namespace SoLoud
 

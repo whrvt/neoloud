@@ -40,9 +40,9 @@ public:
 	AlignedFloatBuffer mScratch;
 
 	// Approximate volume for channels.
-	float mVisualizationChannelVolume[MAX_CHANNELS];
+	std::array<float, MAX_CHANNELS> mVisualizationChannelVolume;
 	// Mono-mixed wave data for visualization and for visualization FFT input
-	float mVisualizationWaveData[256];
+	std::array<float, 256> mVisualizationWaveData;
 
 	BusInstance(Bus *aParent);
 	virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
@@ -96,9 +96,9 @@ public:
 	unsigned int mChannelHandle;
 	unsigned int mResampler;
 	// FFT output data
-	float mFFTData[256];
+	std::array<float, 256> mFFTData;
 	// Snapshot of wave data for visualization
-	float mWaveData[256];
+	std::array<float, 256> mWaveData;
 	// Internal: find the bus' channel
 	void findBusHandle();
 };

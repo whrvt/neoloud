@@ -25,8 +25,9 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_H
 #define SOLOUD_H
 
-#include <math.h>   // sin
-#include <stdlib.h> // rand
+#include <array>
+#include <cmath>   // sin
+#include <cstdlib> // rand
 
 #include "soloud_config.h"
 
@@ -50,10 +51,10 @@ class AudioSourceInstance3dData;
 // Generic device information structure for cross-backend compatibility
 struct DeviceInfo
 {
-	char name[256];         // Human-readable device name
-	char identifier[128];   // Backend-specific device identifier
-	bool isDefault;         // Whether this is the default device
-	void *nativeDeviceInfo; // Backend-specific device info (optional)
+	std::array<char, 256> name;       // Human-readable device name
+	std::array<char, 128> identifier; // Backend-specific device identifier
+	bool isDefault;                   // Whether this is the default device
+	void *nativeDeviceInfo;           // Backend-specific device info (optional)
 };
 
 // Device management function pointer types
@@ -485,7 +486,7 @@ public:
 	// Output scratch buffer, used in mix_().
 	AlignedFloatBuffer mOutputScratch;
 	// Audio voices.
-	AudioSourceInstance *mVoice[VOICE_COUNT];
+	std::array<AudioSourceInstance *, VOICE_COUNT> mVoice;
 	// Resampler for the main bus
 	unsigned int mResampler;
 	// Output sample rate (not float)
@@ -511,42 +512,42 @@ public:
 	// Last time seen by the playClocked call
 	time mLastClockedTime;
 	// Global filter
-	Filter *mFilter[FILTERS_PER_STREAM];
+	std::array<Filter *, FILTERS_PER_STREAM> mFilter;
 	// Global filter instance
-	FilterInstance *mFilterInstance[FILTERS_PER_STREAM];
+	std::array<FilterInstance *, FILTERS_PER_STREAM> mFilterInstance;
 
 	// Approximate volume for channels.
-	float mVisualizationChannelVolume[MAX_CHANNELS];
+	std::array<float, MAX_CHANNELS> mVisualizationChannelVolume;
 	// Mono-mixed wave data for visualization and for visualization FFT input
-	float mVisualizationWaveData[256];
+	std::array<float, 256> mVisualizationWaveData;
 	// FFT output data
-	float mFFTData[256];
+	std::array<float, 256> mFFTData;
 	// Snapshot of wave data for visualization
-	float mWaveData[256];
+	std::array<float, 256> mWaveData;
 
 	// 3d listener position
-	float m3dPosition[3];
+	std::array<float, 3> m3dPosition;
 	// 3d listener look-at
-	float m3dAt[3];
+	std::array<float, 3> m3dAt;
 	// 3d listener up
-	float m3dUp[3];
+	std::array<float, 3> m3dUp;
 	// 3d listener velocity
-	float m3dVelocity[3];
+	std::array<float, 3> m3dVelocity;
 	// 3d speed of sound (for doppler)
 	float m3dSoundSpeed;
 
 	// 3d position of speakers
-	float m3dSpeakerPosition[3 * MAX_CHANNELS];
+	std::array<float, 3ULL * MAX_CHANNELS> m3dSpeakerPosition;
 
 	// Data related to 3d processing, separate from AudioSource so we can do 3d calculations without audio mutex.
-	AudioSourceInstance3dData m3dData[VOICE_COUNT];
+	std::array<AudioSourceInstance3dData, VOICE_COUNT> m3dData;
 
 	// For each voice group, first int is number of ints alocated.
 	unsigned int **mVoiceGroup;
 	unsigned int mVoiceGroupCount;
 
 	// List of currently active voices
-	unsigned int mActiveVoice[VOICE_COUNT];
+	std::array<unsigned int, VOICE_COUNT> mActiveVoice;
 	// Number of currently active voices
 	unsigned int mActiveVoiceCount;
 	// Active voices list needs to be recalculated

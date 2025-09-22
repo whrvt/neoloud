@@ -415,7 +415,7 @@ result Monotone::loadFile(File *aFile)
 	{
 		return FILE_LOAD_FAILED;
 	}
-	aFile->read(mSong.mOrder, 256);
+	aFile->read(mSong.mOrder.data(), 256);
 	int totalnotes = 64 * mSong.mTotalPatterns * mSong.mTotalTracks;
 	mSong.mPatternData = new unsigned int[totalnotes];
 	for (i = 0; i < totalnotes; i++)

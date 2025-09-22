@@ -11,6 +11,8 @@
 #ifndef ZX7DECOMPRESS_H
 #define ZX7DECOMPRESS_H
 
+#include <cstddef>
+
 #ifdef __cplusplus
 extern "C"
 {

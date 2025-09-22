@@ -40,7 +40,7 @@ struct MonotoneSong
 	unsigned char mTotalPatterns;
 	unsigned char mTotalTracks;
 	unsigned char mCellSize; // must be 2 for version 1
-	unsigned char mOrder[256];
+	std::array<unsigned char, 256> mOrder;
 	unsigned int *mPatternData; // 64 rows * mTotalPatterns * mTotalTracks
 };
 
@@ -48,7 +48,7 @@ struct MonotoneChannel
 {
 	int mEnabled;
 	int mActive;
-	int mFreq[3];
+	std::array<int, 3> mFreq;
 	int mPortamento;
 	int mArpCounter;
 	int mArp;
@@ -72,8 +72,8 @@ class MonotoneInstance : public AudioSourceInstance
 	Monotone *mParent;
 
 public:
-	MonotoneChannel mChannel[12];
-	MonotoneHardwareChannel mOutput[12];
+	std::array<MonotoneChannel, 12> mChannel;
+	std::array<MonotoneHardwareChannel, 12> mOutput;
 	int mNextChannel;
 	int mTempo; // ticks / row. Tick = 60hz. Default 4.
 	int mOrder;
@@ -89,8 +89,8 @@ public:
 class Monotone : public AudioSource
 {
 public:
-	int mNotesHz[800];
-	int mVibTable[32];
+	std::array<int, 800> mNotesHz;
+	std::array<int, 32> mVibTable;
 	int mHardwareChannels;
 	int mWaveform;
 	MonotoneSong mSong;

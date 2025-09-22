@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_LOFIFILTER_H
 #define SOLOUD_LOFIFILTER_H
 
+#include <array>
+
 #include "soloud_filter.h"
 
 namespace SoLoud
@@ -45,7 +47,7 @@ class LofiFilterInstance : public FilterInstance
 		SAMPLERATE,
 		BITDEPTH
 	};
-	LofiChannelData mChannelData[2];
+	std::array<LofiChannelData, 2> mChannelData;
 
 	LofiFilter *mParent;
 

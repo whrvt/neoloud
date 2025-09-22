@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_BQRFILTER_H
 #define SOLOUD_BQRFILTER_H
 
+#include <array>
+
 #include "soloud_filter.h"
 
 namespace SoLoud
@@ -46,7 +48,7 @@ class BiquadResonantFilterInstance : public FilterInstance
 		RESONANCE
 	};
 
-	BQRStateData mState[8];
+	std::array<BQRStateData, 8> mState;
 	float mA0, mA1, mA2, mB1, mB2;
 	int mDirty;
 	float mSamplerate;

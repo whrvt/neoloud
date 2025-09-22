@@ -48,11 +48,11 @@ result null_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROU
 
 #define FOR_ALL_VOICES_PRE \
 	handle *h_ = NULL; \
-	handle th_[2] = {aVoiceHandle, 0}; \
+	std::array<handle, 2> th_ = {aVoiceHandle, 0}; \
 	lockAudioMutex_internal(); \
 	h_ = voiceGroupHandleToArray_internal(aVoiceHandle); \
 	if (h_ == NULL) \
-		h_ = th_; \
+		h_ = th_.data(); \
 	while (*h_) \
 	{ \
 		int ch = getVoiceFromHandle_internal(*h_); \
@@ -67,10 +67,10 @@ result null_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROU
 
 #define FOR_ALL_VOICES_PRE_3D \
 	handle *h_ = NULL; \
-	handle th_[2] = {aVoiceHandle, 0}; \
+	std::array<handle, 2> th_ = {aVoiceHandle, 0}; \
 	h_ = voiceGroupHandleToArray_internal(aVoiceHandle); \
 	if (h_ == NULL) \
-		h_ = th_; \
+		h_ = th_.data(); \
 	while (*h_) \
 	{ \
 		int ch = (*h_ & 0xfff) - 1; \
@@ -84,11 +84,11 @@ result null_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROU
 
 #define FOR_ALL_VOICES_PRE_EXT \
 	handle *h_ = NULL; \
-	handle th_[2] = {aVoiceHandle, 0}; \
+	std::array<handle, 2> th_ = {aVoiceHandle, 0}; \
 	mSoloud->lockAudioMutex_internal(); \
 	h_ = mSoloud->voiceGroupHandleToArray_internal(aVoiceHandle); \
 	if (h_ == NULL) \
-		h_ = th_; \
+		h_ = th_.data(); \
 	while (*h_) \
 	{ \
 		int ch = mSoloud->getVoiceFromHandle_internal(*h_); \
@@ -103,10 +103,10 @@ result null_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROU
 
 #define FOR_ALL_VOICES_PRE_3D_EXT \
 	handle *h_ = NULL; \
-	handle th_[2] = {aVoiceHandle, 0}; \
+	std::array<handle, 2> th_ = {aVoiceHandle, 0}; \
 	h_ = mSoloud->voiceGroupHandleToArray(aVoiceHandle); \
 	if (h_ == NULL) \
-		h_ = th_; \
+		h_ = th_.data(); \
 	while (*h_) \
 	{ \
 		int ch = (*h_ & 0xfff) - 1; \

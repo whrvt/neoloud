@@ -220,7 +220,7 @@ VizsnInstance::VizsnInstance(Vizsn *aParent)
 	mParent = aParent;
 	mPtr = 0;
 	mCurrentVoiceType = 6;
-	memset(mEchobuf, 0, 1024 * sizeof(int));
+	mEchobuf = {};
 	mPitch = 800;
 	mS = mParent->mText;
 	mBufwrite = 0;
@@ -232,7 +232,7 @@ VizsnInstance::VizsnInstance(Vizsn *aParent)
 	mNper = 0;
 	mNmod = 0;
 	mNopen = 0;
-	memset(mBuf, 0, sizeof(float) * 2048);
+	mBuf = {};
 }
 
 VizsnInstance::~VizsnInstance() {}
@@ -435,7 +435,7 @@ void VizsnInstance::setphone(VizsnBank *aB, char aP, float /*aPitch*/)
 		if (aP < 8)
 		{
 			/* vokaali */
-			VizsnResonator *r = aB->r;
+			VizsnResonator *r = aB->r.data();
 			const float *s = vowtab[aP][0];
 
 			r[R1P].c = -0.95f;

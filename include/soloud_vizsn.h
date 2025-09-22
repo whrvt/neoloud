@@ -31,7 +31,7 @@ public:
 
 struct VizsnBank
 {
-	VizsnResonator r[10];
+	std::array<VizsnResonator, 10> r;
 	float pitch;
 	float frica, voice, aspir, bypas, breth;
 	VizsnBank();
@@ -49,12 +49,12 @@ public:
 public:
 	Vizsn *mParent;
 	VizsnBank mBank0, mBank1, mBank0to1;
-	int mNper, mNmod, mNopen;
-	int mEchobuf[1024], mPtr;
+	int mNper, mNmod, mNopen, mPtr;
+	std::array<int, 1024> mEchobuf;
 	int mCurrentVoiceType;
 	float mPitch;
 	char *mS;
-	float mBuf[2048];
+	std::array<float, 2048> mBuf;
 	unsigned int mBufwrite;
 	unsigned int mBufread;
 	float vcsrc(int aPitch, int aVoicetype);

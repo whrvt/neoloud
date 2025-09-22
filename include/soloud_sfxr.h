@@ -93,14 +93,14 @@ class SfxrInstance : public AudioSourceInstance
 	float square_slide;
 	int env_stage;
 	int env_time;
-	int env_length[3];
+	std::array<int, 3> env_length;
 	float env_vol;
 	float fphase;
 	float fdphase;
 	int iphase;
-	float phaser_buffer[1024];
+	std::array<float, 1024> phaser_buffer;
 	int ipp;
-	float noise_buffer[32];
+	std::array<float, 32> noise_buffer;
 	float fltp;
 	float fltdp;
 	float fltw;

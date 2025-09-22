@@ -25,6 +25,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_EQFILTER_H
 #define SOLOUD_EQFILTER_H
 
+#include <array>
+
 #include "soloud_fftfilter.h"
 
 namespace SoLoud
@@ -72,7 +74,7 @@ public:
 	virtual unsigned int getParamType(unsigned int aParamIndex);
 	virtual float getParamMax(unsigned int aParamIndex);
 	virtual float getParamMin(unsigned int aParamIndex);
-	float mVolume[8];
+	std::array<float, 8> mVolume;
 	result setParam(unsigned int aBand, float aVolume);
 	virtual FilterInstance *createInstance();
 	EqFilter();

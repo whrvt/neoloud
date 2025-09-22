@@ -122,6 +122,8 @@ void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char 
 	}
 
 	const bool printNewline = (pMessage[strlen(pMessage) - 1] != '\n');
+	fflush(stderr);
+	fflush(stdout);
 	fprintf(stderr, "[MiniAudio %s] %s%s", levelStr, pMessage, printNewline ? "\n" : "");
 	fflush(stderr);
 	fflush(stdout);
@@ -441,11 +443,11 @@ void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo
 	size_t nameLen = strlen(&pMaInfo->name[0]);
 	if (nameLen >= sizeof(pGenericInfo->name))
 		nameLen = sizeof(pGenericInfo->name) - 1;
-	memcpy(&pGenericInfo->name[0], &pMaInfo->name[0], nameLen);
+	memcpy(pGenericInfo->name.data(), &pMaInfo->name[0], nameLen);
 	pGenericInfo->name[nameLen] = '\0';
 
 	// create string representation of device ID
-	snprintf(&pGenericInfo->identifier[0], sizeof(pGenericInfo->identifier), "ma_%d_%d_%d_%s",
+	snprintf(pGenericInfo->identifier.data(), pGenericInfo->identifier.size(), "ma_%d_%d_%d_%s",
 	         (int)pMaInfo->id.wasapi[0], // use first few bytes as identifier
 	         (int)pMaInfo->id.wasapi[1], (int)pMaInfo->id.wasapi[2], &pMaInfo->name[0]);
 
@@ -535,7 +537,7 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		{
 			DeviceInfo tempInfo{};
 			convert_device_info(&maDevices[i], &tempInfo);
-			if (strcmp(&tempInfo.identifier[0], deviceIdentifier) == 0)
+			if (strcmp(tempInfo.identifier.data(), deviceIdentifier) == 0)
 			{
 				targetDeviceId = &maDevices[i].id;
 				break;

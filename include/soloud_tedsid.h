@@ -42,7 +42,7 @@ class TedSidInstance : public AudioSourceInstance
 	TED *mTED;
 	int mPos;
 	unsigned int mSampleCount;
-	int mRegValues[128];
+	std::array<int, 128> mRegValues;
 
 public:
 	TedSidInstance(TedSid *aParent);

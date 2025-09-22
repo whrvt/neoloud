@@ -302,7 +302,7 @@ float *Bus::calcFFT()
 		}
 	}
 
-	return mFFTData;
+	return mFFTData.data();
 }
 
 float *Bus::getWave()
@@ -315,7 +315,7 @@ float *Bus::getWave()
 			mWaveData[i] = mInstance->mVisualizationWaveData[i];
 		mSoloud->unlockAudioMutex_internal();
 	}
-	return mWaveData;
+	return mWaveData.data();
 }
 
 float Bus::getApproximateVolume(unsigned int aChannel)
@@ -338,9 +338,13 @@ unsigned int Bus::getActiveVoiceCount()
 	unsigned int count = 0;
 	findBusHandle();
 	mSoloud->lockAudioMutex_internal();
-	for (i = 0; i < VOICE_COUNT; i++)
-		if (mSoloud->mVoice[i] && mSoloud->mVoice[i]->mBusHandle == mChannelHandle)
+	for (const AudioSourceInstance *instance : mSoloud->mVoice)
+	{
+		if (!instance)
+			continue;
+		if (instance->mBusHandle == mChannelHandle)
 			count++;
+	}
 	mSoloud->unlockAudioMutex_internal();
 	return count;
 }

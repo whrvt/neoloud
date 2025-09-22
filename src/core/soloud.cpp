@@ -77,30 +77,16 @@ Soloud::Soloud()
 	mBackendID = 0;
 	mActiveVoiceDirty = true;
 	mActiveVoiceCount = 0;
-	int i;
-	for (i = 0; i < VOICE_COUNT; i++)
-		mActiveVoice[i] = 0;
-	for (i = 0; i < FILTERS_PER_STREAM; i++)
-	{
-		mFilter[i] = nullptr;
-		mFilterInstance[i] = nullptr;
-	}
-	for (i = 0; i < 256; i++)
-	{
-		mFFTData[i] = 0;
-		mVisualizationWaveData[i] = 0;
-		mWaveData[i] = 0;
-	}
-	for (i = 0; i < MAX_CHANNELS; i++)
-	{
-		mVisualizationChannelVolume[i] = 0;
-	}
-	for (i = 0; i < VOICE_COUNT; i++)
-	{
-		mVoice[i] = nullptr;
-	}
+	mActiveVoice = {};
+	mFilter = {};
+	mFilterInstance = {};
+	mFFTData = {};
+	mVisualizationWaveData = {};
+	mWaveData = {};
+	mVisualizationChannelVolume = {};
 	mVoiceGroup = nullptr;
 	mVoiceGroupCount = 0;
+	mVoice = {};
 
 	m3dPosition[0] = 0;
 	m3dPosition[1] = 0;
@@ -117,8 +103,7 @@ Soloud::Soloud()
 	m3dSoundSpeed = 343.3f;
 	mMaxActiveVoices = 16;
 	mHighestVoice = 0;
-	for (i = 0; i < 3 * MAX_CHANNELS; i++)
-		m3dSpeakerPosition[i] = 0;
+	m3dSpeakerPosition = {};
 }
 
 Soloud::~Soloud()
@@ -405,7 +390,7 @@ float *Soloud::getWave()
 	for (i = 0; i < 256; i++)
 		mWaveData[i] = mVisualizationWaveData[i];
 	unlockAudioMutex_internal();
-	return mWaveData;
+	return mWaveData.data();
 }
 
 float Soloud::getApproximateVolume(unsigned int aChannel)
@@ -439,10 +424,10 @@ float *Soloud::calcFFT()
 	{
 		float real = temp[i * 2];
 		float imag = temp[i * 2 + 1];
-		mFFTData[i] = (float)sqrt(real * real + imag * imag);
+		mFFTData[i] = (float)std::sqrt(real * real + imag * imag);
 	}
 
-	return mFFTData;
+	return mFFTData.data();
 }
 
 // Resampling algorithm constants and helper functions
@@ -1008,7 +993,7 @@ void Soloud::calcActiveVoices_internal()
 	// Iterative partial quicksort:
 	int left = 0, stack[24], pos = 0, right;
 	int len = candidates - mustlive;
-	unsigned int *data = mActiveVoice + mustlive;
+	unsigned int *data = mActiveVoice.data() + mustlive;
 	int k = mActiveVoiceCount;
 	for (;;)
 	{
@@ -1124,63 +1109,66 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 	int i;
 	for (i = 0; i < (signed)mHighestVoice; i++)
 	{
-		if (mVoice[i] && !(mVoice[i]->mFlags & AudioSourceInstance::PAUSED))
+		const auto &currentVoice = mVoice[i];
+		if (!currentVoice || (currentVoice->mFlags & AudioSourceInstance::PAUSED))
 		{
-			float volume[2];
+			continue;
+		}
 
-			mVoice[i]->mActiveFader = 0;
+		float volume[2];
 
-			if (mGlobalVolumeFader.mActive > 0)
+		currentVoice->mActiveFader = 0;
+
+		if (mGlobalVolumeFader.mActive > 0)
+		{
+			currentVoice->mActiveFader = 1;
+		}
+
+		currentVoice->mStreamTime += buffertime;
+		currentVoice->mStreamPosition += (double)buffertime * (double)currentVoice->mOverallRelativePlaySpeed;
+
+		// TODO: this is actually unstable, because mStreamTime depends on the relative
+		// play speed.
+		if (currentVoice->mRelativePlaySpeedFader.mActive > 0)
+		{
+			float speed = currentVoice->mRelativePlaySpeedFader.get(currentVoice->mStreamTime);
+			setVoiceRelativePlaySpeed_internal(i, speed);
+		}
+
+		volume[0] = currentVoice->mOverallVolume;
+		if (currentVoice->mVolumeFader.mActive > 0)
+		{
+			currentVoice->mSetVolume = currentVoice->mVolumeFader.get(currentVoice->mStreamTime);
+			currentVoice->mActiveFader = 1;
+			updateVoiceVolume_internal(i);
+			mActiveVoiceDirty = true;
+		}
+		volume[1] = currentVoice->mOverallVolume;
+
+		if (currentVoice->mPanFader.mActive > 0)
+		{
+			float pan = currentVoice->mPanFader.get(currentVoice->mStreamTime);
+			setVoicePan_internal(i, pan);
+			currentVoice->mActiveFader = 1;
+		}
+
+		if (currentVoice->mPauseScheduler.mActive)
+		{
+			currentVoice->mPauseScheduler.get(currentVoice->mStreamTime);
+			if (currentVoice->mPauseScheduler.mActive == -1)
 			{
-				mVoice[i]->mActiveFader = 1;
+				currentVoice->mPauseScheduler.mActive = 0;
+				setVoicePause_internal(i, 1);
 			}
+		}
 
-			mVoice[i]->mStreamTime += buffertime;
-			mVoice[i]->mStreamPosition += (double)buffertime * (double)mVoice[i]->mOverallRelativePlaySpeed;
-
-			// TODO: this is actually unstable, because mStreamTime depends on the relative
-			// play speed.
-			if (mVoice[i]->mRelativePlaySpeedFader.mActive > 0)
+		if (currentVoice->mStopScheduler.mActive)
+		{
+			currentVoice->mStopScheduler.get(currentVoice->mStreamTime);
+			if (currentVoice->mStopScheduler.mActive == -1)
 			{
-				float speed = mVoice[i]->mRelativePlaySpeedFader.get(mVoice[i]->mStreamTime);
-				setVoiceRelativePlaySpeed_internal(i, speed);
-			}
-
-			volume[0] = mVoice[i]->mOverallVolume;
-			if (mVoice[i]->mVolumeFader.mActive > 0)
-			{
-				mVoice[i]->mSetVolume = mVoice[i]->mVolumeFader.get(mVoice[i]->mStreamTime);
-				mVoice[i]->mActiveFader = 1;
-				updateVoiceVolume_internal(i);
-				mActiveVoiceDirty = true;
-			}
-			volume[1] = mVoice[i]->mOverallVolume;
-
-			if (mVoice[i]->mPanFader.mActive > 0)
-			{
-				float pan = mVoice[i]->mPanFader.get(mVoice[i]->mStreamTime);
-				setVoicePan_internal(i, pan);
-				mVoice[i]->mActiveFader = 1;
-			}
-
-			if (mVoice[i]->mPauseScheduler.mActive)
-			{
-				mVoice[i]->mPauseScheduler.get(mVoice[i]->mStreamTime);
-				if (mVoice[i]->mPauseScheduler.mActive == -1)
-				{
-					mVoice[i]->mPauseScheduler.mActive = 0;
-					setVoicePause_internal(i, 1);
-				}
-			}
-
-			if (mVoice[i]->mStopScheduler.mActive)
-			{
-				mVoice[i]->mStopScheduler.get(mVoice[i]->mStreamTime);
-				if (mVoice[i]->mStopScheduler.mActive == -1)
-				{
-					mVoice[i]->mStopScheduler.mActive = 0;
-					stopVoice_internal(i);
-				}
+				currentVoice->mStopScheduler.mActive = 0;
+				stopVoice_internal(i);
 			}
 		}
 	}

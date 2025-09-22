@@ -62,7 +62,7 @@ public:
 
 public:
 	unsigned int mReadIndex, mWriteIndex, mCount;
-	AudioSourceInstance *mSource[SOLOUD_QUEUE_MAX];
+	std::array<AudioSourceInstance *, SOLOUD_QUEUE_MAX> mSource;
 	QueueInstance *mInstance;
 	handle mQueueHandle;
 	void findQueueHandle();

@@ -59,22 +59,30 @@ handle Soloud::getHandleFromVoice_internal(unsigned int aVoice) const
 int Soloud::getVoiceFromHandle_internal(handle aVoiceHandle) const
 {
 	// If this is a voice group handle, pick the first handle from the group
+	int ret = -1;
 	handle *h = voiceGroupHandleToArray_internal(aVoiceHandle);
 	if (h != nullptr)
 		aVoiceHandle = *h;
 
 	if (aVoiceHandle == 0)
 	{
-		return -1;
+		return ret;
 	}
 
 	int ch = (aVoiceHandle & 0xfff) - 1;
-	unsigned int idx = aVoiceHandle >> 12;
-	if (mVoice[ch] && (mVoice[ch]->mPlayIndex & 0xfffff) == idx)
+	const AudioSourceInstance *voice = mVoice[ch];
+
+	if (!voice)
 	{
-		return ch;
+		return ret;
 	}
-	return -1;
+
+	unsigned int idx = aVoiceHandle >> 12;
+	if ((voice->mPlayIndex & 0xfffff) == idx)
+	{
+		ret = ch;
+	}
+	return ret;
 }
 
 unsigned int Soloud::getMaxActiveVoiceCount() const
@@ -305,17 +313,18 @@ bool Soloud::getProtectVoice(handle aVoiceHandle)
 
 int Soloud::findFreeVoice_internal()
 {
-	int i;
-	unsigned int lowest_play_index_value = 0xffffffff;
-	int lowest_play_index = -1;
-
 	// (slowly) drag the highest active voice index down
 	if (mHighestVoice > 0 && mVoice[mHighestVoice - 1] == nullptr)
 		mHighestVoice--;
 
-	for (i = 0; i < VOICE_COUNT; i++)
+	unsigned int lowest_play_index_value = 0xffffffff;
+	int lowest_play_index = -1;
+
+	int i = -1;
+	for (const AudioSourceInstance *instance : mVoice)
 	{
-		if (mVoice[i] == nullptr)
+		i++;
+		if (!instance)
 		{
 			if (i + 1 > (signed)mHighestVoice)
 			{
@@ -323,9 +332,9 @@ int Soloud::findFreeVoice_internal()
 			}
 			return i;
 		}
-		if (((mVoice[i]->mFlags & AudioSourceInstance::PROTECTED) == 0) && mVoice[i]->mPlayIndex < lowest_play_index_value)
+		if (((instance->mFlags & AudioSourceInstance::PROTECTED) == 0) && instance->mPlayIndex < lowest_play_index_value)
 		{
-			lowest_play_index_value = mVoice[i]->mPlayIndex;
+			lowest_play_index_value = instance->mPlayIndex;
 			lowest_play_index = i;
 		}
 	}
