@@ -108,8 +108,8 @@ TinyAlignedFloatBuffer::TinyAlignedFloatBuffer()
 	mData = (float *)(((size_t)basePtr + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK);
 }
 
-void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const unsigned int &aSamples, const unsigned int &stride, const unsigned int &aChannels,
-                       const detail::SAMPLE_FORMAT &aFormat)
+void interlace_samples(void *outputBuffer, const float *const rawBuffer, unsigned int aSamples, unsigned int stride, unsigned int aChannels,
+                       detail::SAMPLE_FORMAT aFormat)
 {
 	using namespace detail;
 	unsigned int j = 0, c = 0;

@@ -104,7 +104,7 @@ handle Soloud::play(AudioSource &aSound, float aVolume, float aPan, bool aPaused
 
 	unlockAudioMutex_internal();
 
-	int handle = getHandleFromVoice_internal(ch);
+	handle handle = getHandleFromVoice_internal(ch);
 	return handle;
 }
 

@@ -110,18 +110,15 @@ unsigned int Soloud::getVoiceCount()
 
 bool Soloud::isValidVoiceHandle(handle aVoiceHandle)
 {
+	bool ret = false;
 	// voice groups are not valid voice handles
 	if ((aVoiceHandle & 0xfffff000) == 0xfffff000)
-		return 0;
+		return ret;
 
 	lockAudioMutex_internal();
-	if (getVoiceFromHandle_internal(aVoiceHandle) != -1)
-	{
-		unlockAudioMutex_internal();
-		return 1;
-	}
+	ret = getVoiceFromHandle_internal(aVoiceHandle) != -1;
 	unlockAudioMutex_internal();
-	return 0;
+	return ret;
 }
 
 time Soloud::getLoopPoint(handle aVoiceHandle)

@@ -120,8 +120,8 @@ class Soloud;
  * - SAMPLE_SIGNED32: Scale to full 32-bit signed integer range
  *
  */
-void interlace_samples(void *outputBuffer, const float *const &rawBuffer, const unsigned int &aSamples, const unsigned int &stride, const unsigned int &aChannels,
-                       const detail::SAMPLE_FORMAT &aFormat = detail::SAMPLE_FLOAT32);
+void interlace_samples(void *outputBuffer, const float *const rawBuffer, unsigned int aSamples, unsigned int stride, unsigned int aChannels,
+                       detail::SAMPLE_FORMAT aFormat = detail::SAMPLE_FLOAT32);
 
 /**
  * Pan and expand audio from source channel count to output channel count
