@@ -132,14 +132,14 @@ MPG123Decoder *open(File *aFile)
 
 	// get total frame count
 	decoder->totalFrames = mpg123_length(decoder->handle);
-	bool didFullScan = false;
+	bool doExpensiveLengthCheck = true;
 
 	if (decoder->totalFrames < MPG123_OK)
 	{
 		if (mpg123_scan(decoder->handle) == MPG123_OK)
 		{
 			decoder->totalFrames = mpg123_length(decoder->handle);
-			didFullScan = true;
+			doExpensiveLengthCheck = false;
 		}
 		else
 		{
@@ -147,9 +147,48 @@ MPG123Decoder *open(File *aFile)
 		}
 	}
 
+	// validate that this is actually MPEG audio that mpg123 can decode
+	struct mpg123_frameinfo2 frameInfo{};
+	if (decoder->totalFrames <= 0 || mpg123_info2(decoder->handle, &frameInfo) != MPG123_OK ||
+	    (frameInfo.layer < 1 || frameInfo.layer > 3 || frameInfo.version < 0 || frameInfo.version > 2 || frameInfo.rate <= 0 || frameInfo.bitrate <= 0))
+	{
+		// frame count couldn't be determined, or no frame info, or layer isn't between 1 and 3
+		mpg123_close(decoder->handle);
+		mpg123_delete(decoder->handle);
+		delete decoder;
+		return nullptr;
+	}
+
+	if (doExpensiveLengthCheck && ((mpg123_meta_check(decoder->handle) & (MPG123_ID3 | MPG123_NEW_ID3)) == (MPG123_ID3 | MPG123_NEW_ID3)))
+	{
+		long encPaddingResult = -1, encDelayResult = -1, decDelayResult = -1;
+		do
+		{
+			mpg123_getstate2(decoder->handle, MPG123_ENC_PADDING, &encPaddingResult, nullptr);
+			if (encPaddingResult != -1)
+				break;
+			mpg123_getstate2(decoder->handle, MPG123_ENC_DELAY, &encDelayResult, nullptr);
+			if (encDelayResult != -1)
+				break;
+			mpg123_getstate2(decoder->handle, MPG123_DEC_DELAY, &decDelayResult, nullptr);
+		} while (false);
+
+		// just weird heuristics... this combination of results seem to be the troublesome ones?
+		// i.e. if (DEC_DELAY != -1) && (ENC_PADDING == ENC_DELAY == -1) then do a full scan, otherwise no
+		if (!(decDelayResult != -1 && (encPaddingResult == -1 && (encPaddingResult == encDelayResult))))
+		{
+			doExpensiveLengthCheck = false;
+		}
+	}
+	else
+	{
+		// another heuristic, no id3v1 == no full scan
+		doExpensiveLengthCheck = false;
+	}
+
 	// probe end of file to detect trailing metadata that affects length
 	// if it keeps increasing after 3 tries just give up and do a full mpg123_scan
-	if (!didFullScan && decoder->totalFrames > 0)
+	if (doExpensiveLengthCheck)
 	{
 		int samplesPerMpegFrame = mpg123_spf(decoder->handle);
 		bool needsFullScan = false;
@@ -167,8 +206,8 @@ MPG123Decoder *open(File *aFile)
 			size_t bytes = 0;
 			int64_t frameNum = 0;
 
-			// decode up to 20 frames
-			for (int i = 0; i < 20; i++)
+			// decode up to 10 frames
+			for (int i = 0; i < 10; i++)
 			{
 				int result = mpg123_decode_frame64(decoder->handle, &frameNum, &audio, &bytes);
 
@@ -203,18 +242,6 @@ MPG123Decoder *open(File *aFile)
 
 		// seek back to start after probing
 		mpg123_seek(decoder->handle, 0, SEEK_SET);
-	}
-
-	// validate that this is actually MPEG audio that mpg123 can decode
-	struct mpg123_frameinfo2 frameInfo{};
-	if (decoder->totalFrames <= 0 || mpg123_info2(decoder->handle, &frameInfo) != MPG123_OK ||
-	    (frameInfo.layer < 1 || frameInfo.layer > 3 || frameInfo.version < 0 || frameInfo.version > 2 || frameInfo.rate <= 0 || frameInfo.bitrate <= 0))
-	{
-		// frame count couldn't be determined, or no frame info, or layer isn't between 1 and 3
-		mpg123_close(decoder->handle);
-		mpg123_delete(decoder->handle);
-		delete decoder;
-		return nullptr;
 	}
 
 	return decoder;
