@@ -260,31 +260,31 @@ static bool init_locked()
 
 	cleanup();
 
-	s_libAvutil = LIBLOAD(LNAME(avutil, 59));
-	if (!s_libAvutil)
+	s_libAvutil = LIBLOAD("./" LNAME(avutil, 59));
+	if (!(s_libAvutil = LIBLOAD(LNAME(avutil, 59))))
 	{
 		s_errorDetails = "Failed to load libavutil-59 (error: " + LIBGETERROR() + ")";
 		return false;
 	}
 
-	s_libSwresample = LIBLOAD(LNAME(swresample, 5));
-	if (!s_libSwresample)
+	s_libSwresample = LIBLOAD("./" LNAME(swresample, 5));
+	if (!(s_libSwresample = LIBLOAD(LNAME(swresample, 5))))
 	{
 		s_errorDetails = "Failed to load libswresample-5 (error: " + LIBGETERROR() + ")";
 		cleanup();
 		return false;
 	}
 
-	s_libAvcodec = LIBLOAD(LNAME(avcodec, 61));
-	if (!s_libAvcodec)
+	s_libAvcodec = LIBLOAD("./" LNAME(avcodec, 61));
+	if (!(s_libAvcodec = LIBLOAD(LNAME(avcodec, 61))))
 	{
 		s_errorDetails = "Failed to load libavcodec-61 (error: " + LIBGETERROR() + ")";
 		cleanup();
 		return false;
 	}
 
-	s_libAvformat = LIBLOAD(LNAME(avformat, 61));
-	if (!s_libAvformat)
+	s_libAvformat = LIBLOAD("./" LNAME(avformat, 61));
+	if (!(s_libAvformat = LIBLOAD(LNAME(avformat, 61))))
 	{
 		s_errorDetails = "Failed to load libavformat-61 (error: " + LIBGETERROR() + ")";
 		cleanup();
