@@ -132,77 +132,37 @@ MPG123Decoder *open(File *aFile)
 
 	// get total frame count
 	decoder->totalFrames = mpg123_length(decoder->handle);
-	bool didFullScan = false;
-
 	if (decoder->totalFrames < MPG123_OK)
 	{
-		if (mpg123_scan(decoder->handle) == MPG123_OK)
+		// try to get frame length info before expensive scan
+		off_t frameLength = mpg123_framelength(decoder->handle);
+		if (frameLength > 0)
 		{
-			decoder->totalFrames = mpg123_length(decoder->handle);
-			didFullScan = true;
-		}
-		else
-		{
-			decoder->totalFrames = 0;
-		}
-	}
-
-	// probe end of file to detect trailing metadata that affects length
-	// if it keeps increasing after 3 tries just give up and do a full mpg123_scan
-	if (!didFullScan && decoder->totalFrames > 0)
-	{
-		int samplesPerMpegFrame = mpg123_spf(decoder->handle);
-		bool needsFullScan = false;
-
-		// try up to 3 probe iterations
-		for (int probeIteration = 0; probeIteration < 3; probeIteration++)
-		{
-			off_t seekTarget = decoder->totalFrames - (samplesPerMpegFrame * 3LL);
-
-			if (seekTarget <= 0 || mpg123_seek(decoder->handle, seekTarget, SEEK_SET) < 0)
-				break;
-
-			off_t probeBeginLength = decoder->totalFrames;
-			unsigned char *audio = nullptr;
-			size_t bytes = 0;
-			int64_t frameNum = 0;
-
-			// decode up to 20 frames
-			for (int i = 0; i < 20; i++)
+			// mpg123_framelength returns mpeg frames, not pcm samples
+			int samplesPerFrame = mpg123_spf(decoder->handle);
+			if (samplesPerFrame > 0)
 			{
-				int result = mpg123_decode_frame64(decoder->handle, &frameNum, &audio, &bytes);
-
-				if (result == MPG123_DONE || result == MPG123_ERR)
-					break;
-			}
-
-			off_t probeEndLength = mpg123_length(decoder->handle);
-			decoder->totalFrames = probeEndLength;
-
-			// check if length changed
-			if (probeBeginLength != probeEndLength)
-			{
-				needsFullScan = true;
+				decoder->totalFrames = frameLength * samplesPerFrame;
 			}
 			else
 			{
-				// length stable, we're done
-				needsFullScan = false;
-				break;
+				decoder->totalFrames = 0;
 			}
 		}
-
-		// if length kept changing, do full scan
-		if (needsFullScan)
+		else
 		{
+			// fallback: scan the file to get accurate length
+			off_t pos = mpg123_tell(decoder->handle);
 			if (mpg123_scan(decoder->handle) == MPG123_OK)
 			{
 				decoder->totalFrames = mpg123_length(decoder->handle);
+				mpg123_seek(decoder->handle, pos, SEEK_SET);
+			}
+			else
+			{
+				decoder->totalFrames = 0;
 			}
 		}
-
-		// seek back to start after probing
-		mpg123_seek(decoder->handle, 0, SEEK_SET);
 	}
 
 	// validate that this is actually MPEG audio that mpg123 can decode
