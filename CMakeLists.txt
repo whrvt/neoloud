@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(SoLoud
-    VERSION 1.2.0
+    VERSION 1.2.1
     DESCRIPTION "SoLoud audio library"
     LANGUAGES C CXX)
 
@@ -130,7 +130,8 @@ if(MSVC)
         WINDOWS_VERSION
     )
     # remove default cmake exceptions setting
-    string(REGEX REPLACE "/EH[a-z]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "/EH[^ ]*" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    target_compile_options(soloud PRIVATE "/EHs-c-")
 else()
     if(WIN32)
         target_compile_definitions(soloud PRIVATE
@@ -248,7 +249,8 @@ if(SOLOUD_TESTS)
                         _CRT_SECURE_NO_WARNINGS
                         _HAS_EXCEPTIONS=0
                     )
-                    string(REGEX REPLACE "/EH[a-z]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+                    string(REGEX REPLACE "/EH[^ ]*" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+                    target_compile_options(${TEST_NAME} PRIVATE "/EHs-c-")
                 else()
                     target_compile_options(${TEST_NAME} PRIVATE -fno-exceptions)
                 endif()

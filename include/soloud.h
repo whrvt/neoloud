@@ -89,7 +89,7 @@ public:
 		ENABLE_VISUALIZATION = 2,
 		LEFT_HANDED_3D = 4,
 		NO_FPU_REGISTER_CHANGE = 8,
-		INIT_EXCLUSIVE = 16 // only with MiniAudio+WASAPI, try initializing in exclusive mode before shared more
+		INIT_EXCLUSIVE = 16 // only with MiniAudio+WASAPI, try initializing in exclusive mode before shared mode
 	};
 
 	enum WAVEFORM
