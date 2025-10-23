@@ -54,6 +54,7 @@ struct DeviceInfo
 	std::array<char, 256> name;       // Human-readable device name
 	std::array<char, 128> identifier; // Backend-specific device identifier
 	bool isDefault;                   // Whether this is the default device
+	bool isExclusive;                 // Whether this represents exclusive mode access
 	void *nativeDeviceInfo;           // Backend-specific device info (optional)
 };
 
@@ -87,7 +88,8 @@ public:
 		CLIP_ROUNDOFF = 1,
 		ENABLE_VISUALIZATION = 2,
 		LEFT_HANDED_3D = 4,
-		NO_FPU_REGISTER_CHANGE = 8
+		NO_FPU_REGISTER_CHANGE = 8,
+		INIT_EXCLUSIVE = 16 // only with MiniAudio+WASAPI, try initializing in exclusive mode before shared more
 	};
 
 	enum WAVEFORM
@@ -164,6 +166,10 @@ public:
 	The returned device list points to internal storage and becomes invalid on the next
 	call to enumerateDevices(). Device availability may change over time (devices can
 	be plugged/unplugged), so re-enumerate when needed.
+
+	For backends that support exclusive mode (e.g., WASAPI), each physical device will
+	appear twice in the enumeration: once for shared mode and once for exclusive mode.
+	Check the isExclusive field to distinguish between them.
 	*/
 	result enumerateDevices(DeviceInfo **ppDevices, unsigned int *pDeviceCount);
 
@@ -209,6 +215,10 @@ public:
 	Audio playback will continue seamlessly on the new device. If the new device has
 	different capabilities (sample rate, channels), internal buffers will be reconfigured
 	automatically. Currently playing sounds will continue from their current position.
+
+	When switching to an exclusive mode device, initialization may fail if the device
+	does not support exclusive mode or if another application has exclusive access.
+	In such cases, this function will return an error code.
 	*/
 	result setDevice(const char *deviceIdentifier);
 

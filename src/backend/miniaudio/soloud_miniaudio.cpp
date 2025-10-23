@@ -55,6 +55,7 @@ distribution.
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <vector>
 
 namespace SoLoud
 {
@@ -62,8 +63,9 @@ using namespace detail; // SAMPLE_FORMAT
 
 struct MiniaudioData
 {
+	MiniaudioData() { std::memset(&this->device, 0, sizeof(ma_device)); }
 	ma_context context{};
-	ma_device device{};
+	ma_device device;
 	ma_log log{};
 	ma_device_info currentDeviceInfo{};
 
@@ -127,6 +129,59 @@ void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char 
 	fprintf(stderr, "[MiniAudio %s] %s%s", levelStr, pMessage, printNewline ? "\n" : "");
 	fflush(stderr);
 	fflush(stdout);
+}
+
+// check if device supports exclusive mode by examining native data formats
+bool device_supports_exclusive_mode(const ma_device_info *pDeviceInfo)
+{
+	if (!pDeviceInfo)
+		return false;
+
+	for (ma_uint32 i = 0; i < pDeviceInfo->nativeDataFormatCount; i++)
+	{
+		if (pDeviceInfo->nativeDataFormats[i].flags & MA_DATA_FORMAT_FLAG_EXCLUSIVE_MODE)
+			return true;
+	}
+	return false;
+}
+
+// parse share mode from device identifier
+ma_share_mode parse_share_mode_from_identifier(const char *identifier)
+{
+	if (!identifier)
+		return ma_share_mode_shared;
+
+	size_t len = strlen(identifier);
+	if (len >= 2)
+	{
+		// check for "_e" suffix (exclusive mode)
+		if (identifier[len - 2] == '_' && identifier[len - 1] == 'e')
+			return ma_share_mode_exclusive;
+		// check for "_s" suffix (shared mode)
+		if (identifier[len - 2] == '_' && identifier[len - 1] == 's')
+			return ma_share_mode_shared;
+	}
+
+	return ma_share_mode_shared; // default to shared
+}
+
+// remove share mode suffix from identifier to get base identifier for device matching
+void get_base_identifier(const char *identifier, char *baseIdentifier, size_t baseIdentifierSize)
+{
+	if (!identifier || !baseIdentifier || baseIdentifierSize == 0)
+		return;
+
+	size_t len = strlen(identifier);
+
+	// remove "_e" or "_s" suffix if present
+	if (len >= 2 && identifier[len - 2] == '_' && (identifier[len - 1] == 'e' || identifier[len - 1] == 's'))
+		len -= 2;
+
+	if (len >= baseIdentifierSize)
+		len = baseIdentifierSize - 1;
+
+	memcpy(baseIdentifier, identifier, len);
+	baseIdentifier[len] = '\0';
 }
 
 ma_uint32 parse_log_level_from_env()
@@ -322,11 +377,12 @@ result soloud_miniaudio_resume(Soloud *aSoloud)
 }
 
 // helper function to create device config from cached parameters
-ma_device_config create_device_config(MiniaudioData *data, const ma_device_id *pDeviceID = nullptr)
+ma_device_config create_device_config(MiniaudioData *data, ma_share_mode shareMode, const ma_device_id *pDeviceID = nullptr)
 {
 	ma_device_config config = ma_device_config_init(ma_device_type_playback);
 	config.playback.format = ma_format_unknown; // default device format, we'll do the conversion ourselves
 	config.playback.channels = data->requestedChannels;
+	config.playback.shareMode = shareMode;
 	config.dataCallback = soloud_miniaudio_audiomixer;
 	config.notificationCallback = soloud_miniaudio_notification_callback;
 	config.pUserData = (void *)data;
@@ -364,7 +420,7 @@ ma_device_config create_device_config(MiniaudioData *data, const ma_device_id *p
 }
 
 // helper function to attempt device initialization with a specific backend and timeout
-ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, const ma_device_config &config)
+ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, ma_share_mode shareMode)
 {
 	// create context with specific backend
 	ma_context_config contextConfig = ma_context_config_init();
@@ -377,9 +433,13 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, cons
 		return contextResult;
 	data->contextInitialized = true;
 
+	// create device config with specified share mode
+	ma_device_config config = create_device_config(data, shareMode);
+
 	// log start of device initialization for debugging potential hangs
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Initializing device with backend '%s'...\n", ma_get_backend_name(backend));
+		fprintf(stderr, "[MiniAudio INFO] Initializing device with backend '%s' in %s mode...\n", ma_get_backend_name(backend),
+		        shareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
 
 	ma_result deviceResult = ma_device_init(&data->context, &config, &data->device);
 
@@ -406,16 +466,16 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, cons
 }
 
 // helper function to initialize device with specific device ID (used during device switching)
-ma_result init_device_with_id(MiniaudioData *data, const ma_device_id *pDeviceID)
+ma_result init_device_with_id(MiniaudioData *data, ma_share_mode shareMode, const ma_device_id *pDeviceID)
 {
 	if (!data->contextInitialized)
 		return MA_ERROR;
 
-	ma_device_config config = create_device_config(data, pDeviceID);
+	ma_device_config config = create_device_config(data, shareMode, pDeviceID);
 
 	// log start of device initialization
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Initializing device with specific ID...\n");
+		fprintf(stderr, "[MiniAudio INFO] Initializing device with specific ID in %s mode...\n", shareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
 
 	ma_result deviceResult = ma_device_init(&data->context, &config, &data->device);
 
@@ -434,7 +494,7 @@ ma_result init_device_with_id(MiniaudioData *data, const ma_device_id *pDeviceID
 }
 
 // convert ma_device_info to generic DeviceInfo
-void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo)
+void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo, ma_share_mode shareMode, ma_backend backend)
 {
 	if (!pMaInfo || !pGenericInfo)
 		return;
@@ -446,12 +506,25 @@ void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo
 	memcpy(pGenericInfo->name.data(), &pMaInfo->name[0], nameLen);
 	pGenericInfo->name[nameLen] = '\0';
 
-	// create string representation of device ID
-	snprintf(pGenericInfo->identifier.data(), pGenericInfo->identifier.size(), "ma_%d_%d_%d_%s",
-	         (int)pMaInfo->id.wasapi[0], // use first few bytes as identifier
-	         (int)pMaInfo->id.wasapi[1], (int)pMaInfo->id.wasapi[2], &pMaInfo->name[0]);
+	// append share mode suffix to name for clarity
+	if (backend == ma_backend_wasapi)
+	{
+		const char *modeSuffix = (shareMode == ma_share_mode_exclusive) ? " (Exclusive)" : " (Shared)";
+		size_t suffixLen = strlen(modeSuffix);
+		if (nameLen + suffixLen < sizeof(pGenericInfo->name))
+		{
+			memcpy(pGenericInfo->name.data() + nameLen, modeSuffix, suffixLen);
+			pGenericInfo->name[nameLen + suffixLen] = '\0';
+		}
+	}
 
-	pGenericInfo->isDefault = pMaInfo->isDefault != 0;
+	// create string representation of device ID with share mode encoded
+	const char *modeTag = (shareMode == ma_share_mode_exclusive) ? "_e" : "_s";
+	snprintf(pGenericInfo->identifier.data(), pGenericInfo->identifier.size(), "ma_%d_%d_%d_%s%s", (int)pMaInfo->id.wasapi[0], (int)pMaInfo->id.wasapi[1],
+	         (int)pMaInfo->id.wasapi[2], &pMaInfo->name[0], modeTag);
+
+	pGenericInfo->isDefault = (pMaInfo->isDefault != 0 && shareMode == ma_share_mode_shared); // only create 1 default device (we init in shared mode)
+	pGenericInfo->isExclusive = (shareMode == ma_share_mode_exclusive);
 	pGenericInfo->nativeDeviceInfo = nullptr;
 }
 
@@ -474,21 +547,55 @@ result miniaudio_enumerate_devices(Soloud *aSoloud)
 	if (result != MA_SUCCESS)
 		return UNKNOWN_ERROR;
 
-	// allocate internal device array
-	aSoloud->mDeviceList = new DeviceInfo[maDeviceCount];
-	if (!aSoloud->mDeviceList)
-	{
-		aSoloud->mDeviceCount = 0;
-		return OUT_OF_MEMORY;
-	}
+	// build device list
+	std::vector<DeviceInfo> devices;
+	devices.reserve(maDeviceCount * (1ULL + (data->currentBackend == ma_backend_wasapi))); // reserve for worst case (shared + exclusive)
+	bool defaultSupportsExclusive = false;
 
-	// convert ma_device_info to DeviceInfo
 	for (ma_uint32 i = 0; i < maDeviceCount; i++)
 	{
-		convert_device_info(&maDevices[i], &aSoloud->mDeviceList[i]);
+		ma_device_info detailedInfo;
+		ma_result infoResult = ma_context_get_device_info(&data->context, ma_device_type_playback, &maDevices[i].id, &detailedInfo);
+
+		bool hasDetailedInfo = (infoResult == MA_SUCCESS);
+		bool supportsExclusive = false;
+
+		if (hasDetailedInfo)
+		{
+			supportsExclusive = device_supports_exclusive_mode(&detailedInfo);
+
+			// track default device's exclusive mode support for fallback logic
+			if (maDevices[i].isDefault)
+				defaultSupportsExclusive = supportsExclusive;
+		}
+		else if (infoResult == MA_BUSY && data->currentBackend == ma_backend_wasapi)
+		{
+			// device is busy (likely in use), assume same capabilities as default device
+			supportsExclusive = defaultSupportsExclusive;
+		}
+
+		// use detailed info if available, otherwise fall back to basic info
+		const ma_device_info *pInfoToUse = hasDetailedInfo ? &detailedInfo : &maDevices[i];
+
+		// always add shared mode entry
+		DeviceInfo sharedDevice;
+		convert_device_info(pInfoToUse, &sharedDevice, ma_share_mode_shared, data->currentBackend);
+		devices.push_back(sharedDevice);
+
+		// add exclusive mode entry if supported
+		if (supportsExclusive)
+		{
+			DeviceInfo exclusiveDevice;
+			convert_device_info(pInfoToUse, &exclusiveDevice, ma_share_mode_exclusive, data->currentBackend);
+			devices.push_back(exclusiveDevice);
+		}
 	}
 
-	aSoloud->mDeviceCount = maDeviceCount;
+	// move info to soloud device list
+	aSoloud->mDeviceList = new DeviceInfo[devices.size()];
+	std::move(devices.begin(), devices.end(), aSoloud->mDeviceList);
+	aSoloud->mDeviceCount = static_cast<unsigned int>(devices.size());
+
 	return SO_NO_ERROR;
 }
 
@@ -502,7 +609,10 @@ result miniaudio_get_current_device_info(Soloud *aSoloud, DeviceInfo *pDeviceInf
 	if (!data || !data->hasCurrentDeviceInfo)
 		return INVALID_PARAMETER;
 
-	convert_device_info(&data->currentDeviceInfo, pDeviceInfo);
+	// determine share mode from device config
+	ma_share_mode currentShareMode = data->deviceInitialized ? data->device.playback.shareMode : ma_share_mode_shared;
+
+	convert_device_info(&data->currentDeviceInfo, pDeviceInfo, currentShareMode, data->currentBackend);
 	return SO_NO_ERROR;
 }
 
@@ -517,14 +627,23 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		return INVALID_PARAMETER;
 
 	ma_device_id *targetDeviceId = nullptr;
+	ma_share_mode targetShareMode = ma_share_mode_shared;
 
 	// handle default device case
 	if (!deviceIdentifier || strlen(deviceIdentifier) == 0)
 	{
 		targetDeviceId = nullptr; // use default device
+		targetShareMode = ma_share_mode_shared;
 	}
 	else
 	{
+		// parse share mode from identifier
+		targetShareMode = parse_share_mode_from_identifier(deviceIdentifier);
+
+		// get base identifier for device matching
+		std::array<char, 256> baseIdentifier{};
+		get_base_identifier(deviceIdentifier, baseIdentifier.data(), baseIdentifier.size());
+
 		// enumerate devices to find matching identifier
 		ma_device_info *maDevices = nullptr;
 		ma_uint32 maDeviceCount = 0;
@@ -532,12 +651,17 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		if (enumResult != MA_SUCCESS)
 			return UNKNOWN_ERROR;
 
-		// find device with matching identifier
+		// find device with matching base identifier
 		for (ma_uint32 i = 0; i < maDeviceCount; i++)
 		{
 			DeviceInfo tempInfo{};
-			convert_device_info(&maDevices[i], &tempInfo);
-			if (strcmp(tempInfo.identifier.data(), deviceIdentifier) == 0)
+			convert_device_info(&maDevices[i], &tempInfo, ma_share_mode_shared, data->currentBackend);
+
+			// get base identifier from temp info for comparison
+			std::array<char, 256> tempBaseIdentifier{};
+			get_base_identifier(tempInfo.identifier.data(), tempBaseIdentifier.data(), tempBaseIdentifier.size());
+
+			if (tempBaseIdentifier == baseIdentifier)
 			{
 				targetDeviceId = &maDevices[i].id;
 				break;
@@ -566,8 +690,8 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		data->deviceValid.store(false);
 	}
 
-	// initialize new device
-	ma_result result = init_device_with_id(data, targetDeviceId);
+	// initialize new device with specified share mode
+	ma_result result = init_device_with_id(data, targetShareMode, targetDeviceId);
 	if (result != MA_SUCCESS)
 	{
 		aSoloud->unlockAudioMutex_internal();
@@ -596,15 +720,8 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 			fprintf(stderr, "[MiniAudio INFO] Device configuration changed: %uHz/%uch/%uf -> %uHz/%uch/%uf\n", oldSampleRate, oldChannels, oldBufferSize,
 			        newSampleRate, newChannels, newBufferSize);
 		}
-
-		// unlock audio mutex before calling postinit_internal as it may need to reinitialize internal state
-		aSoloud->unlockAudioMutex_internal();
-
 		// update SoLoud's internal configuration
 		aSoloud->postinit_internal(newSampleRate, newBufferSize, data->initFlags, newChannels);
-
-		// re-lock for device start
-		aSoloud->lockAudioMutex_internal();
 	}
 
 	// start the new device
@@ -623,7 +740,7 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	aSoloud->unlockAudioMutex_internal();
 
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Successfully switched to new device\n");
+		fprintf(stderr, "[MiniAudio INFO] Successfully switched to new device in %s mode\n", targetShareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
 
 	return SO_NO_ERROR;
 }
@@ -668,10 +785,7 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 		return UNKNOWN_ERROR;
 	}
 
-	// configure device
-	ma_device_config config = create_device_config(data);
-
-	// try each backend individually with timeout
+	// try each backend individually with shared mode as default
 	bool initialized = false;
 	for (size_t i = 0; i < enabledBackendCount && !initialized; ++i)
 	{
@@ -681,25 +795,42 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 		if (backend == ma_backend_null)
 			continue;
 
-		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-			fprintf(stderr, "[MiniAudio INFO] Trying backend: %s\n", ma_get_backend_name(backend));
-
-		result = try_backend_with_timeout(data, backend, config);
-
-		if (result == MA_SUCCESS)
+		ma_share_mode initShareMode = (backend == ma_backend_wasapi) && (data->initFlags & Soloud::INIT_EXCLUSIVE) ? ma_share_mode_exclusive : ma_share_mode_shared;
+		for (size_t i = 0; i < 2; i++) // try shared if exclusive failed
 		{
-			initialized = true;
+			const char *modeString = initShareMode == ma_share_mode_exclusive ? "exclusive mode" : "shared mode";
+
 			if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-				fprintf(stderr, "[MiniAudio INFO] Successfully initialized with backend: %s\n", ma_get_backend_name(backend));
-		}
-		else
-		{
-			if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
+				fprintf(stderr, "[MiniAudio INFO] Trying backend: %s in %s\n", ma_get_backend_name(backend), modeString);
+
+			result = try_backend_with_timeout(data, backend, initShareMode);
+
+			if (result == MA_SUCCESS)
 			{
-				if (result == MA_ERROR) // this indicates timeout
-					fprintf(stderr, "[MiniAudio WARNING] Backend '%s' failed due to timeout\n", ma_get_backend_name(backend));
-				else
-					fprintf(stderr, "[MiniAudio WARNING] Backend '%s' failed with error: %d\n", ma_get_backend_name(backend), result);
+				initialized = true;
+				if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+					fprintf(stderr, "[MiniAudio INFO] Successfully initialized with backend: %s\n", ma_get_backend_name(backend));
+				break;
+			}
+			else
+			{
+				if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
+				{
+					if (result == MA_ERROR) // this indicates timeout
+						fprintf(stderr, "[MiniAudio WARNING] Backend '%s' failed in %s due to timeout\n", ma_get_backend_name(backend), modeString);
+					else
+						fprintf(stderr, "[MiniAudio WARNING] Backend '%s' failed in %s with error: %d\n", ma_get_backend_name(backend), modeString, result);
+				}
+
+				if (initShareMode != ma_share_mode_exclusive)
+				{
+					// we failed in shared mode, move onto the next backend
+					break;
+				}
+				else // try again in shared mode
+				{
+					initShareMode = ma_share_mode_shared;
+				}
 			}
 		}
 	}

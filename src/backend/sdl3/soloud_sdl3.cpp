@@ -407,6 +407,7 @@ void update_current_device_info(SDL3Data *data)
 	data->currentDeviceInfo.identifier[identifierLen] = '\0';
 
 	data->currentDeviceInfo.nativeDeviceInfo = nullptr;
+	data->currentDeviceInfo.isExclusive = false;
 	data->hasCurrentDeviceInfo = true;
 }
 
@@ -531,6 +532,7 @@ result sdl3_enumerate_devices(Soloud *aSoloud)
 	std::strncpy(aSoloud->mDeviceList[0].name.data(), "Default Playback Device", sizeof(aSoloud->mDeviceList[0].name) - 1);
 	std::strncpy(aSoloud->mDeviceList[0].identifier.data(), "sdl3_default_playback", sizeof(aSoloud->mDeviceList[0].identifier) - 1);
 	aSoloud->mDeviceList[0].isDefault = true;
+	aSoloud->mDeviceList[0].isExclusive = false;
 	aSoloud->mDeviceList[0].nativeDeviceInfo = nullptr;
 
 	// add physical devices
@@ -558,6 +560,7 @@ result sdl3_enumerate_devices(Soloud *aSoloud)
 		aSoloud->mDeviceList[i + 1].identifier[identifierLen] = '\0';
 
 		aSoloud->mDeviceList[i + 1].isDefault = false;
+		aSoloud->mDeviceList[i + 1].isExclusive = false;
 		aSoloud->mDeviceList[i + 1].nativeDeviceInfo = nullptr;
 	}
 
@@ -666,14 +669,8 @@ result sdl3_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		SDL_LogDebug(SDL_LOG_CATEGORY_AUDIO, "Device configuration changed: %uHz/%uch/%uf -> %uHz/%uch/%uf", oldSampleRate, oldChannels, oldBufferSize,
 		             newSampleRate, newChannels, newBufferSize);
 
-		// unlock audio mutex before calling postinit_internal as it may need to reinitialize internal state
-		aSoloud->unlockAudioMutex_internal();
-
 		// update SoLoud's internal configuration
 		aSoloud->postinit_internal(newSampleRate, newBufferSize, data->initParams.flags, newChannels);
-
-		// re-lock for device start
-		aSoloud->lockAudioMutex_internal();
 	}
 
 	// start the new device
