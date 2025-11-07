@@ -25,6 +25,7 @@ freely, subject to the following restrictions:
 #include "soloud_audiosource.h"
 #include "soloud_fft.h"
 #include "soloud_internal.h"
+#include "soloud_intrin.h"
 #include "soloud_thread.h"
 
 #include <cmath> // sin
@@ -262,6 +263,7 @@ void Soloud::postinit_internal(unsigned int aSamplerate, unsigned int aBufferSiz
 	mScratchSize = (aBufferSize + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
 	if (mScratchSize < SAMPLE_GRANULARITY * 4) // 4096
 		mScratchSize = SAMPLE_GRANULARITY * 4;
+
 	mScratch.init(mScratchSize * MAX_CHANNELS);
 	mOutputScratch.init(mScratchSize * MAX_CHANNELS);
 
@@ -1190,7 +1192,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 
 	// Note: clipping channels*aStride, not channels*aSamples, so we're possibly clipping some unused data.
 	// The buffers should be large enough for it, we just may do a few bytes of unneccessary work.
-	clip_internal(mOutputScratch, mScratch, aStride, globalVolume[0], globalVolume[1]);
+	clip_samples(mOutputScratch.mData, mScratch.mData, aStride, mChannels, globalVolume[0], globalVolume[1], mPostClipScaler, mFlags & CLIP_ROUNDOFF);
 
 	if (mFlags & ENABLE_VISUALIZATION)
 	{

@@ -65,34 +65,15 @@ static constexpr size_t OPTIMAL_CHUNK_SAMPLES = 4;    // Still process 4 samples
 static constexpr size_t MEMORY_ALIGNMENT_MASK = 3;    // Align to 4-byte boundaries
 static constexpr size_t TINY_BUFFER_FLOAT_COUNT = 16; // Buffer space for temporary operations (keeping this the same as SSE, this is how it was before)
 #endif
-// Class that handles aligned allocations to support vectorized operations
-class AlignedFloatBuffer
-{
-public:
-	float *mData;            // SIMD-aligned pointer for vectorized operations
-	unsigned char *mBasePtr; // Raw allocated pointer (for delete)
-	unsigned int mFloats;    // Size of buffer in floats (without padding)
-
-	// Constructor
-	AlignedFloatBuffer();
-
-	// Allocate and align buffer for specified number of floats
-	result init(unsigned int aFloats);
-
-	// Clear all data to zero
-	void clear();
-
-	// Destructor
-	~AlignedFloatBuffer();
-};
 
 // Lightweight class that handles small aligned buffer to support vectorized operations
 // Used for temporary SIMD register-sized data
 class TinyAlignedFloatBuffer
 {
 public:
-	float *mData;                                                                              // SIMD-aligned pointer
-	std::array<unsigned char, sizeof(float) * TINY_BUFFER_FLOAT_COUNT + SIMD_ALIGNMENT_BYTES> mActualData; // Space for appropriate number of floats + alignment padding
+	float *mData; // SIMD-aligned pointer
+	std::array<unsigned char, sizeof(float) * TINY_BUFFER_FLOAT_COUNT + SIMD_ALIGNMENT_BYTES>
+	    mActualData; // Space for appropriate number of floats + alignment padding
 
 	// Constructor - automatically aligns mData to proper boundary
 	TinyAlignedFloatBuffer();
@@ -101,7 +82,28 @@ public:
 class AudioSourceInstance;
 class Soloud;
 
-/* Soloud::clip_internal defined in soloud.h for convenience access to class members */
+/**
+ * Apply volume scaling and clipping to audio buffer
+ *
+ * @param aBuffer       Input buffer with source samples
+ * @param aDestBuffer   Output buffer for processed samples
+ * @param aSamples      Number of samples to process
+ * @param aChannels     Number of channels
+ * @param aVolume0      Starting volume level
+ * @param aVolume1      Ending volume level (for smooth ramping)
+ * @param aScaler       Post-clip scale factor
+ * @param aRoundoff     Whether to do roundoff clipping
+ *
+ * Supports two clipping modes:
+ * - Hard clipping: Simple [-1,1] bounds
+ * - Roundoff clipping: Smooth saturation curve that approaches limits asymptotically
+ *
+ * Uses AVX2 intrinsics when available for 8x performance improvement,
+ * falls back to SSE intrinsics for 4x performance improvement,
+ * or scalar fallback for compatibility
+ */
+void clip_samples(const float *const aBuffer, float *aDestBuffer, unsigned int aSamples, unsigned int aChannels, float aVolume0, float aVolume1, float aScaler,
+                  bool aRoundoff);
 
 /**
  * Convert channel-separated audio data to interleaved format with sample format conversion

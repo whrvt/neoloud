@@ -732,7 +732,8 @@ void interlace_samples(void *outputBuffer, const float *const rawBuffer, unsigne
 }
 
 #if defined(SOLOUD_AVX_INTRINSICS)
-void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const
+void clip_samples(const float *const aBuffer, float *aDestBuffer, unsigned int aSamples, unsigned int aChannels, float aVolume0, float aVolume1, float aScaler,
+                  bool aRoundoff)
 {
 	using namespace ClippingConstants;
 
@@ -740,7 +741,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 	float volume = aVolume0;
 	unsigned int sampleOctuples = (aSamples + 7) / 8; // Round up to process in AVX2 groups
 
-	if (mFlags & CLIP_ROUNDOFF)
+	if (aRoundoff)
 	{
 		// Roundoff clipping: smooth saturation curve instead of hard clipping
 		__m256 negThreshold = _mm256_broadcast_ss(&ROUNDOFF_NEG_THRESHOLD);
@@ -749,7 +750,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 		__m256 cubicScale = _mm256_broadcast_ss(&ROUNDOFF_CUBIC_SCALE);
 		__m256 negWall = _mm256_broadcast_ss(&ROUNDOFF_NEG_WALL);
 		__m256 posWall = _mm256_broadcast_ss(&ROUNDOFF_POS_WALL);
-		__m256 postScale = _mm256_broadcast_ss(&mPostClipScaler);
+		__m256 postScale = _mm256_broadcast_ss(&aScaler);
 
 		// Prepare volume ramp for AVX2 processing
 		TinyAlignedFloatBuffer volumes;
@@ -762,14 +763,14 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < mChannels; channel++)
+		for (unsigned int channel = 0; channel < aChannels; channel++)
 		{
 			__m256 vol = _mm256_load_ps(volumes.mData);
 
 			for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
 			{
 				// Load 8 samples and apply volume ramp
-				__m256 samples = _mm256_load_ps(&aBuffer.mData[srcIdx]);
+				__m256 samples = _mm256_load_ps(&aBuffer[srcIdx]);
 				srcIdx += OPTIMAL_CHUNK_SAMPLES;
 				samples = _mm256_mul_ps(samples, vol);
 				vol = _mm256_add_ps(vol, volDelta);
@@ -793,7 +794,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 				// Apply post-clip scaling and store
 				samples = _mm256_mul_ps(samples, postScale);
-				_mm256_store_ps(&aDestBuffer.mData[dstIdx], samples);
+				_mm256_store_ps(&aDestBuffer[dstIdx], samples);
 				dstIdx += OPTIMAL_CHUNK_SAMPLES;
 			}
 		}
@@ -803,7 +804,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 		// Hard clipping: simple min/max bounds
 		__m256 negBound = _mm256_broadcast_ss(&HARD_CLIP_MIN);
 		__m256 posBound = _mm256_broadcast_ss(&HARD_CLIP_MAX);
-		__m256 postScale = _mm256_broadcast_ss(&mPostClipScaler);
+		__m256 postScale = _mm256_broadcast_ss(&aScaler);
 
 		// Prepare volume ramp for AVX2 processing
 		TinyAlignedFloatBuffer volumes;
@@ -816,14 +817,14 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < mChannels; channel++)
+		for (unsigned int channel = 0; channel < aChannels; channel++)
 		{
 			__m256 vol = _mm256_load_ps(volumes.mData);
 
 			for (unsigned int octuple = 0; octuple < sampleOctuples; octuple++)
 			{
 				// Load 8 samples and apply volume ramp
-				__m256 samples = _mm256_load_ps(&aBuffer.mData[srcIdx]);
+				__m256 samples = _mm256_load_ps(&aBuffer[srcIdx]);
 				srcIdx += OPTIMAL_CHUNK_SAMPLES;
 				samples = _mm256_mul_ps(samples, vol);
 				vol = _mm256_add_ps(vol, volDelta);
@@ -834,7 +835,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 				// Apply post-clip scaling and store
 				samples = _mm256_mul_ps(samples, postScale);
-				_mm256_store_ps(&aDestBuffer.mData[dstIdx], samples);
+				_mm256_store_ps(&aDestBuffer[dstIdx], samples);
 				dstIdx += OPTIMAL_CHUNK_SAMPLES;
 			}
 		}
@@ -842,7 +843,8 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 }
 
 #elif defined(SOLOUD_SSE_INTRINSICS)
-void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const
+void clip_samples(const float *const aBuffer, float *aDestBuffer, unsigned int aSamples, unsigned int aChannels, float aVolume0, float aVolume1, float aScaler,
+                  bool aRoundoff)
 {
 	using namespace ClippingConstants;
 
@@ -850,7 +852,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 	float volume = aVolume0;
 	unsigned int sampleQuads = (aSamples + 3) / 4; // Round up to process in SIMD groups
 
-	if (mFlags & CLIP_ROUNDOFF)
+	if (aRoundoff)
 	{
 		// Roundoff clipping: smooth saturation curve instead of hard clipping
 		__m128 negThreshold = _mm_load_ps1(&ROUNDOFF_NEG_THRESHOLD);
@@ -859,7 +861,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 		__m128 cubicScale = _mm_load_ps1(&ROUNDOFF_CUBIC_SCALE);
 		__m128 negWall = _mm_load_ps1(&ROUNDOFF_NEG_WALL);
 		__m128 posWall = _mm_load_ps1(&ROUNDOFF_POS_WALL);
-		__m128 postScale = _mm_load_ps1(&mPostClipScaler);
+		__m128 postScale = _mm_load_ps1(&aScaler);
 
 		// Prepare volume ramp for SIMD processing
 		TinyAlignedFloatBuffer volumes;
@@ -872,14 +874,14 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < mChannels; channel++)
+		for (unsigned int channel = 0; channel < aChannels; channel++)
 		{
 			__m128 vol = _mm_load_ps(volumes.mData);
 
 			for (unsigned int quad = 0; quad < sampleQuads; quad++)
 			{
 				// Load 4 samples and apply volume ramp
-				__m128 samples = _mm_load_ps(&aBuffer.mData[srcIdx]);
+				__m128 samples = _mm_load_ps(&aBuffer[srcIdx]);
 				srcIdx += OPTIMAL_CHUNK_SAMPLES;
 				samples = _mm_mul_ps(samples, vol);
 				vol = _mm_add_ps(vol, volDelta);
@@ -907,7 +909,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 				// Apply post-clip scaling and store
 				samples = _mm_mul_ps(samples, postScale);
-				_mm_store_ps(&aDestBuffer.mData[dstIdx], samples);
+				_mm_store_ps(&aDestBuffer[dstIdx], samples);
 				dstIdx += OPTIMAL_CHUNK_SAMPLES;
 			}
 		}
@@ -917,7 +919,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 		// Hard clipping: simple min/max bounds
 		__m128 negBound = _mm_load_ps1(&HARD_CLIP_MIN);
 		__m128 posBound = _mm_load_ps1(&HARD_CLIP_MAX);
-		__m128 postScale = _mm_load_ps1(&mPostClipScaler);
+		__m128 postScale = _mm_load_ps1(&aScaler);
 
 		// Prepare volume ramp for SIMD processing
 		TinyAlignedFloatBuffer volumes;
@@ -930,14 +932,14 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < mChannels; channel++)
+		for (unsigned int channel = 0; channel < aChannels; channel++)
 		{
 			__m128 vol = _mm_load_ps(volumes.mData);
 
 			for (unsigned int quad = 0; quad < sampleQuads; quad++)
 			{
 				// Load 4 samples and apply volume ramp
-				__m128 samples = _mm_load_ps(&aBuffer.mData[srcIdx]);
+				__m128 samples = _mm_load_ps(&aBuffer[srcIdx]);
 				srcIdx += OPTIMAL_CHUNK_SAMPLES;
 				samples = _mm_mul_ps(samples, vol);
 				vol = _mm_add_ps(vol, volDelta);
@@ -948,7 +950,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 				// Apply post-clip scaling and store
 				samples = _mm_mul_ps(samples, postScale);
-				_mm_store_ps(&aDestBuffer.mData[dstIdx], samples);
+				_mm_store_ps(&aDestBuffer[dstIdx], samples);
 				dstIdx += OPTIMAL_CHUNK_SAMPLES;
 			}
 		}
@@ -957,7 +959,8 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 
 #else // Fallback implementation without SIMD
 
-void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const
+void clip_samples(const float *const aBuffer, float *aDestBuffer, unsigned int aSamples, unsigned int aChannels, float aVolume0, float aVolume1, float aScaler,
+                  bool aRoundoff)
 {
 	using namespace ClippingConstants;
 
@@ -965,11 +968,11 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 	float volume = aVolume0;
 	unsigned int sampleQuads = (aSamples + 3) / 4; // Process in groups of 4 for consistency
 
-	if (mFlags & CLIP_ROUNDOFF)
+	if (aRoundoff)
 	{
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < mChannels; channel++)
+		for (unsigned int channel = 0; channel < aChannels; channel++)
 		{
 			volume = aVolume0;
 
@@ -978,7 +981,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 				// Process 4 samples at a time
 				for (int sample = 0; sample < OPTIMAL_CHUNK_SAMPLES; sample++)
 				{
-					float input = aBuffer.mData[srcIdx++] * volume;
+					float input = aBuffer[srcIdx++] * volume;
 					volume += volumeDelta;
 
 					// Apply roundoff clipping curve
@@ -997,7 +1000,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 						output = ROUNDOFF_LINEAR_SCALE * input + ROUNDOFF_CUBIC_SCALE * input * input * input;
 					}
 
-					aDestBuffer.mData[dstIdx++] = output * mPostClipScaler;
+					aDestBuffer[dstIdx++] = output * aScaler;
 				}
 			}
 		}
@@ -1006,7 +1009,7 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 	{
 		unsigned int srcIdx = 0, dstIdx = 0;
 
-		for (unsigned int channel = 0; channel < mChannels; channel++)
+		for (unsigned int channel = 0; channel < aChannels; channel++)
 		{
 			volume = aVolume0;
 
@@ -1015,13 +1018,13 @@ void Soloud::clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDes
 				// Process 4 samples at a time
 				for (int sample = 0; sample < OPTIMAL_CHUNK_SAMPLES; sample++)
 				{
-					float input = aBuffer.mData[srcIdx++] * volume;
+					float input = aBuffer[srcIdx++] * volume;
 					volume += volumeDelta;
 
 					// Hard clipping to [-1, 1] range
 					float output = (input <= HARD_CLIP_MIN) ? HARD_CLIP_MIN : (input >= HARD_CLIP_MAX) ? HARD_CLIP_MAX : input;
 
-					aDestBuffer.mData[dstIdx++] = output * mPostClipScaler;
+					aDestBuffer[dstIdx++] = output * aScaler;
 				}
 			}
 		}

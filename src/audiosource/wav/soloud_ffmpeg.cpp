@@ -537,7 +537,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 
 	AVStream *stream = decoder->formatContext->streams[decoder->audioStreamIndex];
 	unsigned long long adjustedFrameIndex = frameIndex + decoder->encoderDelaySamples;
-	long long targetTimestamp = av_rescale_q(adjustedFrameIndex, {1, (int)decoder->sampleRate}, stream->time_base);
+	long long targetTimestamp = av_rescale_q((int64_t)adjustedFrameIndex, {1, (int)decoder->sampleRate}, stream->time_base);
 
 #ifdef _DEBUG
 	printf("ffmpeg: seeking from frame=%llu (%.3fs) to frame %llu (%.3fs), adjusted=%llu, timestamp=%lld\n", currentPos, (double)currentPos / decoder->sampleRate,

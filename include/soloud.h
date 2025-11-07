@@ -34,7 +34,6 @@ freely, subject to the following restrictions:
 #include "soloud_audiosource3d.h"
 #include "soloud_fader.h"
 #include "soloud_filter.h"
-#include "soloud_intrin.h"
 
 #include "soloud_error.h"
 
@@ -47,6 +46,27 @@ class BusInstance;
 class Queue;
 class QueueInstance;
 class AudioSourceInstance3dData;
+
+// Class that handles aligned allocations to support vectorized operations
+class AlignedFloatBuffer
+{
+public:
+	float *mData;            // SIMD-aligned pointer for vectorized operations
+	unsigned char *mBasePtr; // Raw allocated pointer (for delete)
+	unsigned int mFloats;    // Size of buffer in floats (without padding)
+
+	// Constructor
+	AlignedFloatBuffer();
+
+	// Allocate and align buffer for specified number of floats
+	result init(unsigned int aFloats);
+
+	// Clear all data to zero
+	void clear();
+
+	// Destructor
+	~AlignedFloatBuffer();
+};
 
 // Generic device information structure for cross-backend compatibility
 struct DeviceInfo
@@ -425,26 +445,6 @@ public:
 
 public:
 	// Rest of the stuff is used internally.
-
-	/**
-	 * Apply volume scaling and clipping to audio buffer
-	 *
-	 * @param aSoloud       SoLoud instance (for configuration flags)
-	 * @param aBuffer       Input buffer with source samples
-	 * @param aDestBuffer   Output buffer for processed samples
-	 * @param aSamples      Number of samples to process
-	 * @param aVolume0      Starting volume level
-	 * @param aVolume1      Ending volume level (for smooth ramping)
-	 *
-	 * Supports two clipping modes:
-	 * - Hard clipping: Simple [-1,1] bounds
-	 * - Roundoff clipping: Smooth saturation curve that approaches limits asymptotically
-	 *
-	 * Uses AVX2 intrinsics when available for 8x performance improvement,
-	 * falls back to SSE intrinsics for 4x performance improvement,
-	 * or scalar fallback for compatibility
-	 */
-	void clip_internal(AlignedFloatBuffer &aBuffer, AlignedFloatBuffer &aDestBuffer, unsigned int aSamples, float aVolume0, float aVolume1) const;
 
 	// Mix N samples * M channels. Called by other mix_ functions.
 	void mix_internal(unsigned int aSamples, unsigned int aStride);
