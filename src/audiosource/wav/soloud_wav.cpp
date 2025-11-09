@@ -157,6 +157,32 @@ result Wav::loadogg(MemoryFile *aReader)
 		return FILE_LOAD_FAILED;
 	}
 
+	stb_vorbis_comment comment = stb_vorbis_get_comment(vorbis);
+	// skip broken "avc[...]"-encoded vorbis files, ffmpeg handles it correctly, stb_vorbis doesn't
+	for (int i = 0; i < comment.comment_list_length; i++)
+	{
+		const char *currcom = nullptr;
+		// no comment, allow this file
+		if (!(comment.comment_list && (currcom = comment.comment_list[i]) && (*currcom != '\0')))
+		{
+			break;
+		}
+
+		if (strncmp("encoder=", currcom, (sizeof("encoder=") - 1)) == 0)
+		{
+			currcom += (sizeof("encoder=") - 1);
+			if (*currcom != '\0' && (strncmp("avc", currcom, (sizeof("avc") - 1)) == 0))
+			{
+				return FILE_LOAD_FAILED;
+			}
+			else
+			{
+				// we got "encoder=" something other than avc[...], so allow this file
+				break;
+			}
+		}
+	}
+
 	stb_vorbis_info info = stb_vorbis_get_info(vorbis);
 	unsigned int estimatedSamples = stb_vorbis_stream_length_in_samples(vorbis);
 

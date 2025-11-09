@@ -678,6 +678,33 @@ result WavStream::loadogg(File *fp)
 	v = stb_vorbis_open_file((Soloud_Filehack *)fp, 0, &e, nullptr);
 	if (v == nullptr)
 		return FILE_LOAD_FAILED;
+
+	stb_vorbis_comment comment = stb_vorbis_get_comment(v);
+	// skip broken "avc[...]"-encoded vorbis files, ffmpeg handles it correctly, stb_vorbis doesn't
+	for (int i = 0; i < comment.comment_list_length; i++)
+	{
+		const char *currcom = nullptr;
+		// no comment, allow this file
+		if (!(comment.comment_list && (currcom = comment.comment_list[i]) && (*currcom != '\0')))
+		{
+			break;
+		}
+
+		if (strncmp("encoder=", currcom, (sizeof("encoder=") - 1)) == 0)
+		{
+			currcom += (sizeof("encoder=") - 1);
+			if (*currcom != '\0' && (strncmp("avc", currcom, (sizeof("avc") - 1)) == 0))
+			{
+				return FILE_LOAD_FAILED;
+			}
+			else
+			{
+				// we got "encoder=" something other than avc[...], so allow this file
+				break;
+			}
+		}
+	}
+
 	stb_vorbis_info info = stb_vorbis_get_info(v);
 	mChannels = info.channels;
 	if (info.channels > MAX_CHANNELS)
