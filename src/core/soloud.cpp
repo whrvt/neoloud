@@ -533,15 +533,78 @@ unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsig
 			// Handle looping: continue reading from loop point if we reach the end
 			if (samplesRead < samplesToRead && (voice->mFlags & AudioSourceInstance::LOOPING))
 			{
-				while (samplesRead < samplesToRead && voice->seek(voice->mLoopPoint, channelBuffer + samplesRead * voice->mChannels,
-				                                                  (samplesToRead - samplesRead) * voice->mChannels) == SO_NO_ERROR)
+				// crossfade ~1.5ms at 44.1kHz, long enough to eliminate clicks, but short enough to not be noticeable
+				const unsigned int LOOP_CROSSFADE_SAMPLES = 64;
+
+				unsigned int preLoopSamples = samplesRead;
+
+				// Save the last sample per channel for crossfade continuity
+				float lastEndSamples[MAX_CHANNELS];
+				for (unsigned int ch = 0; ch < voice->mChannels; ch++)
+				{
+					lastEndSamples[ch] = (preLoopSamples > 0)
+					    ? channelBuffer[ch * alignedBufferSize + preLoopSamples - 1]
+					    : 0.0f;
+				}
+
+				while (samplesRead < samplesToRead && voice->seek(voice->mLoopPoint, channelBuffer,
+				                                                  samplesToRead * voice->mChannels) == SO_NO_ERROR)
 				{
 					voice->mLoopCount++;
-					unsigned int loopSamples =
-					    voice->getAudio(channelBuffer + samplesRead * voice->mChannels, samplesToRead - samplesRead, alignedBufferSize - samplesRead);
-					samplesRead += loopSamples;
+					unsigned int remaining = samplesToRead - samplesRead;
+
+					// Read loop samples to a fresh aligned buffer to avoid multi-channel offset issues
+					// Use the portion of scratch after our main channel data
+					unsigned int loopAlignedSize = (remaining + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
+					unsigned int mainBufferEnd = alignedBufferSize * voice->mChannels;
+
+					// Make sure we have enough scratch space for the temp buffer
+					if (mainBufferEnd + loopAlignedSize * voice->mChannels > scratchSize)
+					{
+						loopAlignedSize = (scratchSize - mainBufferEnd) / voice->mChannels;
+						loopAlignedSize &= ~SIMD_ALIGNMENT_MASK;
+						if (loopAlignedSize < remaining)
+							remaining = loopAlignedSize;
+					}
+
+					if (remaining == 0 || loopAlignedSize == 0)
+						break;
+
+					float *loopTempBuffer = channelBuffer + mainBufferEnd;
+					unsigned int loopSamples = voice->getAudio(loopTempBuffer, remaining, loopAlignedSize);
+
 					if (loopSamples == 0)
-						break; // Prevent infinite loop if source can't provide more data
+						break;
+
+					// Copy loop samples to channelBuffer
+					for (unsigned int ch = 0; ch < voice->mChannels; ch++)
+					{
+						memcpy(channelBuffer + ch * alignedBufferSize + samplesRead,
+						       loopTempBuffer + ch * loopAlignedSize,
+						       loopSamples * sizeof(float));
+					}
+
+					// Apply crossfade at the loop boundary (only on the first iteration after seeking)
+					if (samplesRead == preLoopSamples && preLoopSamples > 0 && loopSamples > 0)
+					{
+						unsigned int crossfadeLen = (loopSamples < LOOP_CROSSFADE_SAMPLES) ? loopSamples : LOOP_CROSSFADE_SAMPLES;
+
+						for (unsigned int ch = 0; ch < voice->mChannels; ch++)
+						{
+							float lastEndSample = lastEndSamples[ch];
+							float *loopStart = channelBuffer + ch * alignedBufferSize + preLoopSamples;
+
+							for (unsigned int i = 0; i < crossfadeLen; i++)
+							{
+								// t=0 at boundary (output = lastEndSample), t=1 at end (output = loopStart)
+								float t = (float)(i + 1) / (float)(crossfadeLen + 1);
+								// Fade from the last end sample into the loop samples
+								loopStart[i] = lastEndSample * (1.0f - t) + loopStart[i] * t;
+							}
+						}
+					}
+
+					samplesRead += loopSamples;
 				}
 			}
 
