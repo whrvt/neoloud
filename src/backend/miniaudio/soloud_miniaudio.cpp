@@ -49,6 +49,7 @@ distribution.
 
 #include "miniaudio.h"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstdio>
@@ -184,10 +185,16 @@ void get_base_identifier(const char *identifier, char *baseIdentifier, size_t ba
 	baseIdentifier[len] = '\0';
 }
 
+#ifdef _MSC_VER
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif
+#endif
+
 ma_uint32 parse_log_level_from_env()
 {
 	const char *env = getenv("SOLOUD_DEBUG");
-	if (!env)
+	if (!env || !*env || *env == '0')
 	{
 #ifdef _DEBUG
 		return MA_LOG_LEVEL_WARNING;
@@ -196,15 +203,15 @@ ma_uint32 parse_log_level_from_env()
 #endif
 	}
 
-	if (strcmp(env, "debug") == 0)
+	if (strncasecmp(env, "debug", sizeof("debug") - 1) == 0)
 		return MA_LOG_LEVEL_DEBUG;
-	if (strcmp(env, "info") == 0)
+	if (strncasecmp(env, "info", sizeof("info") - 1) == 0)
 		return MA_LOG_LEVEL_INFO;
-	if (strcmp(env, "warn") == 0)
+	if (strncasecmp(env, "warn", sizeof("warn") - 1) == 0)
 		return MA_LOG_LEVEL_WARNING;
-	if (strcmp(env, "error") == 0)
+	if (strncasecmp(env, "error", sizeof("error") - 1) == 0)
 		return MA_LOG_LEVEL_ERROR;
-	if (strcmp(env, "none") == 0)
+	if (strncasecmp(env, "none", sizeof("none") - 1) == 0)
 		return 0;
 
 	// default fallback for unrecognized values
@@ -213,6 +220,47 @@ ma_uint32 parse_log_level_from_env()
 #else
 	return 0;
 #endif
+}
+
+// use an environment variable that's mostly compatible with SDL_AUDIO_DRIVER, so we don't have
+// to do anything extra for the SDL output backend
+ma_backend parse_backend_from_env()
+{
+	const char *env = getenv("SOLOUD_MINIAUDIO_DRIVER");
+	if (!env || !*env || *env == '0')
+	{
+		return ma_backend_null; // none
+	}
+
+	if (strncasecmp(env, "wasapi", sizeof("wasapi") - 1) == 0)
+		return ma_backend_wasapi;
+	if (strncasecmp(env, "dsound", sizeof("dsound") - 1) == 0)
+		return ma_backend_dsound;
+	if (strncasecmp(env, "winmm", sizeof("winmm") - 1) == 0)
+		return ma_backend_winmm;
+	if (strncasecmp(env, "coreaudio", sizeof("coreaudio") - 1) == 0)
+		return ma_backend_coreaudio;
+	if (strncasecmp(env, "sndio", sizeof("sndio") - 1) == 0)
+		return ma_backend_sndio;
+	if (strncasecmp(env, "audio4", sizeof("audio4") - 1) == 0)
+		return ma_backend_audio4;
+	if (strncasecmp(env, "oss", sizeof("oss") - 1) == 0)
+		return ma_backend_oss;
+	if (strncasecmp(env, "pulseaudio", sizeof("pulseaudio") - 1) == 0)
+		return ma_backend_pulseaudio;
+	if (strncasecmp(env, "alsa", sizeof("alsa") - 1) == 0)
+		return ma_backend_alsa;
+	if (strncasecmp(env, "jack", sizeof("jack") - 1) == 0)
+		return ma_backend_jack;
+	if (strncasecmp(env, "aaudio", sizeof("aaudio") - 1) == 0)
+		return ma_backend_aaudio;
+	if (strncasecmp(env, "opensl", sizeof("opensl") - 1) == 0)
+		return ma_backend_opensl;
+	if (strncasecmp(env, "webaudio", sizeof("webaudio") - 1) == 0)
+		return ma_backend_webaudio;
+
+	// default fallback
+	return ma_backend_null;
 }
 
 void soloud_miniaudio_notification_callback(const ma_device_notification *pNotification)
@@ -775,9 +823,9 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 
 	// get list of enabled backends
 	size_t enabledBackendCount = 0;
-	std::array<ma_backend, MA_BACKEND_COUNT> enabledBackends{};
-	ma_result result = ma_get_enabled_backends(enabledBackends.data(), MA_BACKEND_COUNT, &enabledBackendCount);
-	if (result != MA_SUCCESS)
+	std::array<ma_backend, MA_BACKEND_COUNT + 1> enabledBackends{}; // allocate 1 more slot to hold an environment variable choice at the start
+	ma_result result = ma_get_enabled_backends(enabledBackends.data() + 1, MA_BACKEND_COUNT, &enabledBackendCount);
+	if (result != MA_SUCCESS || enabledBackendCount == 0)
 	{
 		if (data->logInitialized)
 			ma_log_uninit(&data->log);
@@ -786,9 +834,24 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 		return UNKNOWN_ERROR;
 	}
 
+	size_t beginIndex = 1;
+	const ma_backend user_backend = parse_backend_from_env();
+
+	if (user_backend != ma_backend_null)
+	{
+		auto it = std::find(enabledBackends.begin(), enabledBackends.end(), user_backend);
+		if (it != enabledBackends.end())
+		{
+			// reorder the user choice to be at the start, and set the original element to null (so we skip it later)
+			beginIndex = 0;
+			enabledBackends[0] = user_backend;
+			*it = ma_backend_null;
+		}
+	}
+
 	// try each backend individually with shared mode as default
 	bool initialized = false;
-	for (size_t i = 0; i < enabledBackendCount && !initialized; ++i)
+	for (size_t i = beginIndex; i < (enabledBackendCount + 1 /* because we put the real elements 1 past the start */) && !initialized; ++i)
 	{
 		ma_backend backend = enabledBackends[i];
 

@@ -56,8 +56,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 #include <vector>
 
 #ifdef _MSC_VER
-#ifndef strcasecmp
-#define strcasecmp _stricmp
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
 #endif
 #endif
 
@@ -269,7 +269,7 @@ result soloud_sdl3_resume(SoLoud::Soloud *aSoloud)
 SDL_LogPriority parse_log_level_from_env()
 {
 	const char *env = getenv("SOLOUD_DEBUG");
-	if (!env)
+	if (!env || !*env || *env == '0')
 	{
 #ifdef _DEBUG
 		return SDL_LOG_PRIORITY_WARN;
@@ -278,15 +278,15 @@ SDL_LogPriority parse_log_level_from_env()
 #endif
 	}
 
-	if (strcmp(env, "debug") == 0)
+	if (strncasecmp(env, "debug", sizeof("debug") - 1) == 0)
 		return SDL_LOG_PRIORITY_TRACE;
-	if (strcmp(env, "info") == 0)
+	if (strncasecmp(env, "info", sizeof("info") - 1) == 0)
 		return SDL_LOG_PRIORITY_INFO;
-	if (strcmp(env, "warn") == 0)
+	if (strncasecmp(env, "warn", sizeof("warn") - 1) == 0)
 		return SDL_LOG_PRIORITY_WARN;
-	if (strcmp(env, "error") == 0)
+	if (strncasecmp(env, "error", sizeof("error") - 1) == 0)
 		return SDL_LOG_PRIORITY_ERROR;
-	if (strcmp(env, "none") == 0)
+	if (strncasecmp(env, "none", sizeof("none") - 1) == 0)
 		return static_cast<SDL_LogPriority>(SDL_LOG_PRIORITY_CRITICAL + 1);
 
 	// default fallback for unrecognized values
@@ -334,10 +334,10 @@ void params_to_optimal_devconfig(SDL3Data *instance, SDL_AudioSpec *outSpec, uns
 
 #ifdef WINDOWS_VERSION
 	// unless it was explicitly requested to be lower, clamp to min 10ms on Windows if not using WASAPI (empirically, directsound blows up with anything lower)
-	if (strcasecmp(driver, "wasapi") != 0)
+	if (strncasecmp(driver, "wasapi", sizeof("wasapi") - 1) != 0)
 		*outBufsize = std::max(((outSpec->freq * 10) + 999) / 1000u, *outBufsize);
 #elif defined(__linux__)
-	if (strcasecmp(driver, "pulseaudio") == 0) // SDL seems to always return a buffer size 2x of what was requested (but only for pulseaudio)... why?
+	if (strncasecmp(driver, "pulseaudio", sizeof("pulseaudio") - 1) == 0) // SDL seems to always return a buffer size 2x of what was requested (but only for pulseaudio)... why?
 		*outBufsize = (*outBufsize + 1) / 2;   // curse integer truncation
 #else // other platforms/drivers, just clamp to min 10ms (like windows non-wasapi)
 	*outBufsize = std::max(((outSpec->freq * 10) + 999) / 1000u, *outBufsize);
@@ -707,8 +707,13 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 	SDL_LogPriority logLevel = parse_log_level_from_env();
 	if (logLevel <= SDL_LOG_PRIORITY_CRITICAL)
 		SDL_SetLogPriority(SDL_LOG_CATEGORY_AUDIO, logLevel);
-
 	SDL_LogDebug(SDL_LOG_CATEGORY_AUDIO, "Initializing SDL3 audio backend");
+
+	// also allow SOLOUD_SDL3_BACKEND to manually specify a driver hint
+	const char *soloud_driver_env = getenv("SOLOUD_SDL_DRIVER");
+	if (soloud_driver_env && *soloud_driver_env && *soloud_driver_env != '0') {
+		SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, soloud_driver_env, SDL_HINT_DEFAULT);
+	}
 
 	const bool sdlEventsWereAlreadyInit = SDL_WasInit(SDL_INIT_EVENTS);
 
