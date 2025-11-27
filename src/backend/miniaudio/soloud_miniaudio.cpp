@@ -387,6 +387,7 @@ ma_device_config create_device_config(MiniaudioData *data, ma_share_mode shareMo
 	config.notificationCallback = soloud_miniaudio_notification_callback;
 	config.pUserData = (void *)data;
 	config.noPreSilencedOutputBuffer = true;
+	config.noFixedSizedCallback = true;
 	config.noClip = true;
 	config.performanceProfile = ma_performance_profile_low_latency;
 
