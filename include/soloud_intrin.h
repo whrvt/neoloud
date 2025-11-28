@@ -34,6 +34,9 @@ freely, subject to the following restrictions:
 #endif
 
 #ifdef SOLOUD_SSE_INTRINSICS
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 #include <emmintrin.h>
 #include <xmmintrin.h>
 #endif

@@ -82,7 +82,8 @@ freely, subject to the following restrictions:
 #if defined(__AVX2__)
 #define SOLOUD_AVX_INTRINSICS
 #endif
-#if defined(__SSE2__)
+#if ((defined(_MSC_VER) && _MSC_VER >= 1400) && defined(_M_X64)) || \
+    ((defined(__i386) || defined(_M_IX86) || defined(__i386__) || defined(__x86_64__)) && ((defined(_M_IX86_FP) && _M_IX86_FP == 2) || defined(__SSE2__)))
 #define SOLOUD_SSE_INTRINSICS
 #endif
 #endif
