@@ -1753,4 +1753,261 @@ void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSam
 	}
 }
 
+void resample_channels(float **srcChannels, float *outputBuffer, unsigned int outputStride, unsigned int numChannels, unsigned int outputSamples, double srcPosition,
+                       double stepSize, unsigned int availableInput, unsigned int lookahead)
+{
+	using namespace ResamplingConstants;
+
+	SOLOUD_ASSERT(srcChannels != nullptr);
+	SOLOUD_ASSERT(outputBuffer != nullptr);
+	SOLOUD_ASSERT(numChannels > 0);
+	SOLOUD_ASSERT(availableInput >= lookahead);
+
+#if defined(SOLOUD_AVX_INTRINSICS)
+	// Constants for index clamping
+	__m256i zero_i = _mm256_setzero_si256();
+	__m256i maxIdx = _mm256_set1_epi32((int)(availableInput - 1));
+
+	// Step values for position advancement
+	__m256d step4 = _mm256_set1_pd(stepSize * 4.0);
+	__m256d step8 = _mm256_set1_pd(stepSize * 8.0);
+
+	// Catmull-Rom coefficients
+	__m256 cr_scale = _mm256_set1_ps(CATMULLROM_SCALE);
+	__m256 cr_two = _mm256_set1_ps(CATMULLROM_LINEAR_COEFF);
+	__m256 cr_q0 = _mm256_set1_ps(CATMULLROM_QUAD_COEFFS[0]);
+	__m256 cr_q1 = _mm256_set1_ps(CATMULLROM_QUAD_COEFFS[1]);
+	__m256 cr_q2 = _mm256_set1_ps(CATMULLROM_QUAD_COEFFS[2]);
+	__m256 cr_q3 = _mm256_set1_ps(CATMULLROM_QUAD_COEFFS[3]);
+	__m256 cr_c0 = _mm256_set1_ps(CATMULLROM_CUBIC_COEFFS[0]);
+	__m256 cr_c1 = _mm256_set1_ps(CATMULLROM_CUBIC_COEFFS[1]);
+	__m256 cr_c2 = _mm256_set1_ps(CATMULLROM_CUBIC_COEFFS[2]);
+	__m256 cr_c3 = _mm256_set1_ps(CATMULLROM_CUBIC_COEFFS[3]);
+#endif
+
+	for (unsigned int ch = 0; ch < numChannels; ch++)
+	{
+		float *src = srcChannels[ch];
+		float *dst = outputBuffer + ch * outputStride;
+
+		unsigned int i = 0;
+
+#if defined(SOLOUD_AVX_INTRINSICS)
+		// AVX2 path: process 8 samples at a time using gather instructions
+		{
+			__m256d pos_lo = _mm256_set_pd(srcPosition + 3.0 * stepSize, srcPosition + 2.0 * stepSize, srcPosition + stepSize, srcPosition);
+			__m256d pos_hi = _mm256_add_pd(pos_lo, step4);
+
+			unsigned int simdCount = outputSamples & ~7u;
+			for (; i < simdCount; i += 8)
+			{
+				__m256d floor_lo = _mm256_floor_pd(pos_lo);
+				__m256d floor_hi = _mm256_floor_pd(pos_hi);
+
+				__m128i idx_lo_128 = _mm256_cvttpd_epi32(floor_lo);
+				__m128i idx_hi_128 = _mm256_cvttpd_epi32(floor_hi);
+				__m256i idx = _mm256_set_m128i(idx_hi_128, idx_lo_128);
+
+				__m256d frac_lo_d = _mm256_sub_pd(pos_lo, floor_lo);
+				__m256d frac_hi_d = _mm256_sub_pd(pos_hi, floor_hi);
+				__m128 frac_lo_f = _mm256_cvtpd_ps(frac_lo_d);
+				__m128 frac_hi_f = _mm256_cvtpd_ps(frac_hi_d);
+				__m256 frac = _mm256_set_m128(frac_hi_f, frac_lo_f);
+
+				__m256 result;
+
+				if (lookahead == POINT_LOOKAHEAD)
+				{
+					result = _mm256_i32gather_ps(src, idx, 4);
+				}
+				else if (lookahead == LINEAR_LOOKAHEAD)
+				{
+					__m256i idx_p1 = _mm256_add_epi32(idx, _mm256_set1_epi32(1));
+					idx_p1 = _mm256_min_epi32(idx_p1, maxIdx);
+
+					__m256 s0 = _mm256_i32gather_ps(src, idx, 4);
+					__m256 s1 = _mm256_i32gather_ps(src, idx_p1, 4);
+
+					__m256 diff = _mm256_sub_ps(s1, s0);
+					result = _mm256_add_ps(s0, _mm256_mul_ps(diff, frac));
+				}
+				else // CATMULLROM_LOOKAHEAD
+				{
+					__m256i idx_m1 = _mm256_sub_epi32(idx, _mm256_set1_epi32(1));
+					idx_m1 = _mm256_max_epi32(idx_m1, zero_i);
+					__m256i idx_p1 = _mm256_add_epi32(idx, _mm256_set1_epi32(1));
+					idx_p1 = _mm256_min_epi32(idx_p1, maxIdx);
+					__m256i idx_p2 = _mm256_add_epi32(idx, _mm256_set1_epi32(2));
+					idx_p2 = _mm256_min_epi32(idx_p2, maxIdx);
+
+					__m256 p0 = _mm256_i32gather_ps(src, idx_m1, 4);
+					__m256 p1 = _mm256_i32gather_ps(src, idx, 4);
+					__m256 p2 = _mm256_i32gather_ps(src, idx_p1, 4);
+					__m256 p3 = _mm256_i32gather_ps(src, idx_p2, 4);
+
+					__m256 t = frac;
+					__m256 t2 = _mm256_mul_ps(t, t);
+					__m256 t3 = _mm256_mul_ps(t2, t);
+
+					__m256 linear = _mm256_mul_ps(cr_two, p1);
+					__m256 t_coeff = _mm256_sub_ps(p2, p0);
+
+					__m256 t2_coeff = _mm256_mul_ps(cr_q0, p0);
+					t2_coeff = _mm256_add_ps(t2_coeff, _mm256_mul_ps(cr_q1, p1));
+					t2_coeff = _mm256_add_ps(t2_coeff, _mm256_mul_ps(cr_q2, p2));
+					t2_coeff = _mm256_add_ps(t2_coeff, _mm256_mul_ps(cr_q3, p3));
+
+					__m256 t3_coeff = _mm256_mul_ps(cr_c0, p0);
+					t3_coeff = _mm256_add_ps(t3_coeff, _mm256_mul_ps(cr_c1, p1));
+					t3_coeff = _mm256_add_ps(t3_coeff, _mm256_mul_ps(cr_c2, p2));
+					t3_coeff = _mm256_add_ps(t3_coeff, _mm256_mul_ps(cr_c3, p3));
+
+					result = _mm256_add_ps(linear, _mm256_mul_ps(t3_coeff, t3));
+					result = _mm256_add_ps(result, _mm256_mul_ps(t2_coeff, t2));
+					result = _mm256_add_ps(result, _mm256_mul_ps(t_coeff, t));
+					result = _mm256_mul_ps(result, cr_scale);
+				}
+
+				_mm256_storeu_ps(dst + i, result);
+
+				pos_lo = _mm256_add_pd(pos_lo, step8);
+				pos_hi = _mm256_add_pd(pos_hi, step8);
+			}
+		}
+
+#elif defined(SOLOUD_SSE_INTRINSICS)
+		// SSE path: process 4 samples at a time with manual gathering
+		{
+			double srcPos = srcPosition;
+			unsigned int simdCount = outputSamples & ~3u;
+
+			for (; i < simdCount; i += 4)
+			{
+				double pos0 = srcPos;
+				double pos1 = srcPos + stepSize;
+				double pos2 = srcPos + 2.0 * stepSize;
+				double pos3 = srcPos + 3.0 * stepSize;
+
+				unsigned int idx0 = (unsigned int)pos0;
+				unsigned int idx1 = (unsigned int)pos1;
+				unsigned int idx2 = (unsigned int)pos2;
+				unsigned int idx3 = (unsigned int)pos3;
+
+				float frac0 = (float)(pos0 - idx0);
+				float frac1 = (float)(pos1 - idx1);
+				float frac2 = (float)(pos2 - idx2);
+				float frac3 = (float)(pos3 - idx3);
+
+				__m128 frac = _mm_set_ps(frac3, frac2, frac1, frac0);
+				__m128 result;
+
+				if (lookahead == POINT_LOOKAHEAD)
+				{
+					result = _mm_set_ps(src[idx3], src[idx2], src[idx1], src[idx0]);
+				}
+				else if (lookahead == LINEAR_LOOKAHEAD)
+				{
+					unsigned int maxI = availableInput - 1;
+					__m128 s0 = _mm_set_ps(src[idx3], src[idx2], src[idx1], src[idx0]);
+					__m128 s1 = _mm_set_ps(src[(idx3 + 1 <= maxI) ? idx3 + 1 : idx3],
+					                       src[(idx2 + 1 <= maxI) ? idx2 + 1 : idx2],
+					                       src[(idx1 + 1 <= maxI) ? idx1 + 1 : idx1],
+					                       src[(idx0 + 1 <= maxI) ? idx0 + 1 : idx0]);
+
+					__m128 diff = _mm_sub_ps(s1, s0);
+					result = _mm_add_ps(s0, _mm_mul_ps(diff, frac));
+				}
+				else // CATMULLROM_LOOKAHEAD
+				{
+					unsigned int maxI = availableInput - 1;
+
+#define CLAMP_IDX_M1(idx) ((idx) >= 1 ? (idx) - 1 : (idx))
+#define CLAMP_IDX_P1(idx) ((idx) + 1 <= maxI ? (idx) + 1 : maxI)
+#define CLAMP_IDX_P2(idx) ((idx) + 2 <= maxI ? (idx) + 2 : maxI)
+
+					__m128 p0 = _mm_set_ps(src[CLAMP_IDX_M1(idx3)], src[CLAMP_IDX_M1(idx2)], src[CLAMP_IDX_M1(idx1)], src[CLAMP_IDX_M1(idx0)]);
+					__m128 p1 = _mm_set_ps(src[idx3], src[idx2], src[idx1], src[idx0]);
+					__m128 p2 = _mm_set_ps(src[CLAMP_IDX_P1(idx3)], src[CLAMP_IDX_P1(idx2)], src[CLAMP_IDX_P1(idx1)], src[CLAMP_IDX_P1(idx0)]);
+					__m128 p3 = _mm_set_ps(src[CLAMP_IDX_P2(idx3)], src[CLAMP_IDX_P2(idx2)], src[CLAMP_IDX_P2(idx1)], src[CLAMP_IDX_P2(idx0)]);
+
+#undef CLAMP_IDX_M1
+#undef CLAMP_IDX_P1
+#undef CLAMP_IDX_P2
+
+					__m128 t = frac;
+					__m128 t2 = _mm_mul_ps(t, t);
+					__m128 t3 = _mm_mul_ps(t2, t);
+
+					__m128 cr_scale_sse = _mm_set1_ps(CATMULLROM_SCALE);
+					__m128 cr_two_sse = _mm_set1_ps(CATMULLROM_LINEAR_COEFF);
+
+					__m128 linear = _mm_mul_ps(cr_two_sse, p1);
+					__m128 t_coeff = _mm_sub_ps(p2, p0);
+
+					__m128 t2_coeff = _mm_mul_ps(_mm_set1_ps(CATMULLROM_QUAD_COEFFS[0]), p0);
+					t2_coeff = _mm_add_ps(t2_coeff, _mm_mul_ps(_mm_set1_ps(CATMULLROM_QUAD_COEFFS[1]), p1));
+					t2_coeff = _mm_add_ps(t2_coeff, _mm_mul_ps(_mm_set1_ps(CATMULLROM_QUAD_COEFFS[2]), p2));
+					t2_coeff = _mm_add_ps(t2_coeff, _mm_mul_ps(_mm_set1_ps(CATMULLROM_QUAD_COEFFS[3]), p3));
+
+					__m128 t3_coeff = _mm_mul_ps(_mm_set1_ps(CATMULLROM_CUBIC_COEFFS[0]), p0);
+					t3_coeff = _mm_add_ps(t3_coeff, _mm_mul_ps(_mm_set1_ps(CATMULLROM_CUBIC_COEFFS[1]), p1));
+					t3_coeff = _mm_add_ps(t3_coeff, _mm_mul_ps(_mm_set1_ps(CATMULLROM_CUBIC_COEFFS[2]), p2));
+					t3_coeff = _mm_add_ps(t3_coeff, _mm_mul_ps(_mm_set1_ps(CATMULLROM_CUBIC_COEFFS[3]), p3));
+
+					result = _mm_add_ps(linear, _mm_mul_ps(t_coeff, t));
+					result = _mm_add_ps(result, _mm_mul_ps(t2_coeff, t2));
+					result = _mm_add_ps(result, _mm_mul_ps(t3_coeff, t3));
+					result = _mm_mul_ps(result, cr_scale_sse);
+				}
+
+				_mm_storeu_ps(dst + i, result);
+				srcPos += 4.0 * stepSize;
+			}
+		}
+#endif
+
+		// Scalar path: handles remainder after SIMD, or all samples if no SIMD available
+		double srcPos = srcPosition + i * stepSize;
+		for (; i < outputSamples; i++)
+		{
+			unsigned int intPos = (unsigned int)srcPos;
+			float frac = (float)(srcPos - intPos);
+
+			float sample;
+			if (lookahead == POINT_LOOKAHEAD)
+			{
+				sample = src[intPos];
+			}
+			else if (lookahead == LINEAR_LOOKAHEAD)
+			{
+				float s0 = src[intPos];
+				float s1 = (intPos + 1 < availableInput) ? src[intPos + 1] : s0;
+				sample = s0 + (s1 - s0) * frac;
+			}
+			else // CATMULLROM_LOOKAHEAD
+			{
+				float p0 = (intPos >= 1) ? src[intPos - 1] : src[intPos];
+				float p1 = src[intPos];
+				float p2 = (intPos + 1 < availableInput) ? src[intPos + 1] : p1;
+				float p3 = (intPos + 2 < availableInput) ? src[intPos + 2] : p1;
+
+				float t = frac;
+				float t2 = t * t;
+				float t3 = t2 * t;
+
+				sample =
+				    CATMULLROM_SCALE *
+				    ((CATMULLROM_LINEAR_COEFF * p1) + (-p0 + p2) * t +
+				     (CATMULLROM_QUAD_COEFFS[0] * p0 + CATMULLROM_QUAD_COEFFS[1] * p1 + CATMULLROM_QUAD_COEFFS[2] * p2 + CATMULLROM_QUAD_COEFFS[3] * p3) * t2 +
+				     (CATMULLROM_CUBIC_COEFFS[0] * p0 + CATMULLROM_CUBIC_COEFFS[1] * p1 + CATMULLROM_CUBIC_COEFFS[2] * p2 + CATMULLROM_CUBIC_COEFFS[3] * p3) * t3);
+			}
+
+			dst[i] = sample;
+			srcPos += stepSize;
+		}
+	}
+
+	return;
+}
+
 } // namespace SoLoud

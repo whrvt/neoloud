@@ -31,14 +31,14 @@ freely, subject to the following restrictions:
 
 #ifdef SOLOUD_AVX_INTRINSICS
 #include <immintrin.h>
-#elif defined(SOLOUD_SSE_INTRINSICS)
-#include <xmmintrin.h>
-#ifdef _M_IX86
+#endif
+
+#ifdef SOLOUD_SSE_INTRINSICS
 #include <emmintrin.h>
+#include <xmmintrin.h>
 #endif
-#else
+
 #include <cstddef>
-#endif
 
 namespace SoLoud
 {
@@ -66,6 +66,25 @@ static constexpr size_t MEMORY_ALIGNMENT_MASK = 3;    // Align to 4-byte boundar
 static constexpr size_t TINY_BUFFER_FLOAT_COUNT = 16; // Buffer space for temporary operations (keeping this the same as SSE, this is how it was before)
 #endif
 
+// Resampling algorithm constants and helper functions
+namespace ResamplingConstants
+{
+// Lookahead samples required for each resampling algorithm
+constexpr unsigned int POINT_LOOKAHEAD = 1;      // Point sampling: just current sample
+constexpr unsigned int LINEAR_LOOKAHEAD = 2;     // Linear: current + next sample
+constexpr unsigned int CATMULLROM_LOOKAHEAD = 4; // Catmull-Rom: 4-point cubic interpolation
+
+// Safety margin for high sample rate ratios to prevent buffer underruns
+constexpr unsigned int LOOKAHEAD_SAFETY_MARGIN = 8;
+
+// Catmull-Rom cubic interpolation coefficients
+// Formula: 0.5 * ((2*p1) + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t^2 + (-p0+3*p1-3*p2+p3)*t^3)
+constexpr float CATMULLROM_SCALE = 0.5f;
+constexpr float CATMULLROM_LINEAR_COEFF = 2.0f;
+constexpr float CATMULLROM_QUAD_COEFFS[4] = {2.0f, -5.0f, 4.0f, -1.0f};  // p0, p1, p2, p3 coefficients
+constexpr float CATMULLROM_CUBIC_COEFFS[4] = {-1.0f, 3.0f, -3.0f, 1.0f}; // p0, p1, p2, p3 coefficients
+} // namespace ResamplingConstants
+
 // Lightweight class that handles small aligned buffer to support vectorized operations
 // Used for temporary SIMD register-sized data
 class TinyAlignedFloatBuffer
@@ -81,6 +100,28 @@ public:
 
 class AudioSourceInstance;
 class Soloud;
+
+/**
+ * Resample audio channels from source to destination sample rate
+ *
+ * @param srcChannels       Array of pointers to per-channel source buffers
+ * @param outputBuffer      Output buffer, channels separated by outputStride
+ * @param outputStride      Stride between channels in output buffer (samples)
+ * @param numChannels       Number of audio channels to process
+ * @param outputSamples     Number of samples to process and output
+ * @param srcPosition       Starting fractional position in source stream
+ * @param stepSize          Source position increment per output sample (srcRate/dstRate)
+ * @param availableInput    Number of available samples in source buffers
+ * @param lookahead         Lookahead samples required by the resampler algorithm
+ * @return                  outputSamples (always processes exactly the requested amount)
+ *
+ * Caller must ensure: availableInput >= floor(srcPosition + outputSamples * stepSize) + lookahead
+ *
+ * Uses AVX2 gather instructions when available, SSE with manual gathering as fallback,
+ * or scalar for compatibility.
+ */
+void resample_channels(float **srcChannels, float *outputBuffer, unsigned int outputStride, unsigned int numChannels, unsigned int outputSamples, double srcPosition,
+                       double stepSize, unsigned int availableInput, unsigned int lookahead);
 
 /**
  * Apply volume scaling and clipping to audio buffer

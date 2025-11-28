@@ -29,6 +29,7 @@ freely, subject to the following restrictions:
 #include "soloud_thread.h"
 
 #include <cmath> // sin
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -432,25 +433,6 @@ float *Soloud::calcFFT()
 	return mFFTData.data();
 }
 
-// Resampling algorithm constants and helper functions
-namespace ResamplingConstants
-{
-// Lookahead samples required for each resampling algorithm
-constexpr unsigned int POINT_LOOKAHEAD = 1;      // Point sampling: just current sample
-constexpr unsigned int LINEAR_LOOKAHEAD = 2;     // Linear: current + next sample
-constexpr unsigned int CATMULLROM_LOOKAHEAD = 4; // Catmull-Rom: 4-point cubic interpolation
-
-// Safety margin for high sample rate ratios to prevent buffer underruns
-constexpr unsigned int LOOKAHEAD_SAFETY_MARGIN = 8;
-
-// Catmull-Rom cubic interpolation coefficients
-// Formula: 0.5 * ((2*p1) + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t^2 + (-p0+3*p1-3*p2+p3)*t^3)
-constexpr float CATMULLROM_SCALE = 0.5f;
-constexpr float CATMULLROM_LINEAR_COEFF = 2.0f;
-constexpr float CATMULLROM_QUAD_COEFFS[4] = {2.0f, -5.0f, 4.0f, -1.0f};  // p0, p1, p2, p3 coefficients
-constexpr float CATMULLROM_CUBIC_COEFFS[4] = {-1.0f, 3.0f, -3.0f, 1.0f}; // p0, p1, p2, p3 coefficients
-} // namespace ResamplingConstants
-
 // Helper function to ensure we have enough source data in the resample buffer
 unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsigned int samplesNeeded, float *scratchBuffer, unsigned int scratchSize)
 {
@@ -542,13 +524,10 @@ unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsig
 				float lastEndSamples[MAX_CHANNELS];
 				for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 				{
-					lastEndSamples[ch] = (preLoopSamples > 0)
-					    ? channelBuffer[ch * alignedBufferSize + preLoopSamples - 1]
-					    : 0.0f;
+					lastEndSamples[ch] = (preLoopSamples > 0) ? channelBuffer[ch * alignedBufferSize + preLoopSamples - 1] : 0.0f;
 				}
 
-				while (samplesRead < samplesToRead && voice->seek(voice->mLoopPoint, channelBuffer,
-				                                                  samplesToRead * voice->mChannels) == SO_NO_ERROR)
+				while (samplesRead < samplesToRead && voice->seek(voice->mLoopPoint, channelBuffer, samplesToRead * voice->mChannels) == SO_NO_ERROR)
 				{
 					voice->mLoopCount++;
 					unsigned int remaining = samplesToRead - samplesRead;
@@ -579,9 +558,7 @@ unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsig
 					// Copy loop samples to channelBuffer
 					for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 					{
-						memcpy(channelBuffer + ch * alignedBufferSize + samplesRead,
-						       loopTempBuffer + ch * loopAlignedSize,
-						       loopSamples * sizeof(float));
+						memcpy(channelBuffer + ch * alignedBufferSize + samplesRead, loopTempBuffer + ch * loopAlignedSize, loopSamples * sizeof(float));
 					}
 
 					// Apply crossfade at the loop boundary (only on the first iteration after seeking)
@@ -695,16 +672,14 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 	if (availableInput < lookaheadSamples)
 		return 0; // Not enough input data available for interpolation
 
+	unsigned int safeOutputCount = (unsigned int)ceil((availableInput - lookaheadSamples + 1.0 - voice->mPreciseSrcPosition) / stepSize);
+	if (safeOutputCount > samplesToProcess)
+		safeOutputCount = samplesToProcess;
+
 	// If no output buffer provided (tick-only mode), just advance position
 	if (!outputBuffer)
 	{
-		// Calculate how many samples we can actually advance through
-		double maxAdvance = (availableInput - lookaheadSamples) / stepSize;
-		unsigned int actualSamples = (unsigned int)maxAdvance;
-		if (actualSamples > samplesToProcess)
-			actualSamples = samplesToProcess;
-
-		voice->mPreciseSrcPosition += actualSamples * stepSize;
+		voice->mPreciseSrcPosition += safeOutputCount * stepSize;
 
 		// Update buffer position for consumed integer samples
 		unsigned int integralConsumed = (unsigned int)floor(voice->mPreciseSrcPosition);
@@ -713,77 +688,23 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 			voice->mResampleBufferPos += integralConsumed;
 			voice->mPreciseSrcPosition -= integralConsumed;
 		}
-		return actualSamples;
+		return safeOutputCount;
 	}
 
-	// Resample each channel independently
+	if (safeOutputCount == 0)
+		return 0;
+
+	// Resample all channels using SIMD-optimized implementation
+	// Create offset pointers for each channel (accounting for current read position)
+	float *srcChannelsOffset[MAX_CHANNELS];
 	for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 	{
-		double srcPos = voice->mPreciseSrcPosition;
-		float *src = voice->mResampleBuffer[ch] + voice->mResampleBufferPos;
-		float *dst = outputBuffer + ch * outputStride;
-
-		for (unsigned int i = 0; i < samplesToProcess; i++)
-		{
-			unsigned int intPos = (unsigned int)floor(srcPos);
-
-			// Check bounds, stop if we don't have enough input data
-			if (intPos + lookaheadSamples > availableInput)
-			{
-				samplesProduced = i;
-				break;
-			}
-
-			double frac = srcPos - intPos;
-
-			// Perform interpolation with boundary protection
-			switch (resampler)
-			{
-			case RESAMPLER_POINT:
-				// Point sampling: no interpolation
-				dst[i] = src[intPos];
-				break;
-
-			case RESAMPLER_LINEAR: {
-				// Linear interpolation between current and next sample
-				float s0 = src[intPos];
-				float s1 = (intPos + 1 < availableInput) ? src[intPos + 1] : src[intPos];
-				dst[i] = s0 + (s1 - s0) * (float)frac;
-			}
-			break;
-
-			default:
-			case RESAMPLER_CATMULLROM: {
-				// Catmull-Rom cubic interpolation using 4 points
-				// Provides smooth curves with good frequency response
-				float p0 = (intPos >= 1) ? src[intPos - 1] : src[intPos];
-				float p1 = src[intPos];
-				float p2 = (intPos + 1 < availableInput) ? src[intPos + 1] : src[intPos];
-				float p3 = (intPos + 2 < availableInput) ? src[intPos + 2] : src[intPos];
-
-				float t = (float)frac;
-				float t2 = t * t;
-				float t3 = t2 * t;
-
-				// Catmull-Rom formula: 0.5 * ((2*p1) + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t^2 + (-p0+3*p1-3*p2+p3)*t^3)
-				dst[i] =
-				    CATMULLROM_SCALE *
-				    ((CATMULLROM_LINEAR_COEFF * p1) + (-p0 + p2) * t +
-				     (CATMULLROM_QUAD_COEFFS[0] * p0 + CATMULLROM_QUAD_COEFFS[1] * p1 + CATMULLROM_QUAD_COEFFS[2] * p2 + CATMULLROM_QUAD_COEFFS[3] * p3) * t2 +
-				     (CATMULLROM_CUBIC_COEFFS[0] * p0 + CATMULLROM_CUBIC_COEFFS[1] * p1 + CATMULLROM_CUBIC_COEFFS[2] * p2 + CATMULLROM_CUBIC_COEFFS[3] * p3) * t3);
-			}
-			break;
-			}
-
-			srcPos += stepSize;
-		}
-
-		// All channels should produce the same number of samples
-		if (ch == 0)
-		{
-			samplesProduced = (samplesProduced == 0) ? samplesToProcess : samplesProduced;
-		}
+		srcChannelsOffset[ch] = voice->mResampleBuffer[ch] + voice->mResampleBufferPos;
 	}
+
+	samplesProduced = safeOutputCount; // Always process this amount
+	resample_channels(srcChannelsOffset, outputBuffer, outputStride, voice->mChannels, safeOutputCount, voice->mPreciseSrcPosition, stepSize, availableInput,
+	                  lookaheadSamples);
 
 	// Update position tracking with precise accumulation
 	double totalAdvance = samplesProduced * stepSize;

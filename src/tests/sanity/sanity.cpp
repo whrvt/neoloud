@@ -1607,7 +1607,7 @@ void testSpeedThings()
 	SoLoud::Wav wav;
 	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
 	CHECK_RES(res);
-	soloud.setMainResampler(SoLoud::Soloud::RESAMPLER_LINEAR);
+	soloud.setMainResampler(SoLoud::Soloud::RESAMPLER_CATMULLROM);
 	int j;
 	generateTestWave(wav);
 	int k;
