@@ -721,8 +721,8 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 			return INVALID_PARAMETER;
 	}
 
-	// lock both audio and device mutexes to ensure safe switching
-	aSoloud->lockAudioMutex_internal();
+	// lock device mutex
+	// miniaudio will internally block until the data callback is done, we don't have to lock the soloud internal audio mutex
 	std::lock_guard<std::mutex> deviceLock(data->deviceMutex);
 
 	// store current configuration
@@ -743,8 +743,6 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	ma_result result = init_device_with_id(data, targetShareMode, targetDeviceId);
 	if (result != MA_SUCCESS)
 	{
-		aSoloud->unlockAudioMutex_internal();
-
 		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
 			fprintf(stderr, "[MiniAudio ERROR] Failed to initialize new device\n");
 
@@ -777,8 +775,6 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	result = ma_device_start(&data->device);
 	if (result != MA_SUCCESS)
 	{
-		aSoloud->unlockAudioMutex_internal();
-
 		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
 			fprintf(stderr, "[MiniAudio ERROR] Failed to start new device\n");
 
@@ -786,7 +782,6 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	}
 
 	data->deviceValid.store(true);
-	aSoloud->unlockAudioMutex_internal();
 
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
 		fprintf(stderr, "[MiniAudio INFO] Successfully switched to new device in %s mode\n", targetShareMode == ma_share_mode_exclusive ? "exclusive" : "shared");

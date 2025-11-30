@@ -337,8 +337,9 @@ void params_to_optimal_devconfig(SDL3Data *instance, SDL_AudioSpec *outSpec, uns
 	if (strncasecmp(driver, "wasapi", sizeof("wasapi") - 1) != 0)
 		*outBufsize = std::max(((outSpec->freq * 10) + 999) / 1000u, *outBufsize);
 #elif defined(__linux__)
-	if (strncasecmp(driver, "pulseaudio", sizeof("pulseaudio") - 1) == 0) // SDL seems to always return a buffer size 2x of what was requested (but only for pulseaudio)... why?
-		*outBufsize = (*outBufsize + 1) / 2;   // curse integer truncation
+	if (strncasecmp(driver, "pulseaudio", sizeof("pulseaudio") - 1) ==
+	    0)                                   // SDL seems to always return a buffer size 2x of what was requested (but only for pulseaudio)... why?
+		*outBufsize = (*outBufsize + 1) / 2; // curse integer truncation
 #else // other platforms/drivers, just clamp to min 10ms (like windows non-wasapi)
 	*outBufsize = std::max(((outSpec->freq * 10) + 999) / 1000u, *outBufsize);
 #endif
@@ -614,8 +615,8 @@ result sdl3_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		return SO_NO_ERROR;
 	}
 
-	// lock both audio and device mutexes to ensure safe switching
-	aSoloud->lockAudioMutex_internal();
+	// lock device mutex
+	// sdl3 will internally block until the data callback is done, we don't have to lock the soloud internal audio mutex
 	std::lock_guard<std::mutex> deviceLock(data->deviceMutex);
 
 	// store current configuration for comparison
@@ -653,7 +654,6 @@ result sdl3_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	result setupResult = setup_device_and_stream(data, targetDeviceID, &newDeviceSpec, &newDeviceFrames);
 	if (setupResult != SO_NO_ERROR)
 	{
-		aSoloud->unlockAudioMutex_internal();
 		return setupResult;
 	}
 
@@ -676,13 +676,11 @@ result sdl3_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	// start the new device
 	if (!SDL_ResumeAudioDevice(data->deviceID))
 	{
-		aSoloud->unlockAudioMutex_internal();
 		SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to start new audio device: %s", SDL_GetError());
 		return UNKNOWN_ERROR;
 	}
 
 	data->deviceValid.store(true);
-	aSoloud->unlockAudioMutex_internal();
 
 	SDL_LogInfo(SDL_LOG_CATEGORY_AUDIO, "Successfully switched to device: %s", data->currentDeviceInfo.name.data());
 	return SO_NO_ERROR;
@@ -711,7 +709,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 
 	// also allow SOLOUD_SDL3_BACKEND to manually specify a driver hint
 	const char *soloud_driver_env = getenv("SOLOUD_SDL_DRIVER");
-	if (soloud_driver_env && *soloud_driver_env && *soloud_driver_env != '0') {
+	if (soloud_driver_env && *soloud_driver_env && *soloud_driver_env != '0')
+	{
 		SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, soloud_driver_env, SDL_HINT_DEFAULT);
 	}
 
