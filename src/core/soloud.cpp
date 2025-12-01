@@ -532,33 +532,30 @@ unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsig
 					voice->mLoopCount++;
 					unsigned int remaining = samplesToRead - samplesRead;
 
-					// Read loop samples to a fresh aligned buffer to avoid multi-channel offset issues
-					// Use the portion of scratch after our main channel data
-					unsigned int loopAlignedSize = (remaining + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
+					// Check available space for loop temp data.
+					// getAudio implementations use aSamplesToRead as the channel stride,
+					// so we need remaining * channels floats of space.
 					unsigned int mainBufferEnd = alignedBufferSize * voice->mChannels;
-
-					// Make sure we have enough scratch space for the temp buffer
-					if (mainBufferEnd + loopAlignedSize * voice->mChannels > scratchSize)
+					unsigned int tempSpaceAvailable = scratchSize - mainBufferEnd;
+					if (remaining * voice->mChannels > tempSpaceAvailable)
 					{
-						loopAlignedSize = (scratchSize - mainBufferEnd) / voice->mChannels;
-						loopAlignedSize &= ~SIMD_ALIGNMENT_MASK;
-						if (loopAlignedSize < remaining)
-							remaining = loopAlignedSize;
+						remaining = tempSpaceAvailable / voice->mChannels;
 					}
 
-					if (remaining == 0 || loopAlignedSize == 0)
+					if (remaining == 0)
 						break;
 
 					float *loopTempBuffer = channelBuffer + mainBufferEnd;
-					unsigned int loopSamples = voice->getAudio(loopTempBuffer, remaining, loopAlignedSize);
+					unsigned int loopSamples = voice->getAudio(loopTempBuffer, remaining, remaining);
 
 					if (loopSamples == 0)
 						break;
 
-					// Copy loop samples to channelBuffer
-					for (unsigned int ch = 0; ch < voice->mChannels; ch++)
+					// Copy loop samples to channelBuffer (using remaining as source stride
+					// since that's what getAudio uses internally)
+					for (size_t ch = 0; ch < voice->mChannels; ch++)
 					{
-						memcpy(channelBuffer + ch * alignedBufferSize + samplesRead, loopTempBuffer + ch * loopAlignedSize, loopSamples * sizeof(float));
+						memcpy(channelBuffer + ch * alignedBufferSize + samplesRead, loopTempBuffer + ch * remaining, loopSamples * sizeof(float));
 					}
 
 					// Apply crossfade at the loop boundary (only on the first iteration after seeking)
@@ -566,7 +563,7 @@ unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsig
 					{
 						unsigned int crossfadeLen = (loopSamples < LOOP_CROSSFADE_SAMPLES) ? loopSamples : LOOP_CROSSFADE_SAMPLES;
 
-						for (unsigned int ch = 0; ch < voice->mChannels; ch++)
+						for (size_t ch = 0; ch < voice->mChannels; ch++)
 						{
 							float lastEndSample = lastEndSamples[ch];
 							float *loopStart = channelBuffer + ch * alignedBufferSize + preLoopSamples;

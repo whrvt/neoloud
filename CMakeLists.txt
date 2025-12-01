@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(SoLoud
-    VERSION 1.2.3
+    VERSION 1.2.4
     DESCRIPTION "SoLoud audio library"
     LANGUAGES C CXX)
 
