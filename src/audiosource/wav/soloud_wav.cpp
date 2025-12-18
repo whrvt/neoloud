@@ -380,11 +380,7 @@ result Wav::loadflac(MemoryFile *aReader)
 
 result Wav::loadffmpeg(MemoryFile *aReader)
 {
-	if (mSoloud)
-		mSoloud->lockAudioMutex_internal();
 	result retval = (!FFmpeg::FFmpegLoader::init() || !FFmpeg::FFmpegLoader::isAvailable()) ? FILE_LOAD_FAILED : SO_NO_ERROR;
-	if (mSoloud)
-		mSoloud->unlockAudioMutex_internal();
 	if (retval != SO_NO_ERROR)
 	{
 #ifdef _DEBUG

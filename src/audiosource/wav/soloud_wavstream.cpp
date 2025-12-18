@@ -844,11 +844,7 @@ result WavStream::loaddrmp3(File *fp)
 
 result WavStream::loadffmpeg(File *fp)
 {
-	if (mSoloud)
-		mSoloud->lockAudioMutex_internal();
 	result retval = (!FFmpeg::FFmpegLoader::init() || !FFmpeg::FFmpegLoader::isAvailable()) ? FILE_LOAD_FAILED : SO_NO_ERROR;
-	if (mSoloud)
-		mSoloud->unlockAudioMutex_internal();
 	if (retval != SO_NO_ERROR)
 	{
 #ifdef _DEBUG
