@@ -28,38 +28,9 @@ freely, subject to the following restrictions:
 #ifndef ENABLE_ASSERTS
 #define SOLOUD_ASSERT(x)
 #else
-#ifdef _MSC_VER
-
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef NOWINRES
-#define NOWINRES
-#endif
-#ifndef NOSERVICE
-#define NOSERVICE
-#endif
-#ifndef NOMCX
-#define NOMCX
-#endif
-#ifndef NOCRYPT
-#define NOCRYPT
-#endif
-#ifndef NOMETAFILE
-#define NOMETAFILE
-#endif
-#ifndef MMNOSOUND
-#define MMNOSOUND
-#endif
-#ifndef VC_EXTRALEAN
-#define VC_EXTRALEAN
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
-#include <stdio.h>   // for sprintf in asserts
-#include <windows.h> // only needed for OutputDebugStringA, should be solved somehow.
+#ifdef WINDOWS_VERSION
+#include <stdio.h> // for sprintf in asserts
+extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char *str); // avoid including windows.h here
 #define SOLOUD_ASSERT(x) \
 	if (!(x)) \
 	{ \
