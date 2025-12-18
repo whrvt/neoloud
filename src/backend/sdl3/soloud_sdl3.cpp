@@ -766,7 +766,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 			break;
 		}
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_AUDIO, "Stream created: %dHz, %d channels, %s format, %d frame buffer", data->streamSpec.freq, data->streamSpec.channels,
+		const char *driver = SDL_GetCurrentAudioDriver();
+		SDL_LogInfo(SDL_LOG_CATEGORY_AUDIO, "Stream created (driver: %s): %dHz, %d channels, %s format, %d frame buffer", driver ? driver : "?", data->streamSpec.freq, data->streamSpec.channels,
 		            formatName, actualDeviceFrames);
 	}
 
