@@ -56,6 +56,7 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 #include <vector>
 
 #ifdef _MSC_VER
+#include <string.h>
 #ifndef strncasecmp
 #define strncasecmp _strnicmp
 #endif

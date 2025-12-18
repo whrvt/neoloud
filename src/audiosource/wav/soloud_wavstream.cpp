@@ -844,14 +844,9 @@ result WavStream::loaddrmp3(File *fp)
 
 result WavStream::loadffmpeg(File *fp)
 {
-	result retval = (!FFmpeg::FFmpegLoader::init() || !FFmpeg::FFmpegLoader::isAvailable()) ? FILE_LOAD_FAILED : SO_NO_ERROR;
+	result retval = !FFmpeg::FFmpegLoader::isAvailable() ? FILE_LOAD_FAILED : SO_NO_ERROR;
 	if (retval != SO_NO_ERROR)
-	{
-#ifdef _DEBUG
-		printf("debug: failed to load ffmpeg %s\n", FFmpeg::FFmpegLoader::getErrorDetails().c_str());
-#endif
 		return retval;
-	}
 
 	fp->seek(0);
 	FFmpeg::FFmpegDecoder *decoder = FFmpeg::open(fp);

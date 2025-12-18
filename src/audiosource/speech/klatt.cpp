@@ -856,7 +856,7 @@ int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 				break;
 
 			default:
-				//				fprintf(stderr, "Ignoring %c in '%.*s'\n", ch, aCount, aPhoneme);
+				//				SoLoud::logStderr("Ignoring %c in '%.*s'\n", ch, aCount, aPhoneme);
 				break;
 			}
 		}

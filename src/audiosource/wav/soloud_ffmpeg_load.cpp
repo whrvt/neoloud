@@ -1,7 +1,6 @@
 /*
 SoLoud audio engine - ffmpeg library loader/unloader
-Copyright (c) 2013-2020 Jari Komppa
-Copyright (c) 2025 William Horvath (ffmpeg interface)
+Copyright (c) 2025 William Horvath
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -26,6 +25,8 @@ freely, subject to the following restrictions:
 #if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__))
 #pragma message("building with ffmpeg support")
 
+#include <array>
+#include <atomic>
 #include <mutex>
 #include <string>
 
@@ -43,54 +44,30 @@ typedef SDL_SharedObject(*OBJHANDLE);
 #define LIBFREE(x) SDL_UnloadObject(x)
 #define LIBGETERROR() std::string(SDL_GetError())
 #elif defined(_WIN32) || defined(_WIN64)
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef NOWINRES
-#define NOWINRES
-#endif
-#ifndef NOSERVICE
-#define NOSERVICE
-#endif
-#ifndef NOMCX
-#define NOMCX
-#endif
-#ifndef NOCRYPT
-#define NOCRYPT
-#endif
-#ifndef NOMETAFILE
-#define NOMETAFILE
-#endif
-#ifndef MMNOSOUND
-#define MMNOSOUND
-#endif
-#ifndef VC_EXTRALEAN
+
 #define VC_EXTRALEAN
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#endif
 #include <windows.h>
+
 typedef HMODULE OBJHANDLE;
 #define LIBLOAD(x) LoadLibraryA(x)
 #define LIBFUNC(x, y) (void *)GetProcAddress(x, y)
 #define LIBFREE(x) FreeLibrary(x)
+// clang-format off
 #define LIBGETERROR() \
 	([]() -> std::string { \
 		DWORD errorCode = GetLastError(); \
-		if (errorCode == 0) \
-			return std::string("No error"); \
+		if (errorCode == 0) return std::string("No error"); \
 		LPSTR messageBuffer = nullptr; \
-		DWORD size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorCode, \
-		                            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR) & messageBuffer, 0, NULL); \
-		if (size == 0) \
-			return std::string("Unknown error (code: ") + std::to_string(errorCode) + ")"; \
+		DWORD size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, \
+		                            NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL); \
+		if (size == 0) return std::string("Unknown error (code: ") + std::to_string(errorCode) + ")"; \
 		std::string result(messageBuffer, size); \
 		LocalFree(messageBuffer); \
-		while (!result.empty() && (result.back() == '\n' || result.back() == '\r')) \
-			result.pop_back(); \
+		while (!result.empty() && (result.back() == '\n' || result.back() == '\r')) result.pop_back(); \
 		return result; \
 	}())
+// clang-format on
 #else
 #include <dlfcn.h>
 typedef void(*OBJHANDLE);
@@ -100,274 +77,223 @@ typedef void(*OBJHANDLE);
 #define LIBGETERROR() std::string(dlerror())
 #endif
 
+#include "soloud_config.h" // for SoLoud::logStderr user-customizable output macro
 #include "soloud_ffmpeg_load.h"
+
+#ifdef _MSC_VER
+#include <string.h>
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif
+#endif
 
 using namespace SoLoud::FFmpeg::FFmpegLoader::FFmpegFuncs;
 
 namespace SoLoud::FFmpeg::FFmpegLoader
 {
-
-// library handles
-static OBJHANDLE s_libAvutil = nullptr;
-static OBJHANDLE s_libSwresample = nullptr;
-static OBJHANDLE s_libAvcodec = nullptr;
-static OBJHANDLE s_libAvformat = nullptr;
-
-static std::once_flag s_init_flag;
-static bool s_init_success{false};
-static bool s_available{false};
-
-// initialization state
-static std::string s_errorDetails = "";
-
 namespace FFmpegFuncs
 {
 // generate function pointer definitions
-#define DEFINE_FFMPEG_FUNCTION(name) name##_t name = nullptr;
+#define DEFINE_FFMPEG_FUNCTION(name) name##_t name{nullptr};
 ALL_FFMPEG_FUNCTIONS(DEFINE_FFMPEG_FUNCTION)
 } // namespace FFmpegFuncs
 
-template <typename T>
-static T loadFunction(OBJHANDLE lib, const char *funcName)
+namespace
+{ // anon
+
+// library handles
+OBJHANDLE s_libavutil{nullptr};
+OBJHANDLE s_libswresample{nullptr};
+OBJHANDLE s_libavcodec{nullptr};
+OBJHANDLE s_libavformat{nullptr};
+
+std::mutex s_init_mutex;
+std::atomic s_initialized{false};
+bool s_available{false};
+
+// initialization state
+std::string s_errorDetails{""};
+
+// TODO: This should probably be consolidated and documented instead of duplicating it everywhere, but probably good enough for now.
+int parse_log_level_from_env()
 {
-	if (!lib)
-		return nullptr;
-	return reinterpret_cast<T>(LIBFUNC(lib, funcName));
-}
-
-static bool loadAvutilFunctions()
-{
-	if (!s_libAvutil)
-	{
-		s_errorDetails += "avutil library not loaded\n";
-		return false;
-	}
-
-	bool success = true;
-	int failed_count = 0;
-
-#define LOAD_AVUTIL_FUNCTION(name) \
-	name = loadFunction<name##_t>(s_libAvutil, #name); \
-	if (!(name)) \
-	{ \
-		s_errorDetails += std::string("Missing avutil function: ") + #name + "\n"; \
-		failed_count++; \
-		success = false; \
-	}
-
-	AVUTIL_FUNCTIONS(LOAD_AVUTIL_FUNCTION)
-
-	if (!success)
-		s_errorDetails += "Failed to load " + std::to_string(failed_count) + " avutil functions\n";
-
-	return success;
-}
-
-static bool loadAvcodecFunctions()
-{
-	if (!s_libAvcodec)
-	{
-		s_errorDetails += "avcodec library not loaded\n";
-		return false;
-	}
-
-	bool success = true;
-	int failed_count = 0;
-
-#define LOAD_AVCODEC_FUNCTION(name) \
-	name = loadFunction<name##_t>(s_libAvcodec, #name); \
-	if (!(name)) \
-	{ \
-		s_errorDetails += std::string("Missing avcodec function: ") + #name + "\n"; \
-		failed_count++; \
-		success = false; \
-	}
-
-	AVCODEC_FUNCTIONS(LOAD_AVCODEC_FUNCTION)
-
-	if (!success)
-		s_errorDetails += "Failed to load " + std::to_string(failed_count) + " avcodec functions\n";
-
-	return success;
-}
-
-static bool loadAvformatFunctions()
-{
-	if (!s_libAvformat)
-	{
-		s_errorDetails += "avformat library not loaded\n";
-		return false;
-	}
-
-	bool success = true;
-	int failed_count = 0;
-
-#define LOAD_AVFORMAT_FUNCTION(name) \
-	name = loadFunction<name##_t>(s_libAvformat, #name); \
-	if (!(name)) \
-	{ \
-		s_errorDetails += std::string("Missing avformat function: ") + #name + "\n"; \
-		failed_count++; \
-		success = false; \
-	}
-
-	AVFORMAT_FUNCTIONS(LOAD_AVFORMAT_FUNCTION)
-
-	if (!success)
-		s_errorDetails += "Failed to load " + std::to_string(failed_count) + " avformat functions\n";
-
-	return success;
-}
-
-static bool loadSwresampleFunctions()
-{
-	if (!s_libSwresample)
-	{
-		s_errorDetails += "swresample library not loaded\n";
-		return false;
-	}
-
-	bool success = true;
-	int failed_count = 0;
-
-#define LOAD_SWRESAMPLE_FUNCTION(name) \
-	name = loadFunction<name##_t>(s_libSwresample, #name); \
-	if (!(name)) \
-	{ \
-		s_errorDetails += std::string("Missing swresample function: ") + #name + "\n"; \
-		failed_count++; \
-		success = false; \
-	}
-
-	SWRESAMPLE_FUNCTIONS(LOAD_SWRESAMPLE_FUNCTION)
-
-	if (!success)
-		s_errorDetails += "Failed to load " + std::to_string(failed_count) + " swresample functions\n";
-
-	return success;
-}
-
-// silence, you fool
-static void empty_log_callback(void * /**/, int /**/, const char * /**/, va_list /**/)
-{
-	;
-}
-
-static bool init_locked()
-{
-	s_available = false;
-	s_errorDetails = "";
-
-	cleanup();
-
-	s_libAvutil = LIBLOAD("./" LNAME(avutil, 59));
-	if (!(s_libAvutil = LIBLOAD(LNAME(avutil, 59))))
-	{
-		s_errorDetails = "Failed to load libavutil-59 (error: " + LIBGETERROR() + ")";
-		return false;
-	}
-
-	s_libSwresample = LIBLOAD("./" LNAME(swresample, 5));
-	if (!(s_libSwresample = LIBLOAD(LNAME(swresample, 5))))
-	{
-		s_errorDetails = "Failed to load libswresample-5 (error: " + LIBGETERROR() + ")";
-		cleanup();
-		return false;
-	}
-
-	s_libAvcodec = LIBLOAD("./" LNAME(avcodec, 61));
-	if (!(s_libAvcodec = LIBLOAD(LNAME(avcodec, 61))))
-	{
-		s_errorDetails = "Failed to load libavcodec-61 (error: " + LIBGETERROR() + ")";
-		cleanup();
-		return false;
-	}
-
-	s_libAvformat = LIBLOAD("./" LNAME(avformat, 61));
-	if (!(s_libAvformat = LIBLOAD(LNAME(avformat, 61))))
-	{
-		s_errorDetails = "Failed to load libavformat-61 (error: " + LIBGETERROR() + ")";
-		cleanup();
-		return false;
-	}
-
-	bool functionsLoaded = true;
-	functionsLoaded &= loadAvutilFunctions();
-	functionsLoaded &= loadSwresampleFunctions();
-	functionsLoaded &= loadAvcodecFunctions();
-	functionsLoaded &= loadAvformatFunctions();
-
-	if (!functionsLoaded)
-	{
-		cleanup();
-		return false;
-	}
-
-#ifndef _DEBUG
-	if (av_log_set_callback)
-		av_log_set_callback(empty_log_callback);
+	static const bool is_debug =
+#ifdef _DEBUG
+	    true
+#else
+	    false
 #endif
+	    ;
 
-	// verify basic functionality
-	if (av_malloc && av_free)
+	// default for debug builds, 0 (effectively disabled besides crashes) otherwise
+	static const int default_level = is_debug ? av_log_get_level() : 0;
+
+	const char *env = getenv("SOLOUD_DEBUG");
+	if (!env || !*env || *env == '0')
+		return default_level;
+
+	// TODO: check if this down-shifting makes any sense in practice
+	if (strncasecmp(env, "debug", sizeof("debug") - 1) == 0)
+		return is_debug ? AV_LOG_VERBOSE : AV_LOG_INFO;
+	if (strncasecmp(env, "info", sizeof("info") - 1) == 0)
+		return is_debug ? AV_LOG_INFO : AV_LOG_WARNING;
+	if (strncasecmp(env, "warn", sizeof("warn") - 1) == 0)
+		return is_debug ? AV_LOG_WARNING : AV_LOG_ERROR;
+	if (strncasecmp(env, "error", sizeof("error") - 1) == 0)
+		return is_debug ? AV_LOG_ERROR : AV_LOG_FATAL;
+	if (strncasecmp(env, "none", sizeof("none") - 1) == 0)
+		return 0;
+
+	// unknown
+	return default_level;
+}
+
+// The log callback must be thread-safe, according to the ffmpeg docs
+std::mutex ff_log_mutex;
+int ff_log_print_prefix; // this makes no sense but is required
+
+void ff_log_callback(void *avcl, int level, const char *fmt, va_list vl)
+{
+	if (level >= 0)
+		level &= 0xff; // mask off "tint"
+
+	if (level > av_log_get_level())
+		return;
+
+	std::array<char, 1024> log_line;
+	std::lock_guard lk(ff_log_mutex);
+
+	int written = av_log_format_line2(avcl, level, fmt, vl, log_line.data(), static_cast<int>(log_line.size()), &ff_log_print_prefix);
+	if (written <= 0)
+		return;
+
+	// sanitize control characters that could mess with terminal
+	for (char *p = log_line.data(); *p; ++p)
 	{
-		void *test_ptr = av_malloc(64);
-		if (test_ptr)
-		{
-			av_free(test_ptr);
-		}
+		auto c = static_cast<unsigned char>(*p);
+		if (c < 0x08 || (c > 0x0D && c < 0x20))
+			*p = '?';
+	}
+
+	log_line.back() = '\0';
+	SoLoud::logStderr("%s", log_line.data());
+}
+
+// assumes that the init mutex is held
+void cleanup_internal()
+{
+#define RESET_FUNCTION(name) name = nullptr;
+	ALL_FFMPEG_FUNCTIONS(RESET_FUNCTION)
+#undef RESET_FUNCTION
+
+#define RESET_LIB(libname) \
+	if (!!(s_lib##libname)) \
+	{ \
+		LIBFREE(s_lib##libname); \
+		s_lib##libname = nullptr; \
+	}
+	RESET_LIB(avformat);
+	RESET_LIB(avcodec);
+	RESET_LIB(swresample);
+	RESET_LIB(avutil);
+#undef RESET_LIB
+}
+
+bool init_internal()
+{
+// a monstrous usage of macros... but it does reduce duplication
+#define LOAD_LIB_FUNCS_BODY(fname) \
+	failed_count += !((fname) = reinterpret_cast<fname##_t>(LIBFUNC(current_library_outer_macro, #fname))); \
+	if (!(fname)) \
+		s_errorDetails += missing_prefix_outer_macro + #fname + "\n";
+
+#define LOAD_FULL_FF_LIB(ff_libname_lower, ff_lib_version, ff_lib_funcs_xmacro) \
+	[](void) -> bool { /* first load the library */ \
+		               const char *trypath1 = "./" LNAME(ff_libname_lower, ff_lib_version); \
+		               const char *trypath2 = LNAME(ff_libname_lower, ff_lib_version); \
+		               if (!(s_lib##ff_libname_lower = LIBLOAD(trypath1)) && !(s_lib##ff_libname_lower = LIBLOAD(trypath2))) \
+		               { \
+			               s_errorDetails += "Failed to load " #ff_libname_lower "-" #ff_lib_version " (error: " + LIBGETERROR() + ")\n"; \
+			               return false; \
+		               } /* then load the functions using the given x-macro list */ \
+		               const std::string missing_prefix_outer_macro = "Missing " #ff_libname_lower " function: "; /* for passing into the x-macro expansion */ \
+		               auto current_library_outer_macro = s_lib##ff_libname_lower; \
+		               int failed_count = 0; \
+		               ff_lib_funcs_xmacro(LOAD_LIB_FUNCS_BODY); \
+		               if (failed_count > 0) \
+			               s_errorDetails += "Failed to load " + std::to_string(failed_count) + " " #ff_libname_lower " functions\n"; \
+		               return failed_count == 0; \
+	}()
+
+	// load all libraries and functions here
+	if (!LOAD_FULL_FF_LIB(avutil, 59, AVUTIL_FUNCTIONS) ||        //
+	    !LOAD_FULL_FF_LIB(swresample, 5, SWRESAMPLE_FUNCTIONS) || //
+	    !LOAD_FULL_FF_LIB(avcodec, 61, AVCODEC_FUNCTIONS) ||      //
+	    !LOAD_FULL_FF_LIB(avformat, 61, AVFORMAT_FUNCTIONS))
+	{
+		cleanup_internal();
+		return false;
+	}
+
+#undef LOAD_LIB_FUNCS_BODY
+#undef LOAD_FULL_FF_LIB
+
+	// we would have bailed at this point if any functions/lib failed to load
+
+	// sanity check
+	void *test_ptr = av_malloc(64);
+	if (test_ptr)
+	{
+		av_free(test_ptr);
 	}
 	else
 	{
-		s_errorDetails += "Critical functions av_malloc/av_free not loaded\n";
-		cleanup();
+		s_errorDetails += "Dysfunctional av_malloc\n";
+		cleanup_internal();
 		return false;
 	}
 
-	s_available = true;
+	// set up log level + callback
+	av_log_set_level(parse_log_level_from_env());
+	av_log_set_callback(ff_log_callback);
+
 	s_errorDetails = "";
 	return true;
 }
-
-bool init()
-{
-	std::call_once(s_init_flag, []() { s_init_success = init_locked(); });
-
-	return s_init_success;
-}
-
-void cleanup()
-{
-	s_available = false;
-
-#define RESET_FUNCTION(name) name = nullptr;
-	ALL_FFMPEG_FUNCTIONS(RESET_FUNCTION)
-
-	if (s_libAvformat)
-	{
-		LIBFREE(s_libAvformat);
-		s_libAvformat = nullptr;
-	}
-	if (s_libAvcodec)
-	{
-		LIBFREE(s_libAvcodec);
-		s_libAvcodec = nullptr;
-	}
-	if (s_libSwresample)
-	{
-		LIBFREE(s_libSwresample);
-		s_libSwresample = nullptr;
-	}
-	if (s_libAvutil)
-	{
-		LIBFREE(s_libAvutil);
-		s_libAvutil = nullptr;
-	}
-}
+} // namespace
 
 bool isAvailable()
 {
+	if (s_initialized.load(std::memory_order_relaxed))
+		return s_available;
+
+	std::lock_guard lk(s_init_mutex);
+	if (s_initialized.load(std::memory_order_acquire))
+		return s_available;
+
+	s_available = init_internal();
+	if (!s_available)
+		SoLoud::logStderr("Failed to load FFmpeg %s\n", s_errorDetails.c_str());
+
+	s_initialized.store(true, std::memory_order_release);
+
 	return s_available;
+}
+
+// NOTE: currently unused
+// soloud will load ffmpeg as needed but doesn't unload it
+void cleanup()
+{
+	if (!s_initialized.load(std::memory_order_acquire))
+		return;
+
+	std::lock_guard lk(s_init_mutex);
+
+	// reset these first
+	s_available = false;
+	s_initialized.store(false, std::memory_order_release);
+
+	cleanup_internal();
 }
 
 std::string getErrorDetails()

@@ -1,7 +1,6 @@
 /*
-SoLoud audio engine
-Copyright (c) 2013-2018 Jari Komppa
-Copyright (c) 2025 William Horvath (mpg123 interface)
+SoLoud audio engine - mpg123 interface
+Copyright (c) 2025 William Horvath
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -29,11 +28,40 @@ freely, subject to the following restrictions:
 
 #include "soloud_mpg123.h"
 
+#include <cstdlib>
 #include <cstring>
+#include <memory> // for unique_ptr
+
 #include <mpg123.h>
 
 namespace SoLoud::MPG123
 {
+
+struct MPG123Decoder
+{
+	struct MPG123HandleDeleter
+	{
+		void operator()(mpg123_handle *handle) const
+		{
+			if (!handle)
+				return;
+			mpg123_close(handle);
+			mpg123_delete(handle);
+		}
+	};
+	struct MPG123Handle : public std::unique_ptr<mpg123_handle, MPG123HandleDeleter>
+	{
+		operator mpg123_handle *() const { return this->get(); }
+	};
+
+	MPG123Handle handle;
+	unsigned char *tempBuffer;
+	size_t tempBufferSize;
+	long rate;
+	off_t totalFrames;
+	int channels;
+	bool ended;
+};
 
 namespace // static
 {
@@ -73,10 +101,9 @@ MPG123Decoder *open(File *aFile)
 		return nullptr;
 
 	auto *decoder = new MPG123Decoder();
-	memset(decoder, 0, sizeof(MPG123Decoder));
+	memset((void *)decoder, 0, sizeof(MPG123Decoder));
 
-	decoder->file = aFile;
-	decoder->handle = mpg123_new(nullptr, nullptr);
+	decoder->handle.reset(mpg123_new(nullptr, nullptr));
 
 	if (!decoder->handle)
 	{
@@ -95,23 +122,22 @@ MPG123Decoder *open(File *aFile)
 	mpg123_param(decoder->handle, MPG123_ADD_FLAGS, MPG123_FORCE_FLOAT, 0);      // important! it makes life a lot easier if we always get float32 from libmpg123
 	mpg123_param(decoder->handle, MPG123_PREFRAMES, 1, 0);                       // layer 3 prefill for seeking
 #ifndef _DEBUG
+	// libmpg123 does not allow setting a custom log output function unfortunately
 	mpg123_param(decoder->handle, MPG123_ADD_FLAGS, MPG123_QUIET, 0);
 #endif
 
 	// set up custom I/O
 	if (mpg123_replace_reader_handle(decoder->handle, readCallback, seekCallback, nullptr) != MPG123_OK)
 	{
-		mpg123_delete(decoder->handle);
 		delete decoder;
 		return nullptr;
 	}
 
 	aFile->seek(0);
 
-	// open with custom handle
+	// open with custom file handle
 	if (mpg123_open_handle(decoder->handle, aFile) != MPG123_OK)
 	{
-		mpg123_delete(decoder->handle);
 		delete decoder;
 		return nullptr;
 	}
@@ -121,8 +147,6 @@ MPG123Decoder *open(File *aFile)
 	int channels = 0, encoding = 0;
 	if (mpg123_getformat(decoder->handle, &rate, &channels, &encoding) != MPG123_OK)
 	{
-		mpg123_close(decoder->handle);
-		mpg123_delete(decoder->handle);
 		delete decoder;
 		return nullptr;
 	}
@@ -171,8 +195,6 @@ MPG123Decoder *open(File *aFile)
 	    (frameInfo.layer < 1 || frameInfo.layer > 3 || frameInfo.version < 0 || frameInfo.version > 2 || frameInfo.rate <= 0 || frameInfo.bitrate <= 0))
 	{
 		// frame count couldn't be determined, or no frame info, or layer isn't between 1 and 3
-		mpg123_close(decoder->handle);
-		mpg123_delete(decoder->handle);
 		delete decoder;
 		return nullptr;
 	}
@@ -185,13 +207,7 @@ void close(MPG123Decoder *aDecoder)
 	if (!aDecoder)
 		return;
 
-	if (aDecoder->handle)
-	{
-		mpg123_close(aDecoder->handle);
-		mpg123_delete(aDecoder->handle);
-	}
-
-	delete[] aDecoder->tempBuffer;
+	free(aDecoder->tempBuffer);
 	delete aDecoder;
 }
 
@@ -221,8 +237,11 @@ size_t readFrames(MPG123Decoder *aDecoder, size_t aFrameCount, float *aBuffer)
 	// reuse buffer, resize only when needed
 	if (aDecoder->tempBufferSize < requiredBytes)
 	{
-		delete[] aDecoder->tempBuffer;
-		aDecoder->tempBuffer = new unsigned char[requiredBytes];
+		unsigned char *tmpAlloc = nullptr;
+		if (!(tmpAlloc = static_cast<unsigned char *>(realloc(aDecoder->tempBuffer, requiredBytes))))
+			return 0; // we are in trouble...
+
+		aDecoder->tempBuffer = tmpAlloc;
 		aDecoder->tempBufferSize = requiredBytes;
 	}
 

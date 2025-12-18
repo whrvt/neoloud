@@ -74,14 +74,14 @@ int lastknownwrite = 0;
 	if ((x)) \
 	{ \
 		errorcount++; \
-		printf("Error on line %d, %s(): %s\n", __LINE__, __FUNCTION__, soloud.getErrorString((x))); \
+		SoLoud::logStdout("Error on line %d, %s(): %s\n", __LINE__, __FUNCTION__, soloud.getErrorString((x))); \
 	}
 #define CHECK(x) \
 	tests++; \
 	if (!(x)) \
 	{ \
 		errorcount++; \
-		printf("Error on line %d, %s(): Check \"%s\" fail\n", __LINE__, __FUNCTION__, #x); \
+		SoLoud::logStdout("Error on line %d, %s(): Check \"%s\" fail\n", __LINE__, __FUNCTION__, #x); \
 	}
 #define CHECK_BUF_NONZERO(x, n) \
 	tests++; \
@@ -93,7 +93,7 @@ int lastknownwrite = 0;
 		if (zero) \
 		{ \
 			errorcount++; \
-			printf("Error on line %d, %s(): buffer not nonzero\n", __LINE__, __FUNCTION__); \
+			SoLoud::logStdout("Error on line %d, %s(): buffer not nonzero\n", __LINE__, __FUNCTION__); \
 		} \
 	}
 #define CHECK_BUF_ZERO(x, n) \
@@ -106,7 +106,7 @@ int lastknownwrite = 0;
 		if (diff) \
 		{ \
 			errorcount++; \
-			printf("Error on line %d, %s(): buffer not zero (%d / %d)\n", __LINE__, __FUNCTION__, diff, (n)); \
+			SoLoud::logStdout("Error on line %d, %s(): buffer not zero (%d / %d)\n", __LINE__, __FUNCTION__, diff, (n)); \
 		} \
 	}
 #define CHECK_BUF_DIFF(x, y, n) \
@@ -119,7 +119,7 @@ int lastknownwrite = 0;
 		if (same) \
 		{ \
 			errorcount++; \
-			printf("Error on line %d, %s(): buffers are equal\n", __LINE__, __FUNCTION__); \
+			SoLoud::logStdout("Error on line %d, %s(): buffers are equal\n", __LINE__, __FUNCTION__); \
 		} \
 	}
 #define CHECK_BUF_SAME(x, y, n) \
@@ -132,7 +132,7 @@ int lastknownwrite = 0;
 		if (diff) \
 		{ \
 			errorcount++; \
-			printf("Error on line %d, %s(): buffers differ (%d / %d)\n", __LINE__, __FUNCTION__, diff, (n)); \
+			SoLoud::logStdout("Error on line %d, %s(): buffers differ (%d / %d)\n", __LINE__, __FUNCTION__, diff, (n)); \
 		} \
 	}
 #define CHECK_BUF_SAME_LASTKNOWN(x, n) \
@@ -153,7 +153,7 @@ int lastknownwrite = 0;
 		if (diff) \
 		{ \
 			errorcount++; \
-			printf("Error on line %d, %s(): output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", __LINE__, __FUNCTION__, diff, (n), maxdiff, ofs); \
+			SoLoud::logStdout("Error on line %d, %s(): output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", __LINE__, __FUNCTION__, diff, (n), maxdiff, ofs); \
 		} \
 	}
 #define CHECK_BUF_GTE(x, y, n) \
@@ -166,7 +166,7 @@ int lastknownwrite = 0;
 		if (lt) \
 		{ \
 			errorcount++; \
-			printf("Error on line %d, %s(): buffer %s magnitude not bigger than buffer %s \n", __LINE__, __FUNCTION__, #x, #y); \
+			SoLoud::logStdout("Error on line %d, %s(): buffer %s magnitude not bigger than buffer %s \n", __LINE__, __FUNCTION__, #x, #y); \
 		} \
 	}
 #define CHECKLASTKNOWN(x, n) \
@@ -1568,7 +1568,7 @@ void testMixer()
 		{
 			if (!waszero)
 			{
-				printf("Zero at index %d", i);
+				SoLoud::logStdout("Zero at index %d", i);
 			}
 			waszero = 1;
 		}
@@ -1576,13 +1576,13 @@ void testMixer()
 		{
 			if (waszero)
 			{
-				printf(" - %d\n", i - 1);
+				SoLoud::logStdout(" - %d\n", i - 1);
 			}
 			waszero = 0;
 		}
 	if (waszero)
 	{
-		printf(" - %d\n", i - 1);
+		SoLoud::logStdout(" - %d\n", i - 1);
 	}
 
 	soloud.stopAll();
@@ -1635,7 +1635,7 @@ void testSpeedThings()
 		if (mx < d)
 			mx = d;
 
-		printf("Mix loop took %3.3f sec, avg %3.3f, med %3.3f +- %3.3f (%3.3f - %3.3f)\n",
+		SoLoud::logStdout("Mix loop took %3.3f sec, avg %3.3f, med %3.3f +- %3.3f (%3.3f - %3.3f)\n",
 		       (et - st) / 1000.0f,
 		       t / (c * 1000.0f),
 		       (mn + mx) / 2000.0f,
@@ -1644,7 +1644,7 @@ void testSpeedThings()
 		       mx / 1000.0f);
 	}
 	long fet = getmsec();
-	printf("Total %3.3f sec\n", (fet - fst) / 1000.0f);
+	SoLoud::logStdout("Total %3.3f sec\n", (fet - fst) / 1000.0f);
 	soloud.deinit();
 }
 
@@ -1654,7 +1654,7 @@ int main(int parc, char **pars)
 	lastknownfile = fopen("lastknown.wav", "rb");
 	if (!lastknownfile)
 	{
-		printf("lastknown.wav not found, writing one.\n");
+		SoLoud::logStdout("lastknown.wav not found, writing one.\n");
 		lastknownfile = fopen("lastknown.wav", "wb");
 		lastknownwrite = 1;
 	}
@@ -1678,16 +1678,16 @@ int main(int parc, char **pars)
 	testSpeech();
 	testSpeedThings();
 	//	testMixer();
-	printf("\n%d tests, %d error(s) ", tests, errorcount);
+	SoLoud::logStdout("\n%d tests, %d error(s) ", tests, errorcount);
 	if (!lastknownwrite && errorcount)
-		printf("(To rebuild lastknown.wav, simply delete it)\n");
-	printf("\n");
+		SoLoud::logStdout("(To rebuild lastknown.wav, simply delete it)\n");
+	SoLoud::logStdout("\n");
 #ifndef NO_LASTKNOWN_CHECK
 	writeHeader();
 	if (lastknownfile)
 		fclose(lastknownfile);
 	if (lastknownfile && lastknownwrite)
-		printf("lastknown.wav written.\n");
+		SoLoud::logStdout("lastknown.wav written.\n");
 #endif
 	return 0;
 }

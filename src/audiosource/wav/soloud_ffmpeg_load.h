@@ -1,7 +1,6 @@
 /*
 SoLoud audio engine - ffmpeg library loader/unloader
-Copyright (c) 2013-2020 Jari Komppa
-Copyright (c) 2025 William Horvath (ffmpeg interface)
+Copyright (c) 2025 William Horvath
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -87,6 +86,9 @@ namespace SoLoud::FFmpeg::FFmpegLoader
 	X(av_frame_unref) \
 	X(av_free) \
 	X(av_log_set_callback) \
+	X(av_log_format_line2) \
+	X(av_log_set_level) \
+	X(av_log_get_level) \
 	X(av_malloc) \
 	X(av_opt_set_chlayout) \
 	X(av_opt_set_int) \
@@ -110,7 +112,7 @@ namespace SoLoud::FFmpeg::FFmpegLoader
 
 namespace FFmpegFuncs
 {
-// import commonly used types first
+// import types we need
 using ffmpeg_EXTERN::AVChannelLayout;
 using ffmpeg_EXTERN::AVCodec;
 using ffmpeg_EXTERN::AVCodecContext;
@@ -137,9 +139,8 @@ ALL_FFMPEG_FUNCTIONS(DECLARE_FFMPEG_FUNCTION)
 } // namespace FFmpegFuncs
 
 // main interface
-bool init();
+bool isAvailable(); // will initialize as needed
 void cleanup();
-bool isAvailable();
 std::string getErrorDetails();
 
 } // namespace SoLoud::FFmpeg::FFmpegLoader
@@ -147,18 +148,14 @@ std::string getErrorDetails();
 #else
 namespace SoLoud::FFmpeg::FFmpegLoader
 {
-// main interface
-inline bool init()
-{
-	return false;
-}
-inline void cleanup()
-{
-	;
-}
 inline bool isAvailable()
 {
 	return false;
+}
+// main interface
+inline void cleanup()
+{
+	;
 }
 inline std::string getErrorDetails()
 {

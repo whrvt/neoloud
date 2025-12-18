@@ -1,7 +1,6 @@
 /*
 SoLoud audio engine - ffmpeg interface
-Copyright (c) 2013-2020 Jari Komppa
-Copyright (c) 2025 William Horvath (ffmpeg interface)
+Copyright (c) 2025 William Horvath
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -444,7 +443,7 @@ FFmpegDecoder *open(File *aFile, bool oneshot)
 	if (!seekToFrame(decoder, 0))
 	{
 #ifdef _DEBUG
-		printf("ffmpeg: failed to establish initial position\n");
+		SoLoud::logStdout("ffmpeg: failed to establish initial position\n");
 #endif
 		goto cleanup;
 	}
@@ -521,7 +520,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 	if (!decoder || !decoder->seekable)
 	{
 #ifdef _DEBUG
-		printf("ffmpeg: seek rejected - decoder %s, seekable: %s\n", decoder ? "valid" : "null", decoder && decoder->seekable ? "yes" : "no");
+		SoLoud::logStdout("ffmpeg: seek rejected - decoder %s, seekable: %s\n", decoder ? "valid" : "null", decoder && decoder->seekable ? "yes" : "no");
 #endif
 		return false;
 	}
@@ -530,7 +529,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 	if (frameIndex == currentPos)
 	{
 #ifdef _DEBUG
-		printf("ffmpeg: seek skipped - already at frame %llu\n", frameIndex);
+		SoLoud::logStdout("ffmpeg: seek skipped - already at frame %llu\n", frameIndex);
 #endif
 		return true;
 	}
@@ -540,7 +539,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 	long long targetTimestamp = av_rescale_q((int64_t)adjustedFrameIndex, {1, (int)decoder->sampleRate}, stream->time_base);
 
 #ifdef _DEBUG
-	printf("ffmpeg: seeking from frame=%llu (%.3fs) to frame %llu (%.3fs), adjusted=%llu, timestamp=%lld\n", currentPos, (double)currentPos / decoder->sampleRate,
+	SoLoud::logStdout("ffmpeg: seeking from frame=%llu (%.3fs) to frame %llu (%.3fs), adjusted=%llu, timestamp=%lld\n", currentPos, (double)currentPos / decoder->sampleRate,
 	       frameIndex, (double)frameIndex / decoder->sampleRate, adjustedFrameIndex, targetTimestamp);
 #endif
 
@@ -549,7 +548,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 	if (ret < 0)
 	{
 #ifdef _DEBUG
-		printf("ffmpeg: seek failed with error %d\n", ret);
+		SoLoud::logStdout("ffmpeg: seek failed with error %d\n", ret);
 #endif
 		return false;
 	}
@@ -564,7 +563,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 		if (delay > 0)
 		{
 #ifdef _DEBUG
-			printf("ffmpeg: flushing %lld samples from resampler\n", delay);
+			SoLoud::logStdout("ffmpeg: flushing %lld samples from resampler\n", delay);
 #endif
 			swr_drop_output(decoder->swrContext, (int)delay);
 		}
@@ -586,7 +585,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 	if (!decodeNextFrame(decoder))
 	{
 #ifdef _DEBUG
-		printf("ffmpeg: failed to decode frame after seek\n");
+		SoLoud::logStdout("ffmpeg: failed to decode frame after seek\n");
 #endif
 		return false;
 	}
@@ -596,7 +595,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 	unsigned long long keyframePos = getCurrentFrame(decoder);
 
 #ifdef _DEBUG
-	printf("ffmpeg: landed at keyframe %llu (%.3fs), target is frame %llu (%.3fs)\n", keyframePos, (double)keyframePos / decoder->sampleRate, frameIndex,
+	SoLoud::logStdout("ffmpeg: landed at keyframe %llu (%.3fs), target is frame %llu (%.3fs)\n", keyframePos, (double)keyframePos / decoder->sampleRate, frameIndex,
 	       (double)frameIndex / decoder->sampleRate);
 #endif
 
@@ -606,7 +605,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 		unsigned long long framesToSkip = frameIndex - keyframePos;
 
 #ifdef _DEBUG
-		printf("ffmpeg: skipping forward %llu frames to reach target\n", framesToSkip);
+		SoLoud::logStdout("ffmpeg: skipping forward %llu frames to reach target\n", framesToSkip);
 #endif
 
 		// temporary buffer for discarded audio
@@ -617,7 +616,7 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 		if (framesRead != framesToSkip)
 		{
 #ifdef _DEBUG
-			printf("ffmpeg: skip-forward incomplete - skipped %llu/%llu frames\n", framesRead, framesToSkip);
+			SoLoud::logStdout("ffmpeg: skip-forward incomplete - skipped %llu/%llu frames\n", framesRead, framesToSkip);
 #endif
 		}
 	}
@@ -625,19 +624,19 @@ bool seekToFrame(FFmpegDecoder *decoder, unsigned long long frameIndex)
 	{
 		// exactly where we want to be, frame is ready in buffer
 #ifdef _DEBUG
-		printf("ffmpeg: landed exactly on target frame\n");
+		SoLoud::logStdout("ffmpeg: landed exactly on target frame\n");
 #endif
 	}
 	else
 	{
 		// this shouldn't happen with AVSEEK_FLAG_BACKWARD
 #ifdef _DEBUG
-		printf("ffmpeg: warning - landed past target by %llu frames\n", keyframePos - frameIndex);
+		SoLoud::logStdout("ffmpeg: warning - landed past target by %llu frames\n", keyframePos - frameIndex);
 #endif
 	}
 
 #ifdef _DEBUG
-	printf("ffmpeg: seek completed - target frame %llu (%.3fs), actual frame %llu (%.3fs)\n", frameIndex, (double)frameIndex / decoder->sampleRate,
+	SoLoud::logStdout("ffmpeg: seek completed - target frame %llu (%.3fs), actual frame %llu (%.3fs)\n", frameIndex, (double)frameIndex / decoder->sampleRate,
 	       getCurrentFrame(decoder), (double)getCurrentFrame(decoder) / decoder->sampleRate);
 #endif
 

@@ -1,3 +1,5 @@
+#include "soloud_config.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1009,7 +1011,7 @@ static int leftmatch(const char *pattern, /* first char of pattern to match in t
 		case '%':
 
 		default:
-			fprintf(stderr, "Bad char in left rule: '%c'\n", *pat);
+			SoLoud::logStderr("Bad char in left rule: '%c'\n", *pat);
 
 			return 0;
 		}
@@ -1144,7 +1146,7 @@ static int rightmatch(const char *pattern, /* first char of pattern to match in 
 				return 0;
 
 		default:
-			fprintf(stderr, "Bad char in right rule:'%c'\n", *pat);
+			SoLoud::logStderr("Bad char in right rule:'%c'\n", *pat);
 
 			return 0;
 		}
@@ -1174,7 +1176,7 @@ static int find_rule(darray *arg, char *word, int index, Rule *rules)
 		if (match == nullptr)
 		/* bad symbol! */
 		{
-			fprintf(stderr, "Error: Can't find rule for: '%c' in \"%s\"\n", word[index], word);
+			SoLoud::logStderr("Error: Can't find rule for: '%c' in \"%s\"\n", word[index], word);
 			return index + 1; /* Skip it! */
 		}
 

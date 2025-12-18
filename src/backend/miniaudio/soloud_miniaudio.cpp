@@ -22,6 +22,7 @@ misrepresented as being the original software.
 distribution.
 */
 
+#include "soloud_config.h"
 #include "soloud_internal.h"
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -125,11 +126,7 @@ void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char 
 	}
 
 	const bool printNewline = (pMessage[strlen(pMessage) - 1] != '\n');
-	fflush(stderr);
-	fflush(stdout);
-	fprintf(stderr, "[MiniAudio %s] %s%s", levelStr, pMessage, printNewline ? "\n" : "");
-	fflush(stderr);
-	fflush(stdout);
+	SoLoud::logStdout("[MiniAudio %s] %s%s", levelStr, pMessage, printNewline ? "\n" : "");
 }
 
 // check if device supports exclusive mode by examining native data formats
@@ -186,6 +183,7 @@ void get_base_identifier(const char *identifier, char *baseIdentifier, size_t ba
 }
 
 #ifdef _MSC_VER
+#include <string.h>
 #ifndef strncasecmp
 #define strncasecmp _strnicmp
 #endif
@@ -303,7 +301,7 @@ void soloud_miniaudio_notification_callback(const ma_device_notification *pNotif
 	}
 
 	if (logStr && data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "%s", logStr);
+		SoLoud::logStdout("%s", logStr);
 }
 
 void soloud_miniaudio_audiomixer(ma_device *pDevice, void *pOutput, const void * /*pInput*/, ma_uint32 frameCount)
@@ -487,17 +485,17 @@ ma_result try_backend_with_timeout(MiniaudioData *data, ma_backend backend, ma_s
 
 	// log start of device initialization for debugging potential hangs
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Initializing device with backend '%s' in %s mode...\n", ma_get_backend_name(backend),
-		        shareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
+		SoLoud::logStdout("[MiniAudio INFO] Initializing device with backend '%s' in %s mode...\n", ma_get_backend_name(backend),
+		                  shareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
 
 	ma_result deviceResult = ma_device_init(&data->context, &config, &data->device);
 
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
 	{
 		if (deviceResult == MA_SUCCESS)
-			fprintf(stderr, "[MiniAudio INFO] Device initialization completed successfully\n");
+			SoLoud::logStdout("[MiniAudio INFO] Device initialization completed successfully\n");
 		else
-			fprintf(stderr, "[MiniAudio INFO] Device initialization failed with result: %d\n", deviceResult);
+			SoLoud::logStdout("[MiniAudio INFO] Device initialization failed with result: %d\n", deviceResult);
 	}
 
 	if (deviceResult != MA_SUCCESS)
@@ -524,16 +522,16 @@ ma_result init_device_with_id(MiniaudioData *data, ma_share_mode shareMode, cons
 
 	// log start of device initialization
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Initializing device with specific ID in %s mode...\n", shareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
+		SoLoud::logStdout("[MiniAudio INFO] Initializing device with specific ID in %s mode...\n", shareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
 
 	ma_result deviceResult = ma_device_init(&data->context, &config, &data->device);
 
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
 	{
 		if (deviceResult == MA_SUCCESS)
-			fprintf(stderr, "[MiniAudio INFO] Device initialization completed successfully\n");
+			SoLoud::logStdout("[MiniAudio INFO] Device initialization completed successfully\n");
 		else
-			fprintf(stderr, "[MiniAudio INFO] Device initialization failed with result: %d\n", deviceResult);
+			SoLoud::logStdout("[MiniAudio INFO] Device initialization failed with result: %d\n", deviceResult);
 	}
 
 	if (deviceResult == MA_SUCCESS)
@@ -744,7 +742,7 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	if (result != MA_SUCCESS)
 	{
 		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
-			fprintf(stderr, "[MiniAudio ERROR] Failed to initialize new device\n");
+			SoLoud::logStdout("[MiniAudio ERROR] Failed to initialize new device\n");
 
 		return UNKNOWN_ERROR;
 	}
@@ -764,8 +762,8 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	{
 		if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
 		{
-			fprintf(stderr, "[MiniAudio INFO] Device configuration changed: %uHz/%uch/%uf -> %uHz/%uch/%uf\n", oldSampleRate, oldChannels, oldBufferSize,
-			        newSampleRate, newChannels, newBufferSize);
+			SoLoud::logStdout("[MiniAudio INFO] Device configuration changed: %uHz/%uch/%uf -> %uHz/%uch/%uf\n", oldSampleRate, oldChannels, oldBufferSize,
+			                  newSampleRate, newChannels, newBufferSize);
 		}
 		// update SoLoud's internal configuration
 		aSoloud->postinit_internal(newSampleRate, newBufferSize, data->initFlags, newChannels);
@@ -776,7 +774,7 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	if (result != MA_SUCCESS)
 	{
 		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
-			fprintf(stderr, "[MiniAudio ERROR] Failed to start new device\n");
+			SoLoud::logStdout("[MiniAudio ERROR] Failed to start new device\n");
 
 		return UNKNOWN_ERROR;
 	}
@@ -784,7 +782,7 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 	data->deviceValid.store(true);
 
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-		fprintf(stderr, "[MiniAudio INFO] Successfully switched to new device in %s mode\n", targetShareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
+		SoLoud::logStdout("[MiniAudio INFO] Successfully switched to new device in %s mode\n", targetShareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
 
 	return SO_NO_ERROR;
 }
@@ -860,7 +858,7 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 			const char *modeString = initShareMode == ma_share_mode_exclusive ? "exclusive mode" : "shared mode";
 
 			if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-				fprintf(stderr, "[MiniAudio INFO] Trying backend: %s in %s\n", ma_get_backend_name(backend), modeString);
+				SoLoud::logStdout("[MiniAudio INFO] Trying backend: %s in %s\n", ma_get_backend_name(backend), modeString);
 
 			result = try_backend_with_timeout(data, backend, initShareMode);
 
@@ -868,7 +866,7 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 			{
 				initialized = true;
 				if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
-					fprintf(stderr, "[MiniAudio INFO] Successfully initialized with backend: %s\n", ma_get_backend_name(backend));
+					SoLoud::logStdout("[MiniAudio INFO] Successfully initialized with backend: %s\n", ma_get_backend_name(backend));
 				break;
 			}
 			else
@@ -876,9 +874,9 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 				if (data->maxLogLevel >= MA_LOG_LEVEL_WARNING)
 				{
 					if (result == MA_ERROR) // this indicates timeout
-						fprintf(stderr, "[MiniAudio WARNING] Backend '%s' failed in %s due to timeout\n", ma_get_backend_name(backend), modeString);
+						SoLoud::logStdout("[MiniAudio WARNING] Backend '%s' failed in %s due to timeout\n", ma_get_backend_name(backend), modeString);
 					else
-						fprintf(stderr, "[MiniAudio WARNING] Backend '%s' failed in %s with error: %d\n", ma_get_backend_name(backend), modeString, result);
+						SoLoud::logStdout("[MiniAudio WARNING] Backend '%s' failed in %s with error: %d\n", ma_get_backend_name(backend), modeString, result);
 				}
 
 				if (initShareMode != ma_share_mode_exclusive)
@@ -902,7 +900,7 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 		aSoloud->mBackendData = nullptr;
 
 		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
-			fprintf(stderr, "[MiniAudio ERROR] All backends failed to initialize\n");
+			SoLoud::logStdout("[MiniAudio ERROR] All backends failed to initialize\n");
 
 		return UNKNOWN_ERROR; // this will cause soloud to try other backends like SDL3
 	}

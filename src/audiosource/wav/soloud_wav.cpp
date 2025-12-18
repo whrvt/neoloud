@@ -380,14 +380,9 @@ result Wav::loadflac(MemoryFile *aReader)
 
 result Wav::loadffmpeg(MemoryFile *aReader)
 {
-	result retval = (!FFmpeg::FFmpegLoader::init() || !FFmpeg::FFmpegLoader::isAvailable()) ? FILE_LOAD_FAILED : SO_NO_ERROR;
+	result retval = !FFmpeg::FFmpegLoader::isAvailable() ? FILE_LOAD_FAILED : SO_NO_ERROR;
 	if (retval != SO_NO_ERROR)
-	{
-#ifdef _DEBUG
-		printf("debug: failed to load ffmpeg %s\n", FFmpeg::FFmpegLoader::getErrorDetails().c_str());
-#endif
 		return retval;
-	}
 
 	float *data = nullptr;
 	unsigned int channels = 2, sampleCount = 0;

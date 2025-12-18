@@ -59,7 +59,7 @@ extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char *s
 #endif
 #endif
 
-#define SOLOUD_VERSION 202509
+#define SOLOUD_VERSION 202512 // TODO: consolidate with CMake versioning
 
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
@@ -105,6 +105,22 @@ typedef unsigned int result;
 typedef result (*soloudResultFunction)(Soloud *aSoloud);
 typedef unsigned int handle;
 typedef double time;
+
+// API to set a custom log output function instead of printf() and fprintf(stderr).
+// SoLoud will not try to synchronize calls to these functions (the log itself or the setter functions), so plan accordingly.
+// NOTE: The SDL3 output backend will use the SDL_Log facilities instead of this, which can be customized with the SDL3 API directly.
+// NOTE: There is currently no way to distinguish "log levels" in the callback, or have a guaranteed prefix/prefixless string.
+//       Log levels can be set with the SOLOUD_DEBUG={debug|info|warn|error|none} environment variable.
+typedef void (*logFunctionType)(const char *aOutputString, void *aUserdata);
+
+// Whatever is passed in aUserdata will be saved and passed into the log callbacks (can be NULL).
+void setStdoutLogFunction(logFunctionType aCustomStdout, void *aUserdata);
+void setStderrLogFunction(logFunctionType aCustomStderr, void *aUserdata);
+
+// Internal logging functions, declared here for convenience.
+// (TODO: clean up includes to properly separate public/private)
+void logStdout(const char *fmt, ...);
+void logStderr(const char *fmt, ...);
 
 // For use by backends to specify which format they'd like from the mixer.
 namespace detail
