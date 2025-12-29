@@ -36,7 +36,6 @@ freely, subject to the following restrictions:
 #include "soloud_mpg123.h"
 
 #include "soloud_ffmpeg.h"
-#include "soloud_ffmpeg_load.h"
 
 #include "soloud.h"
 #include "soloud_file.h"

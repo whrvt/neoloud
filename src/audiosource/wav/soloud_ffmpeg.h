@@ -25,9 +25,26 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_FFMPEG_H
 #define SOLOUD_FFMPEG_H
 
-#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__))
+#include <string>
 
-#include "soloud.h"
+namespace SoLoud::FFmpeg::FFmpegLoader
+{
+// main loader interface
+
+// these functions will be no-ops if compiled without ffmpeg support
+
+bool isAvailable(); // will initialize as needed
+void cleanup();
+std::string getErrorDetails();
+} // namespace SoLoud::FFmpeg::FFmpegLoader
+
+// only try to build with ffmpeg support IFF:
+//   - we want the feature
+//   - we have some ffmpeg header (avcodec.h)
+//   - we're either building with SDL3 support (for a generic dynamic loading implementation), or windows/linux (custom dynamic loading implementation)
+#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && (defined(WITH_SDL3) || ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__)))
+
+#include "soloud_config.h"
 
 namespace SoLoud
 {

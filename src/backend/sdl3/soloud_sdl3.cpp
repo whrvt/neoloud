@@ -73,7 +73,7 @@ struct SDL3Data
 	SDL_AudioDeviceID deviceID{0};
 	SDL_AudioSpec deviceSpec{}; // actual device format
 
-	struct
+	struct InitialParameters // C++11
 	{
 		unsigned int flags{Soloud::CLIP_ROUNDOFF};
 		unsigned int samplerate{Soloud::AUTO};
@@ -309,12 +309,12 @@ void params_to_optimal_devconfig(SDL3Data *instance, SDL_AudioSpec *outSpec, uns
 	if (instance->initParams.samplerate == Soloud::AUTO && hasDeviceInfo)
 		outSpec->freq = deviceSpec.freq;
 	else
-		outSpec->freq = (instance->initParams.samplerate > 0) ? instance->initParams.samplerate : 44100;
+		outSpec->freq = (instance->initParams.samplerate > 0) ? (int)instance->initParams.samplerate : 44100;
 
 	if (instance->initParams.channels == Soloud::AUTO && hasDeviceInfo)
 		outSpec->channels = deviceSpec.channels;
 	else
-		outSpec->channels = (instance->initParams.channels > 0) ? instance->initParams.channels : 2;
+		outSpec->channels = (instance->initParams.channels > 0) ? (int)instance->initParams.channels : 2;
 
 	// prefer device native format to avoid unnecessary conversion
 	if (hasDeviceInfo &&
@@ -699,8 +699,16 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 	aSoloud->mBackendData = data;
 	data->soloudInstance = aSoloud;
 
-	// save starting parameters (for later implementing device switching)
-	data->initParams = {aFlags, aSamplerate, aBuffer, aChannels};
+	{
+		// save starting parameters (for later implementing device switching)
+		SDL3Data::InitialParameters temp; // C++11 things
+		temp.flags = aFlags;
+		temp.samplerate = aSamplerate;
+		temp.bufferSize = aBuffer;
+		temp.channels = aChannels;
+
+		data->initParams = temp;
+	}
 
 	// setup logging based on SOLOUD_DEBUG envvar
 	SDL_LogPriority logLevel = parse_log_level_from_env();
@@ -768,8 +776,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 		}
 
 		const char *driver = SDL_GetCurrentAudioDriver();
-		SDL_LogInfo(SDL_LOG_CATEGORY_AUDIO, "Stream created (driver: %s): %dHz, %d channels, %s format, %d frame buffer", driver ? driver : "?", data->streamSpec.freq, data->streamSpec.channels,
-		            formatName, actualDeviceFrames);
+		SDL_LogInfo(SDL_LOG_CATEGORY_AUDIO, "Stream created (driver: %s): %dHz, %d channels, %s format, %d frame buffer", driver ? driver : "?",
+		            data->streamSpec.freq, data->streamSpec.channels, formatName, actualDeviceFrames);
 	}
 
 	// initialize SoLoud with our configuration

@@ -108,6 +108,12 @@ Soloud::Soloud()
 	m3dSpeakerPosition = {};
 }
 
+namespace FFmpeg::FFmpegLoader
+{
+// don't need the entire header here
+extern void cleanup();
+} // namespace FFmpeg::FFmpegLoader
+
 Soloud::~Soloud()
 {
 	// let's stop all sounds before deinit, so we don't mess up our mutexes
@@ -121,6 +127,11 @@ Soloud::~Soloud()
 	for (i = 0; i < mVoiceGroupCount; i++)
 		delete[] mVoiceGroup[i];
 	delete[] mVoiceGroup;
+
+	// As the final step, unload any FFmpeg libraries we might have dynamically loaded (through Wavs/WavStreams).
+	// Maybe slightly out of place, but there's no point in overcomplicating matters. We know for sure that it's safe
+	// to do at this point.
+	FFmpeg::FFmpegLoader::cleanup();
 }
 
 void Soloud::deinit()

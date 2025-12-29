@@ -129,6 +129,8 @@ result Ay::load(const char *aFilename)
 	return res;
 }
 
+#define MAKEDWORD(a, b, c, d) (((d) << 24) | ((c) << 16) | ((b) << 8) | (a))
+
 result Ay::loadFile(File *aFile)
 {
 	if (aFile == nullptr)
@@ -138,10 +140,10 @@ result Ay::loadFile(File *aFile)
 		return FILE_LOAD_FAILED;
 
 	aFile->seek(0);
-	if (aFile->read32() != 'PIHC')
-		return FILE_LOAD_FAILED; // CHIP
-	if (aFile->read32() != 'ENUT')
-		return FILE_LOAD_FAILED; // TUNE
+	if (aFile->read32() != MAKEDWORD('C','H','I','P'))
+		return FILE_LOAD_FAILED;
+	if (aFile->read32() != MAKEDWORD('T','U','N','E'))
+		return FILE_LOAD_FAILED;
 	int dataofs = aFile->read16();
 	int chiptype = aFile->read8();
 	// check if this file is for AY / YM, turbosound or turbosound next

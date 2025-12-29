@@ -165,6 +165,8 @@ result TedSid::load(const char *aFilename)
 	return res;
 }
 
+#define MAKEDWORD(a, b, c, d) (((d) << 24) | ((c) << 16) | ((b) << 8) | (a))
+
 result TedSid::loadFile(File *aFile)
 {
 	if (aFile == nullptr)
@@ -176,9 +178,9 @@ result TedSid::loadFile(File *aFile)
 		return FILE_LOAD_FAILED;
 
 	aFile->seek(0);
-	if (aFile->read32() != 'PIHC')
+	if (aFile->read32() != MAKEDWORD('C','H','I','P'))
 		return FILE_LOAD_FAILED; // CHIP
-	if (aFile->read32() != 'ENUT')
+	if (aFile->read32() != MAKEDWORD('T','U','N','E'))
 		return FILE_LOAD_FAILED; // TUNE
 	int dataofs = aFile->read16();
 	int chiptype = aFile->read8();

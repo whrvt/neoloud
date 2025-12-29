@@ -22,7 +22,7 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__))
+#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && (defined(WITH_SDL3) || ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__)))
 
 #include <algorithm>
 #include <stdint.h>

@@ -22,7 +22,7 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__))
+#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && (defined(WITH_SDL3) || ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__)))
 #pragma message("building with ffmpeg support")
 
 #include <array>
@@ -80,6 +80,8 @@ typedef void(*OBJHANDLE);
 #endif
 
 #include "soloud_config.h" // for SoLoud::logStderr user-customizable output macro
+
+#include "soloud_ffmpeg.h"
 #include "soloud_ffmpeg_load.h"
 
 #ifdef _MSC_VER
@@ -110,7 +112,7 @@ OBJHANDLE s_libavcodec{nullptr};
 OBJHANDLE s_libavformat{nullptr};
 
 std::mutex s_init_mutex;
-std::atomic s_initialized{false};
+std::atomic<bool> s_initialized{false};
 bool s_available{false};
 
 // initialization state
@@ -128,7 +130,7 @@ int parse_log_level_from_env()
 	    ;
 
 	// default for debug builds, 0 (effectively disabled besides crashes) otherwise
-	static const int default_level = is_debug ? av_log_get_level() : 0;
+	const int default_level = is_debug ? av_log_get_level() : 0;
 
 	const char *env = getenv("SOLOUD_DEBUG");
 	if (!env || !*env || *env == '0')
@@ -152,7 +154,7 @@ int parse_log_level_from_env()
 
 // The log callback must be thread-safe, according to the ffmpeg docs
 std::mutex ff_log_mutex;
-int ff_log_print_prefix; // this makes no sense but is required
+int ff_log_print_prefix{0}; // this makes no sense but is required
 
 void ff_log_callback(void *avcl, int level, const char *fmt, va_list vl)
 {
@@ -163,7 +165,7 @@ void ff_log_callback(void *avcl, int level, const char *fmt, va_list vl)
 		return;
 
 	std::array<char, 1024> log_line;
-	std::lock_guard lk(ff_log_mutex);
+	std::lock_guard<std::mutex> lk(ff_log_mutex);
 
 	int written = av_log_format_line2(avcl, level, fmt, vl, log_line.data(), static_cast<int>(log_line.size()), &ff_log_print_prefix);
 	if (written <= 0)
@@ -184,10 +186,6 @@ void ff_log_callback(void *avcl, int level, const char *fmt, va_list vl)
 // assumes that the init mutex is held
 void cleanup_internal()
 {
-#define RESET_FUNCTION(name) name = nullptr;
-	ALL_FFMPEG_FUNCTIONS(RESET_FUNCTION)
-#undef RESET_FUNCTION
-
 #define RESET_LIB(libname) \
 	if (!!(s_lib##libname)) \
 	{ \
@@ -199,6 +197,11 @@ void cleanup_internal()
 	RESET_LIB(swresample);
 	RESET_LIB(avutil);
 #undef RESET_LIB
+
+// set function pointers back to null
+#define RESET_FUNCTION(name) name = nullptr;
+	ALL_FFMPEG_FUNCTIONS(RESET_FUNCTION)
+#undef RESET_FUNCTION
 }
 
 struct FFmpegFuncset
@@ -208,7 +211,7 @@ struct FFmpegFuncset
 	int libversion;           // e.g. 61
 };
 
-static bool load_full_ff_lib(const std::array<FFmpegFuncset, 4> &ffmpeg_funcsets)
+bool load_full_ff_lib(const std::array<FFmpegFuncset, 4> &ffmpeg_funcsets)
 {
 	for (auto &funcset : ffmpeg_funcsets)
 	{
@@ -333,7 +336,7 @@ bool isAvailable()
 	if (s_initialized.load(std::memory_order_relaxed))
 		return s_available;
 
-	std::lock_guard lk(s_init_mutex);
+	std::lock_guard<std::mutex> lk(s_init_mutex);
 	if (s_initialized.load(std::memory_order_acquire))
 		return s_available;
 
@@ -346,14 +349,13 @@ bool isAvailable()
 	return s_available;
 }
 
-// NOTE: currently unused
-// soloud will load ffmpeg as needed but doesn't unload it
+// Wavs/WavStreams will load ffmpeg as needed, when the SoLoud instance is destroyed it will call this
 void cleanup()
 {
 	if (!s_initialized.load(std::memory_order_acquire))
 		return;
 
-	std::lock_guard lk(s_init_mutex);
+	std::lock_guard<std::mutex> lk(s_init_mutex);
 
 	// reset these first
 	s_available = false;
@@ -371,4 +373,25 @@ std::string getErrorDetails()
 
 #else
 #pragma message("building without ffmpeg support")
+
+#include <string>
+
+// dummy implementation to avoid ifdefs elsewhere
+namespace SoLoud::FFmpeg::FFmpegLoader
+{
+bool isAvailable()
+{
+	return false;
+}
+// main interface
+void cleanup()
+{
+	;
+}
+std::string getErrorDetails()
+{
+	return "FFmpeg support was not compiled in.";
+}
+} // namespace SoLoud::FFmpeg::FFmpegLoader
+
 #endif

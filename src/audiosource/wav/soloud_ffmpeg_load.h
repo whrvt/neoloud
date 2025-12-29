@@ -27,7 +27,7 @@ freely, subject to the following restrictions:
 
 #include <string>
 
-#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__))
+#if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && (defined(WITH_SDL3) || ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__)))
 
 #include <math.h>
 #include <stdlib.h>
@@ -138,29 +138,6 @@ ALL_FFMPEG_FUNCTIONS(DECLARE_FFMPEG_FUNCTION)
 
 } // namespace FFmpegFuncs
 
-// main interface
-bool isAvailable(); // will initialize as needed
-void cleanup();
-std::string getErrorDetails();
-
-} // namespace SoLoud::FFmpeg::FFmpegLoader
-
-#else
-namespace SoLoud::FFmpeg::FFmpegLoader
-{
-inline bool isAvailable()
-{
-	return false;
-}
-// main interface
-inline void cleanup()
-{
-	;
-}
-inline std::string getErrorDetails()
-{
-	return "FFmpeg support was not compiled in.";
-}
 } // namespace SoLoud::FFmpeg::FFmpegLoader
 
 #endif
