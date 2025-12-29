@@ -32,8 +32,10 @@ freely, subject to the following restrictions:
 
 #if defined(_WIN32) || defined(_WIN64)
 #define LNAME(x, ver) #x "-" #ver ".dll"
+#define LNAMESTR(x, ver) x + "-" + std::to_string(ver) + ".dll"
 #else
 #define LNAME(x, ver) "lib" #x ".so." #ver
+#define LNAMESTR(x, ver) "lib" + x + ".so." + std::to_string(ver)
 #endif
 
 #ifdef WITH_SDL3
@@ -199,44 +201,108 @@ void cleanup_internal()
 #undef RESET_LIB
 }
 
-bool init_internal()
+struct FFmpegFuncset
 {
-// a monstrous usage of macros... but it does reduce duplication
+	std::string bare_libname; // e.g. avformat
+	OBJHANDLE *libhandle_ref; // e.g. &s_libavformat
+	int libversion;           // e.g. 61
+};
+
+static bool load_full_ff_lib(const std::array<FFmpegFuncset, 4> &ffmpeg_funcsets)
+{
+	for (auto &funcset : ffmpeg_funcsets)
+	{
+		const std::string trypath2 = LNAMESTR(funcset.bare_libname, funcset.libversion);
+		const std::string trypath1 = std::string("./") + trypath2;
+
+		if (!(*funcset.libhandle_ref = LIBLOAD(trypath1.c_str())) && !(*funcset.libhandle_ref = LIBLOAD(trypath2.c_str())))
+		{
+			s_errorDetails += "Failed to load " + funcset.bare_libname + "-" + std::to_string(funcset.libversion) + " (error: " + LIBGETERROR() + ")\n";
+			return false;
+		}
+
 #define LOAD_LIB_FUNCS_BODY(fname) \
 	failed_count += !((fname) = reinterpret_cast<fname##_t>(LIBFUNC(current_library_outer_macro, #fname))); \
 	if (!(fname)) \
 		s_errorDetails += missing_prefix_outer_macro + #fname + "\n";
 
-#define LOAD_FULL_FF_LIB(ff_libname_lower, ff_lib_version, ff_lib_funcs_xmacro) \
-	[](void) -> bool { /* first load the library */ \
-		               const char *trypath1 = "./" LNAME(ff_libname_lower, ff_lib_version); \
-		               const char *trypath2 = LNAME(ff_libname_lower, ff_lib_version); \
-		               if (!(s_lib##ff_libname_lower = LIBLOAD(trypath1)) && !(s_lib##ff_libname_lower = LIBLOAD(trypath2))) \
-		               { \
-			               s_errorDetails += "Failed to load " #ff_libname_lower "-" #ff_lib_version " (error: " + LIBGETERROR() + ")\n"; \
-			               return false; \
-		               } /* then load the functions using the given x-macro list */ \
-		               const std::string missing_prefix_outer_macro = "Missing " #ff_libname_lower " function: "; /* for passing into the x-macro expansion */ \
-		               auto current_library_outer_macro = s_lib##ff_libname_lower; \
-		               int failed_count = 0; \
-		               ff_lib_funcs_xmacro(LOAD_LIB_FUNCS_BODY); \
-		               if (failed_count > 0) \
-			               s_errorDetails += "Failed to load " + std::to_string(failed_count) + " " #ff_libname_lower " functions\n"; \
-		               return failed_count == 0; \
-	}()
+		/* then load the functions using the x-macro list for the current lib */
+		const std::string missing_prefix_outer_macro = "Missing " + funcset.bare_libname + " function: "; /* for passing into the x-macro expansion */
+		OBJHANDLE current_library_outer_macro = *funcset.libhandle_ref;
+		int failed_count = 0;
 
-	// load all libraries and functions here
-	if (!LOAD_FULL_FF_LIB(avutil, 59, AVUTIL_FUNCTIONS) ||        //
-	    !LOAD_FULL_FF_LIB(swresample, 5, SWRESAMPLE_FUNCTIONS) || //
-	    !LOAD_FULL_FF_LIB(avcodec, 61, AVCODEC_FUNCTIONS) ||      //
-	    !LOAD_FULL_FF_LIB(avformat, 61, AVFORMAT_FUNCTIONS))
-	{
-		cleanup_internal();
-		return false;
-	}
+		if (funcset.bare_libname == "avutil")
+		{
+			AVUTIL_FUNCTIONS(LOAD_LIB_FUNCS_BODY);
+		}
+		else if (funcset.bare_libname == "swresample")
+		{
+			SWRESAMPLE_FUNCTIONS(LOAD_LIB_FUNCS_BODY);
+		}
+		else if (funcset.bare_libname == "avcodec")
+		{
+			AVCODEC_FUNCTIONS(LOAD_LIB_FUNCS_BODY);
+		}
+		else if (funcset.bare_libname == "avformat")
+		{
+			AVFORMAT_FUNCTIONS(LOAD_LIB_FUNCS_BODY);
+		}
 
 #undef LOAD_LIB_FUNCS_BODY
-#undef LOAD_FULL_FF_LIB
+
+		if (failed_count > 0)
+		{
+			s_errorDetails += "Failed to load " + std::to_string(failed_count) + " " + funcset.bare_libname + " functions\n";
+			return false;
+		}
+		// else continue to loading the next library
+	}
+
+	return true;
+}
+
+bool init_internal()
+{
+#define FUNCSETDEF(libname, ver) \
+	FFmpegFuncset \
+	{ \
+		.bare_libname = #libname, .libhandle_ref = &s_lib##libname, .libversion = (ver) \
+	}
+	// Versions of FFmpeg libraries which expose an API that's compatible with what we actually need (tested working),
+	const std::array<std::array<FFmpegFuncset, 4>, 2> supported_ffmpeg_version_sets{
+	    {{
+	         // FFmpeg 7.1
+	         FUNCSETDEF(avutil, 59),    //
+	         FUNCSETDEF(swresample, 5), //
+	         FUNCSETDEF(avcodec, 61),   //
+	         FUNCSETDEF(avformat, 61),  //
+	     }, {
+	         // FFmpeg 8.0
+	         FUNCSETDEF(avutil, 60),    //
+	         FUNCSETDEF(swresample, 6), //
+	         FUNCSETDEF(avcodec, 62),   //
+	         FUNCSETDEF(avformat, 62),  //
+	     }}
+    };
+#undef FUNCSETDEF
+
+	bool succeeded = false;
+	for (const auto &set : supported_ffmpeg_version_sets)
+	{
+		if (!load_full_ff_lib(set))
+		{
+			// try the next set of versions
+			cleanup_internal();
+		}
+		else
+		{
+			succeeded = true;
+			break;
+		}
+	}
+
+	if (!succeeded)
+		return false;
 
 	// we would have bailed at this point if any functions/lib failed to load
 

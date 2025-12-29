@@ -244,7 +244,7 @@ ma_backend parse_backend_from_env()
 		return ma_backend_audio4;
 	if (strncasecmp(env, "oss", sizeof("oss") - 1) == 0)
 		return ma_backend_oss;
-	if (strncasecmp(env, "pulseaudio", sizeof("pulseaudio") - 1) == 0)
+	if ((strncasecmp(env, "pulseaudio", sizeof("pulseaudio") - 1) == 0) || (strncasecmp(env, "pulse", sizeof("pulse") - 1) == 0))
 		return ma_backend_pulseaudio;
 	if (strncasecmp(env, "alsa", sizeof("alsa") - 1) == 0)
 		return ma_backend_alsa;
