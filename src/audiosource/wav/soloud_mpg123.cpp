@@ -54,8 +54,17 @@ struct MPG123Decoder
 		operator mpg123_handle *() const { return this->get(); }
 	};
 
+	struct CFree
+	{
+		inline void operator()(void *p) const noexcept { free(p); }
+	};
+	struct TempBuffer : public std::unique_ptr<unsigned char, CFree>
+	{
+		operator unsigned char *() const { return this->get(); }
+	};
+
 	MPG123Handle handle;
-	unsigned char *tempBuffer;
+	TempBuffer tempBuffer;
 	size_t tempBufferSize;
 	long rate;
 	off_t totalFrames;
@@ -100,14 +109,13 @@ MPG123Decoder *open(File *aFile)
 	if (!aFile)
 		return nullptr;
 
-	auto *decoder = new MPG123Decoder();
-	memset((void *)decoder, 0, sizeof(MPG123Decoder));
+	auto decoder = std::make_unique<MPG123Decoder>();
+	memset((void *)decoder.get(), 0, sizeof(MPG123Decoder));
 
 	decoder->handle.reset(mpg123_new(nullptr, nullptr));
 
 	if (!decoder->handle)
 	{
-		delete decoder;
 		return nullptr;
 	}
 
@@ -124,12 +132,15 @@ MPG123Decoder *open(File *aFile)
 #ifndef _DEBUG
 	// libmpg123 does not allow setting a custom log output function unfortunately
 	mpg123_param(decoder->handle, MPG123_ADD_FLAGS, MPG123_QUIET, 0);
+#else
+	// (noisy)
+	// mpg123_param(decoder->handle, MPG123_REMOVE_FLAGS, MPG123_QUIET, 0);
+	// mpg123_param(decoder->handle, MPG123_VERBOSE, 3, 0);
 #endif
 
 	// set up custom I/O
 	if (mpg123_replace_reader_handle(decoder->handle, readCallback, seekCallback, nullptr) != MPG123_OK)
 	{
-		delete decoder;
 		return nullptr;
 	}
 
@@ -138,7 +149,6 @@ MPG123Decoder *open(File *aFile)
 	// open with custom file handle
 	if (mpg123_open_handle(decoder->handle, aFile) != MPG123_OK)
 	{
-		delete decoder;
 		return nullptr;
 	}
 
@@ -147,59 +157,90 @@ MPG123Decoder *open(File *aFile)
 	int channels = 0, encoding = 0;
 	if (mpg123_getformat(decoder->handle, &rate, &channels, &encoding) != MPG123_OK)
 	{
-		delete decoder;
 		return nullptr;
 	}
 
 	decoder->rate = rate;
 	decoder->channels = channels;
 
-	// get total frame count
-	decoder->totalFrames = mpg123_length(decoder->handle);
-	if (decoder->totalFrames < MPG123_OK)
-	{
-		// try to get frame length info before expensive scan
-		off_t frameLength = mpg123_framelength(decoder->handle);
-		if (frameLength > 0)
-		{
-			// mpg123_framelength returns mpeg frames, not pcm samples
-			int samplesPerFrame = mpg123_spf(decoder->handle);
-			if (samplesPerFrame > 0)
-			{
-				decoder->totalFrames = frameLength * samplesPerFrame;
-			}
-			else
-			{
-				decoder->totalFrames = 0;
-			}
-		}
-		else
-		{
-			// fallback: scan the file to get accurate length
-			off_t pos = mpg123_tell(decoder->handle);
-			if (mpg123_scan(decoder->handle) == MPG123_OK)
-			{
-				decoder->totalFrames = mpg123_length(decoder->handle);
-				mpg123_seek(decoder->handle, pos, SEEK_SET);
-			}
-			else
-			{
-				decoder->totalFrames = 0;
-			}
-		}
-	}
-
 	// validate that this is actually MPEG audio that mpg123 can decode
 	struct mpg123_frameinfo2 frameInfo{};
-	if (decoder->totalFrames <= 0 || mpg123_info2(decoder->handle, &frameInfo) != MPG123_OK ||
+	if (mpg123_info2(decoder->handle, &frameInfo) != MPG123_OK ||
 	    (frameInfo.layer < 1 || frameInfo.layer > 3 || frameInfo.version < 0 || frameInfo.version > 2 || frameInfo.rate <= 0 || frameInfo.bitrate <= 0))
 	{
-		// frame count couldn't be determined, or no frame info, or layer isn't between 1 and 3
-		delete decoder;
 		return nullptr;
 	}
 
-	return decoder;
+	// get total frame count
+	decoder->totalFrames = mpg123_length(decoder->handle);
+
+	// When mpg123 parses Xing/LAME/VBRI headers, it sets vbr to MPG123_VBR or MPG123_ABR.
+	// If vbr == MPG123_CBR, either the file is genuine CBR, or it's VBR without proper
+	// headers. In the latter case, mpg123_length estimates duration from first-frame
+	// bitrate which can be wildly inaccurate. Sample a few frames to detect this case.
+	bool needsFullScan = decoder->totalFrames < MPG123_OK;
+
+	if (!needsFullScan && frameInfo.vbr == MPG123_CBR)
+	{
+		off_t pos = mpg123_tell(decoder->handle);
+		int firstBitrate = frameInfo.bitrate;
+
+		int i = 0;
+		for (; i < 20; i++)
+		{
+			if (mpg123_framebyframe_next(decoder->handle) != MPG123_OK)
+				break;
+
+			struct mpg123_frameinfo2 sampleInfo{};
+			if (mpg123_info2(decoder->handle, &sampleInfo) == MPG123_OK && sampleInfo.bitrate != firstBitrate)
+			{
+				needsFullScan = true;
+				break;
+			}
+		}
+
+		// Even if we don't need a full scan, update totalFrames after decoding a few since
+		// the estimate can be more accurate after doing so.
+		if (!needsFullScan && i == 20)
+		{
+			const off_t newLength = mpg123_length(decoder->handle);
+#ifdef _DEBUG
+			if (newLength != decoder->totalFrames)
+			{
+				SoLoud::logStdout("SoLoud::MPG123::open: after reading 20 frames, got length %ld (was %ld)\n", newLength, decoder->totalFrames);
+			}
+#endif
+			decoder->totalFrames = newLength;
+		}
+
+		mpg123_seek(decoder->handle, pos, SEEK_SET);
+	}
+
+	if (needsFullScan)
+	{
+		off_t pos = mpg123_tell(decoder->handle);
+		if (mpg123_scan(decoder->handle) == MPG123_OK)
+		{
+			const off_t newLength = mpg123_length(decoder->handle);
+#ifdef _DEBUG
+			if (newLength != decoder->totalFrames)
+			{
+				SoLoud::logStdout("SoLoud::MPG123::open: did a full scan and got length %ld (was %ld)\n", newLength, decoder->totalFrames);
+			}
+#endif
+			decoder->totalFrames = newLength;
+		}
+		else if (decoder->totalFrames < MPG123_OK)
+		{
+			decoder->totalFrames = 0;
+		}
+		mpg123_seek(decoder->handle, pos, SEEK_SET);
+	}
+
+	if (decoder->totalFrames <= 0)
+		return nullptr;
+
+	return decoder.release();
 }
 
 void close(MPG123Decoder *aDecoder)
@@ -207,7 +248,6 @@ void close(MPG123Decoder *aDecoder)
 	if (!aDecoder)
 		return;
 
-	free(aDecoder->tempBuffer);
 	delete aDecoder;
 }
 
@@ -238,10 +278,15 @@ size_t readFrames(MPG123Decoder *aDecoder, size_t aFrameCount, float *aBuffer)
 	if (aDecoder->tempBufferSize < requiredBytes)
 	{
 		unsigned char *tmpAlloc = nullptr;
-		if (!(tmpAlloc = static_cast<unsigned char *>(realloc(aDecoder->tempBuffer, requiredBytes))))
-			return 0; // we are in trouble...
+		unsigned char *old = aDecoder->tempBuffer.release();
 
-		aDecoder->tempBuffer = tmpAlloc;
+		if (!(tmpAlloc = static_cast<unsigned char *>(realloc(old, requiredBytes))))
+		{
+			aDecoder->tempBuffer.reset(old);
+			return 0; // we are in trouble...
+		}
+
+		aDecoder->tempBuffer.reset(tmpAlloc);
 		aDecoder->tempBufferSize = requiredBytes;
 	}
 
