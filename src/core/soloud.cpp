@@ -30,6 +30,7 @@ freely, subject to the following restrictions:
 
 #include <cmath> // sin
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
