@@ -1052,6 +1052,21 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 	}
 #endif
 
+#ifdef __aarch64__
+	// FTZ for aarch64
+	{
+		static bool once = false;
+		if (!once)
+		{
+			once = true;
+			uint64_t fpcr;
+			asm volatile("mrs %0, fpcr" : "=r"(fpcr));
+			fpcr |= (1ULL << 24); // FZ
+			asm volatile("msr fpcr, %0" : : "r"(fpcr));
+		}
+	}
+#endif
+
 #ifdef _MCW_DN
 	{
 		static bool once = false;
