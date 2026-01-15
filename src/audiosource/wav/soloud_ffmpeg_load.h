@@ -48,9 +48,8 @@ extern "C"
 }
 } // namespace ffmpeg_EXTERN
 
-namespace SoLoud::FFmpeg::FFmpegLoader
+namespace SoLoud::FFmpeg::FFmpegLoader::FFmpegFuncs
 {
-
 // define core function groups by library
 #define AVFORMAT_FUNCTIONS(X) \
 	X(av_read_frame) \
@@ -110,8 +109,6 @@ namespace SoLoud::FFmpeg::FFmpegLoader
 	AVUTIL_FUNCTIONS(X) \
 	SWRESAMPLE_FUNCTIONS(X)
 
-namespace FFmpegFuncs
-{
 // import types we need
 using ffmpeg_EXTERN::AVChannelLayout;
 using ffmpeg_EXTERN::AVCodec;
@@ -136,9 +133,9 @@ using ffmpeg_EXTERN::AVMEDIA_TYPE_AUDIO;
 
 ALL_FFMPEG_FUNCTIONS(DECLARE_FFMPEG_FUNCTION)
 
-} // namespace FFmpegFuncs
+#undef DECLARE_FFMPEG_FUNCTION
 
-} // namespace SoLoud::FFmpeg::FFmpegLoader
+} // namespace SoLoud::FFmpeg::FFmpegLoader::FFmpegFuncs
 
 #endif
 #endif // SOLOUD_FFMPEG_H

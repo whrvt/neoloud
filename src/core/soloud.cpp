@@ -29,8 +29,8 @@ freely, subject to the following restrictions:
 #include "soloud_thread.h"
 
 #include <cmath> // sin
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -1030,7 +1030,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 {
 #ifdef FLOATING_POINT_DEBUG
 	// This needs to be done in the audio thread as well..
-	static int done = 0;
+	static thread_local int done = 0;
 	if (!done)
 	{
 		unsigned int u;
@@ -1044,7 +1044,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 #ifdef __arm__
 	// flush to zero (FTZ) for ARM
 	{
-		static bool once = false;
+		static thread_local bool once = false;
 		if (!once)
 		{
 			once = true;
@@ -1056,7 +1056,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 #ifdef __aarch64__
 	// FTZ for aarch64
 	{
-		static bool once = false;
+		static thread_local bool once = false;
 		if (!once)
 		{
 			once = true;
@@ -1070,7 +1070,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 
 #ifdef _MCW_DN
 	{
-		static bool once = false;
+		static thread_local bool once = false;
 		if (!once)
 		{
 			once = true;
@@ -1084,7 +1084,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 
 #ifdef SOLOUD_SSE_INTRINSICS
 	{
-		static bool once = false;
+		static thread_local bool once = false;
 		if (!once)
 		{
 			once = true;
