@@ -26,6 +26,7 @@ freely, subject to the following restrictions:
 #define SOLOUD_WAVSTREAM_H
 
 #include "soloud_audiosource.h"
+#include <memory> // unique_ptr
 
 struct stb_vorbis;
 #ifndef dr_flac_h
@@ -53,32 +54,6 @@ struct MPG123Decoder;
 class WavStream;
 class File;
 
-class WavStreamInstance : public AudioSourceInstance
-{
-	WavStream *mParent;
-	unsigned int mOffset;
-	File *mFile;
-	union codec {
-		stb_vorbis *mOgg;
-		drflac *mFlac;
-		MPG123::MPG123Decoder *mMpg123;
-		drmp3 *mDrmp3;
-		drwav *mWav;
-		FFmpeg::FFmpegDecoder *mFfmpeg;
-	} mCodec;
-	unsigned int mOggFrameSize;
-	unsigned int mOggFrameOffset;
-	float **mOggOutputs;
-
-public:
-	WavStreamInstance(WavStream *aParent);
-	virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize);
-	virtual result seek(double aSeconds, float *mScratch, unsigned int mScratchSize);
-	virtual result rewind();
-	virtual bool hasEnded();
-	virtual ~WavStreamInstance();
-};
-
 enum WAVSTREAM_FILETYPE
 {
 	WAVSTREAM_WAV = 0,
@@ -86,8 +61,53 @@ enum WAVSTREAM_FILETYPE
 	WAVSTREAM_FLAC = 2,
 	WAVSTREAM_MPG123 = 3,
 	WAVSTREAM_DRMP3 = 4,
-	WAVSTREAM_FFMPEG = 5,
-	WAVSTREAM_AUTO
+	WAVSTREAM_FFMPEG = 5
+};
+
+class WavStreamInstance : public AudioSourceInstance
+{
+	struct FileInstanceHandle : public std::unique_ptr<File, void (*)(File *)>
+	{
+		using unique_ptr::unique_ptr;
+		operator File *() const { return this->get(); }
+
+		static void fileDeleter(File *rawFile);
+		static void noopFileDeleter(File * /* rawFile */) {}
+	};
+
+	WavStream *mParent;
+	unsigned int mOffset;
+	FileInstanceHandle mFile;
+	union {
+		stb_vorbis *mOgg;
+		drflac *mFlac;
+		MPG123::MPG123Decoder *mMpg123;
+		drmp3 *mDrmp3;
+		drwav *mWav;
+		FFmpeg::FFmpegDecoder *mFfmpeg;
+		// default nullptr init, not to be used
+		void *dummy{nullptr};
+	};
+	bool haveCodec() const { return mDrmp3 || mFfmpeg || mFlac || mMpg123 || mOgg || mWav; }
+
+	unsigned int mOggFrameSize;
+	unsigned int mOggFrameOffset;
+	float **mOggOutputs;
+
+public:
+	WavStreamInstance() = delete;
+	WavStreamInstance(WavStream *aParent);
+	~WavStreamInstance() override;
+
+	WavStreamInstance(const WavStreamInstance &) = delete;
+	WavStreamInstance &operator=(const WavStreamInstance &) = delete;
+	WavStreamInstance(WavStreamInstance &&) = delete;
+	WavStreamInstance &operator=(WavStreamInstance &&) = delete;
+
+	unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize) override;
+	result seek(double aSeconds, float *mScratch, unsigned int mScratchSize) override;
+	result rewind() override;
+	bool hasEnded() override;
 };
 
 class WavStream : public AudioSource
@@ -99,27 +119,34 @@ class WavStream : public AudioSource
 	result loaddrmp3(File *fp);
 	result loadffmpeg(File *fp);
 
+	// mp3 seek tables
+	friend class WavStreamInstance;
+	std::unique_ptr<drmp3_seek_point[]> mMp3SeekPoints;
+	drmp3_uint32 mMp3SeekPointCount;
+
 	bool mPreferFFmpeg;
 
 public:
-	int mFiletype;
-	char *mFilename;
-	File *mMemFile;
+	WAVSTREAM_FILETYPE mFiletype;
+	std::unique_ptr<char[]> mFilename;
+	std::unique_ptr<File> mMemFile;
 	File *mStreamFile;
 	unsigned int mSampleCount;
 
-	// mp3 seek tables
-	drmp3_seek_point *mMp3SeekPoints;
-	drmp3_uint32 mMp3SeekPointCount;
-
 	WavStream(bool preferFFmpeg = false);
-	virtual ~WavStream();
+	~WavStream() override;
+
+	WavStream(const WavStream &) = delete;
+	WavStream &operator=(const WavStream &) = delete;
+	WavStream(WavStream &&) = delete;
+	WavStream &operator=(WavStream &&) = delete;
+
 	result load(const char *aFilename);
 	result loadMem(const unsigned char *aData, unsigned int aDataLen, bool aCopy = false, bool aTakeOwnership = true);
 	result loadToMem(const char *aFilename);
 	result loadFile(File *aFile);
 	result loadFileToMem(File *aFile);
-	virtual AudioSourceInstance *createInstance();
+	AudioSourceInstance *createInstance() override;
 	time getLength();
 
 public:
