@@ -138,6 +138,7 @@ void WavStreamInstance::FileInstanceHandle::fileDeleter(File *rawFile)
 
 WavStreamInstance::WavStreamInstance(WavStream *aParent)
     : mParent(aParent),
+      mOffset(0),
       /* don't delete the parent's stream file! */
       mFile(nullptr, mParent->mStreamFile ? &WavStreamInstance::FileInstanceHandle::noopFileDeleter : &WavStreamInstance::FileInstanceHandle::fileDeleter),
       mOggFrameSize(),
@@ -569,11 +570,12 @@ bool WavStreamInstance::hasEnded()
 }
 
 WavStream::WavStream(bool preferFFmpeg)
+    : mMp3SeekPointCount(0),
+      mPreferFFmpeg(preferFFmpeg),
+      mFiletype(WAVSTREAM_WAV),
+      mStreamFile(nullptr),
+      mSampleCount(0)
 {
-	mSampleCount = 0;
-	mFiletype = WAVSTREAM_WAV;
-	mMp3SeekPointCount = 0;
-	mPreferFFmpeg = preferFFmpeg;
 }
 
 WavStream::~WavStream()
