@@ -163,23 +163,24 @@ WavStreamInstance::WavStreamInstance(WavStream *aParent)
 	{
 		if (mParent->mFiletype == WAVSTREAM_WAV)
 		{
-			mCodec.mWav = new drwav;
-			if (!drwav_init(mCodec.mWav, drwav_read_func, drwav_seek_func, drwav_tell_func, (void *)mFile, nullptr))
+			if (!mCodec.mWav)
 			{
-				delete mCodec.mWav;
-				mCodec.mWav = nullptr;
-				if (mFile != mParent->mStreamFile)
-					delete mFile;
-				mFile = nullptr;
+				mCodec.mWav = new drwav;
+				if (!drwav_init(mCodec.mWav, drwav_read_func, drwav_seek_func, drwav_tell_func, (void *)mFile, nullptr))
+				{
+					delete mCodec.mWav;
+					mCodec.mWav = nullptr;
+					if (mFile != mParent->mStreamFile)
+						delete mFile;
+					mFile = nullptr;
+				}
 			}
 		}
 		else if (mParent->mFiletype == WAVSTREAM_OGG)
 		{
 			int e;
 
-			mCodec.mOgg = stb_vorbis_open_file((Soloud_Filehack *)mFile, 0, &e, nullptr);
-
-			if (!mCodec.mOgg)
+			if (!mCodec.mOgg && !(mCodec.mOgg = stb_vorbis_open_file((Soloud_Filehack *)mFile, 0, &e, nullptr)))
 			{
 				if (mFile != mParent->mStreamFile)
 					delete mFile;
@@ -191,8 +192,7 @@ WavStreamInstance::WavStreamInstance(WavStream *aParent)
 		}
 		else if (mParent->mFiletype == WAVSTREAM_FLAC)
 		{
-			mCodec.mFlac = drflac_open(drflac_read_func, drflac_seek_func, drflac_tell_func, (void *)mFile, nullptr);
-			if (!mCodec.mFlac)
+			if (!mCodec.mFlac && !(mCodec.mFlac = drflac_open(drflac_read_func, drflac_seek_func, drflac_tell_func, (void *)mFile, nullptr)))
 			{
 				if (mFile != mParent->mStreamFile)
 					delete mFile;
@@ -201,8 +201,7 @@ WavStreamInstance::WavStreamInstance(WavStream *aParent)
 		}
 		else if (mParent->mFiletype == WAVSTREAM_MPG123)
 		{
-			mCodec.mMpg123 = MPG123::open(mFile);
-			if (!mCodec.mMpg123)
+			if (!mCodec.mMpg123 && !(mCodec.mMpg123 = MPG123::open(mFile)))
 			{
 				if (mFile != mParent->mStreamFile)
 					delete mFile;
@@ -211,24 +210,27 @@ WavStreamInstance::WavStreamInstance(WavStream *aParent)
 		}
 		else if (mParent->mFiletype == WAVSTREAM_DRMP3)
 		{
-			mCodec.mDrmp3 = new drmp3;
-			if (!drmp3_init(mCodec.mDrmp3, drmp3_read_func, drmp3_seek_func, drmp3_tell_func, nullptr, (void *)mFile, nullptr))
+			if (!mCodec.mDrmp3)
 			{
-				delete mCodec.mDrmp3;
-				mCodec.mDrmp3 = nullptr;
-				if (mFile != mParent->mStreamFile)
-					delete mFile;
-				mFile = nullptr;
+				mCodec.mDrmp3 = new drmp3;
+				if (!drmp3_init(mCodec.mDrmp3, drmp3_read_func, drmp3_seek_func, drmp3_tell_func, nullptr, (void *)mFile, nullptr))
+				{
+					delete mCodec.mDrmp3;
+					mCodec.mDrmp3 = nullptr;
+					if (mFile != mParent->mStreamFile)
+						delete mFile;
+					mFile = nullptr;
+				}
 			}
-			else if (mParent->mMp3SeekPointCount > 0 && mParent->mMp3SeekPoints != nullptr)
+
+			if (mCodec.mDrmp3 && mParent->mMp3SeekPointCount > 0 && mParent->mMp3SeekPoints != nullptr)
 			{
 				drmp3_bind_seek_table(mCodec.mDrmp3, mParent->mMp3SeekPointCount, mParent->mMp3SeekPoints);
 			}
 		}
 		else if (mParent->mFiletype == WAVSTREAM_FFMPEG)
 		{
-			mCodec.mFfmpeg = FFmpeg::open(mFile);
-			if (!mCodec.mFfmpeg)
+			if (!mCodec.mFfmpeg && !(mCodec.mFfmpeg = FFmpeg::open(mFile)))
 			{
 				if (mFile != mParent->mStreamFile)
 					delete mFile;
@@ -694,6 +696,7 @@ result WavStream::loadogg(File *fp)
 			currcom += (sizeof("encoder=") - 1);
 			if (*currcom != '\0' && (strncmp("avc", currcom, (sizeof("avc") - 1)) == 0))
 			{
+				stb_vorbis_close(v);
 				return FILE_LOAD_FAILED;
 			}
 			else
@@ -913,7 +916,7 @@ result WavStream::loadMem(const unsigned char *aData, unsigned int aDataLen, boo
 		return INVALID_PARAMETER;
 
 	MemoryFile *mf = new MemoryFile();
-	int res = mf->openMem(aData, aDataLen, aCopy, aTakeOwnership);
+	result res = mf->openMem(aData, aDataLen, aCopy, aTakeOwnership);
 	if (res != SO_NO_ERROR)
 	{
 		delete mf;
@@ -936,7 +939,7 @@ result WavStream::loadMem(const unsigned char *aData, unsigned int aDataLen, boo
 result WavStream::loadToMem(const char *aFilename)
 {
 	DiskFile df;
-	int res = df.open(aFilename);
+	result res = df.open(aFilename);
 	if (res == SO_NO_ERROR)
 	{
 		res = loadFileToMem(&df);
@@ -956,7 +959,7 @@ result WavStream::loadFile(File *aFile)
 	mFilename = nullptr;
 	mSampleCount = 0;
 
-	int res = parse(aFile);
+	result res = parse(aFile);
 
 	if (res != SO_NO_ERROR)
 	{
@@ -981,7 +984,7 @@ result WavStream::loadFileToMem(File *aFile)
 	mSampleCount = 0;
 
 	MemoryFile *mf = new MemoryFile();
-	int res = mf->openFileToMem(aFile);
+	result res = mf->openFileToMem(aFile);
 	if (res != SO_NO_ERROR)
 	{
 		delete mf;

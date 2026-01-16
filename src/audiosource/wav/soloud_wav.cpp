@@ -172,6 +172,7 @@ result Wav::loadogg(MemoryFile *aReader)
 			currcom += (sizeof("encoder=") - 1);
 			if (*currcom != '\0' && (strncmp("avc", currcom, (sizeof("avc") - 1)) == 0))
 			{
+				stb_vorbis_close(vorbis);
 				return FILE_LOAD_FAILED;
 			}
 			else
@@ -456,7 +457,7 @@ result Wav::load(const char *aFilename)
 		return INVALID_PARAMETER;
 	stop();
 	DiskFile dr;
-	int res = dr.open(aFilename);
+	result res = dr.open(aFilename);
 	if (res == SO_NO_ERROR)
 		return loadFile(&dr);
 	return res;
