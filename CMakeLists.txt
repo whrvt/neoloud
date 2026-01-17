@@ -1,13 +1,14 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.21)
 
 project(SoLoud
-    VERSION 1.2.6
+    VERSION 1.3.0
     DESCRIPTION "SoLoud audio library"
     LANGUAGES C CXX)
 
-# set c++ standard
-# may decay to C++11 if compiler doesn't support C++17
-set(CMAKE_CXX_STANDARD 17)
+# enforce C++23 as minimum standard
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 option(SOLOUD_TESTS "Build test executables" OFF)
@@ -248,10 +249,16 @@ if(SOLOUD_TESTS)
                     target_compile_definitions(${TEST_NAME} PRIVATE
                         _CRT_SECURE_NO_WARNINGS
                         _HAS_EXCEPTIONS=0
+                        WINDOWS_VERSION
                     )
                     string(REGEX REPLACE "/EH[^ ]*" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
                     target_compile_options(${TEST_NAME} PRIVATE "/EHs-c-")
                 else()
+                    if(WIN32)
+                        target_compile_definitions(${TEST_NAME} PRIVATE
+                            WINDOWS_VERSION
+                        )
+                    endif()
                     target_compile_options(${TEST_NAME} PRIVATE -fno-exceptions)
                 endif()
 
