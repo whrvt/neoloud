@@ -31921,24 +31921,21 @@ static void ma_device_on_rerouted__pulse(ma_pa_stream* pStream, void* pUserData)
 
 static ma_uint32 ma_calculate_period_size_in_frames_from_descriptor__pulse(const ma_device_descriptor* pDescriptor, ma_uint32 nativeSampleRate, ma_performance_profile performanceProfile)
 {
-    /*
-    There have been reports from users where buffers of < ~20ms result glitches when running through
-    PipeWire. To work around this we're going to have to use a different default buffer size.
-    */
-    const ma_uint32 defaultPeriodSizeInMilliseconds_LowLatency   = 25;
-    const ma_uint32 defaultPeriodSizeInMilliseconds_Conservative = MA_DEFAULT_PERIOD_SIZE_IN_MILLISECONDS_CONSERVATIVE;
-
     MA_ASSERT(nativeSampleRate != 0);
+
+    /* PulseAudio ceil's the period size internally, i.e. 0.001 * 44100 = 44.1 -> 45 so do that in advance.
+       If we don't, the attr.tlength is less likely to be an exact multiple of the negotiated attr.minreq,
+       resulting in inaccurate calculations for the number of periods.
+    */
 
     if (pDescriptor->periodSizeInFrames == 0) {
         if (pDescriptor->periodSizeInMilliseconds == 0) {
-            if (performanceProfile == ma_performance_profile_low_latency) {
-                return ma_calculate_buffer_size_in_frames_from_milliseconds(defaultPeriodSizeInMilliseconds_LowLatency, nativeSampleRate);
-            } else {
-                return ma_calculate_buffer_size_in_frames_from_milliseconds(defaultPeriodSizeInMilliseconds_Conservative, nativeSampleRate);
-            }
+            ma_uint32 defaultMs = (performanceProfile == ma_performance_profile_low_latency) ?
+                MA_DEFAULT_PERIOD_SIZE_IN_MILLISECONDS_LOW_LATENCY :
+                MA_DEFAULT_PERIOD_SIZE_IN_MILLISECONDS_CONSERVATIVE;
+            return (defaultMs * nativeSampleRate + 999) / 1000;
         } else {
-            return ma_calculate_buffer_size_in_frames_from_milliseconds(pDescriptor->periodSizeInMilliseconds, nativeSampleRate);
+            return (pDescriptor->periodSizeInMilliseconds * nativeSampleRate + 999) / 1000;
         }
     } else {
         return pDescriptor->periodSizeInFrames;
@@ -32165,12 +32162,15 @@ static ma_result ma_device_init__pulse(ma_device* pDevice, const ma_device_confi
         }
 
         if (attr.fragsize > 0) {
-            pDescriptorCapture->periodCount = ma_max(attr.maxlength / attr.fragsize, 1);
+            /* Use fragsize as the period size for capture */
+            pDescriptorCapture->periodSizeInFrames = attr.fragsize / ma_get_bytes_per_frame(pDescriptorCapture->format, pDescriptorCapture->channels);
+            pDescriptorCapture->periodCount = ma_max((attr.maxlength + attr.fragsize / 2) / attr.fragsize, 1); /* Round it instead of truncating for safety. */
         } else {
+            /* Fallback */
             pDescriptorCapture->periodCount = 1;
+            pDescriptorCapture->periodSizeInFrames = attr.maxlength / ma_get_bytes_per_frame(pDescriptorCapture->format, pDescriptorCapture->channels);
         }
 
-        pDescriptorCapture->periodSizeInFrames = attr.maxlength / ma_get_bytes_per_frame(pDescriptorCapture->format, pDescriptorCapture->channels) / pDescriptorCapture->periodCount;
         ma_log_postf(ma_device_get_log(pDevice), MA_LOG_LEVEL_INFO, "[PulseAudio] Capture actual attr: maxlength=%d, tlength=%d, prebuf=%d, minreq=%d, fragsize=%d; periodSizeInFrames=%d\n", attr.maxlength, attr.tlength, attr.prebuf, attr.minreq, attr.fragsize, pDescriptorCapture->periodSizeInFrames);
     }
 
@@ -32326,13 +32326,20 @@ static ma_result ma_device_init__pulse(ma_device* pDevice, const ma_device_confi
             attr = *pActualAttr;
         }
 
-        if (attr.tlength > 0) {
-            pDescriptorPlayback->periodCount = ma_max(attr.maxlength / attr.tlength, 1);
+        if (attr.minreq > 0) {
+            /* Use minreq as the period size - this represents the actual quantum PulseAudio wants */
+            pDescriptorPlayback->periodSizeInFrames = attr.minreq / ma_get_bytes_per_frame(pDescriptorPlayback->format, pDescriptorPlayback->channels);
+            pDescriptorPlayback->periodCount = ma_max((attr.maxlength + attr.minreq / 2) / attr.minreq, 1); /* Round it instead of truncating for safety. */
+        } else if (attr.tlength > 0) {
+            /* Fallback to tlength-based calculation if minreq is not set */
+            pDescriptorPlayback->periodCount = ma_max((attr.maxlength + attr.tlength / 2) / attr.tlength, 1);
+            pDescriptorPlayback->periodSizeInFrames = attr.maxlength / ma_get_bytes_per_frame(pDescriptorPlayback->format, pDescriptorPlayback->channels) / pDescriptorPlayback->periodCount;
         } else {
+            /* Last resort fallback */
             pDescriptorPlayback->periodCount = 1;
+            pDescriptorPlayback->periodSizeInFrames = attr.maxlength / ma_get_bytes_per_frame(pDescriptorPlayback->format, pDescriptorPlayback->channels);
         }
 
-        pDescriptorPlayback->periodSizeInFrames = attr.maxlength / ma_get_bytes_per_frame(pDescriptorPlayback->format, pDescriptorPlayback->channels) / pDescriptorPlayback->periodCount;
         ma_log_postf(ma_device_get_log(pDevice), MA_LOG_LEVEL_INFO, "[PulseAudio] Playback actual attr: maxlength=%d, tlength=%d, prebuf=%d, minreq=%d, fragsize=%d; internalPeriodSizeInFrames=%d\n", attr.maxlength, attr.tlength, attr.prebuf, attr.minreq, attr.fragsize, pDescriptorPlayback->periodSizeInFrames);
     }
 
