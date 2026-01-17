@@ -28,14 +28,15 @@ freely, subject to the following restrictions:
 #include <array>
 #include <cmath>   // sin
 #include <cstdlib> // rand
+#include <memory>  // unique_ptr
 
 #include "soloud_config.h"
 
 #include "soloud_audiosource3d.h"
+#include "soloud_error.h"
 #include "soloud_fader.h"
 #include "soloud_filter.h"
-
-#include "soloud_error.h"
+#include "soloud_ll_mixing.h"
 
 namespace SoLoud
 {
@@ -51,21 +52,24 @@ class AudioSourceInstance3dData;
 class AlignedFloatBuffer
 {
 public:
-	float *mData;            // SIMD-aligned pointer for vectorized operations
-	unsigned char *mBasePtr; // Raw allocated pointer (for delete)
-	unsigned int mFloats;    // Size of buffer in floats (without padding)
+	float *mData{nullptr};            // SIMD-aligned pointer for vectorized operations
+	unsigned char *mBasePtr{nullptr}; // Raw allocated pointer (for delete)
+	unsigned int mFloats{0};          // Size of buffer in floats (without padding)
 
-	// Constructor
-	AlignedFloatBuffer();
+	AlignedFloatBuffer() = default;
+	~AlignedFloatBuffer();
+
+	// Not copy/moveable.
+	AlignedFloatBuffer(const AlignedFloatBuffer &) = delete;
+	AlignedFloatBuffer &operator=(const AlignedFloatBuffer &) = delete;
+	AlignedFloatBuffer(AlignedFloatBuffer &&) = delete;
+	AlignedFloatBuffer &operator=(AlignedFloatBuffer &&) = delete;
 
 	// Allocate and align buffer for specified number of floats
 	result init(unsigned int aFloats);
 
 	// Clear all data to zero
 	void clear();
-
-	// Destructor
-	~AlignedFloatBuffer();
 };
 
 // Generic device information structure for cross-backend compatibility
@@ -446,6 +450,10 @@ public:
 public:
 	// Rest of the stuff is used internally.
 
+	// Runtime-dispatched low-level mixing things (soloud_ll_mixing.h)
+	// Static because it doesn't actually hold any state, so it can be used externally if one wishes to (not recommended)
+	static std::unique_ptr<mixing::Mixer> mMixer;
+
 	// Mix N samples * M channels. Called by other mix_ functions.
 	void mix_internal(unsigned int aSamples, unsigned int aStride);
 
@@ -453,8 +461,8 @@ public:
 	void calcActiveVoices_internal();
 	// Other internal mixing helpers
 	static unsigned int ensureSourceData_internal(AudioSourceInstance *voice, unsigned int samplesNeeded, float *scratchBuffer, unsigned int scratchSize);
-	static unsigned int resampleVoicePrecise_internal(AudioSourceInstance *voice, float *outputBuffer, unsigned int outputSamples, unsigned int outputStride,
-	                                                  double outputSampleRate, unsigned int resampler, float *scratchBuffer, unsigned int scratchSize);
+	unsigned int resampleVoicePrecise_internal(AudioSourceInstance *voice, float *outputBuffer, unsigned int outputSamples, unsigned int outputStride,
+	                                           double outputSampleRate, unsigned int resampler, float *scratchBuffer, unsigned int scratchSize);
 	// Perform mixing for a specific bus
 	void mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize, float *aScratch, unsigned int aBus, float aSamplerate,
 	                     unsigned int aChannels, unsigned int aResampler);
@@ -570,7 +578,7 @@ public:
 	void postinit_internal(unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aFlags, unsigned int aChannels);
 
 	// Returns mixed float samples in buffer. Called by the back-end, or user with null driver.
-	void mix(void *aBuffer, unsigned int aSamples, detail::SAMPLE_FORMAT aFormat = detail::SAMPLE_FLOAT32);
+	void mix(void *aBuffer, unsigned int aSamples, mixing::SAMPLE_FORMAT aFormat = mixing::SAMPLE_FLOAT32);
 
 	// Lock audio thread mutex.
 	void lockAudioMutex_internal();

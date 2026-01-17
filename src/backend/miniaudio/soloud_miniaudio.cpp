@@ -24,6 +24,7 @@ distribution.
 
 #include "soloud_config.h"
 #include "soloud_internal.h"
+#include "soloud.h"
 
 #define MINIAUDIO_IMPLEMENTATION
 
@@ -61,7 +62,7 @@ distribution.
 
 namespace SoLoud
 {
-using namespace detail; // SAMPLE_FORMAT
+using namespace mixing; // SAMPLE_FORMAT
 
 namespace
 {

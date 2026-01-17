@@ -43,11 +43,6 @@ freely, subject to the following restrictions:
 
 namespace SoLoud
 {
-WavInstance::WavInstance(Wav *aParent)
-{
-	mParent = aParent;
-	mOffset = 0;
-}
 
 unsigned int WavInstance::getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize)
 {
@@ -83,13 +78,6 @@ bool WavInstance::hasEnded()
 		return true;
 	}
 	return false;
-}
-
-Wav::Wav(bool preferFFmpeg)
-{
-	mData = nullptr;
-	mSampleCount = 0;
-	mPreferFFmpeg = preferFFmpeg;
 }
 
 Wav::~Wav()
@@ -197,7 +185,7 @@ result Wav::loadogg(MemoryFile *aReader)
 	std::vector<float> interleavedData;
 	interleavedData.reserve(static_cast<size_t>(estimatedSamples) * mChannels);
 
-	while (1)
+	while (true)
 	{
 		float **outputs;
 		int n = stb_vorbis_get_frame_float(vorbis, nullptr, &outputs);

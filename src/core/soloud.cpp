@@ -23,13 +23,13 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud_audiosource.h"
+#include "soloud_cpu.h"
 #include "soloud_fft.h"
 #include "soloud_internal.h"
-#include "soloud_intrin.h"
+#include "soloud_mixing_internal.h"
 #include "soloud_thread.h"
 
 #include <cmath> // sin
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -43,16 +43,25 @@ freely, subject to the following restrictions:
 namespace SoLoud
 {
 
-using namespace detail;
+using namespace mixing;
 
+std::unique_ptr<Mixer> Soloud::mMixer{nullptr};
 Soloud::Soloud()
 {
+	// Initialize alignment masks and such.
+	initCPUFeatures();
 #ifdef FLOATING_POINT_DEBUG
 	unsigned int u;
 	u = _controlfp(0, 0);
 	u = u & ~(_EM_INVALID | /*_EM_DENORMAL |*/ _EM_ZERODIVIDE | _EM_OVERFLOW /*| _EM_UNDERFLOW  | _EM_INEXACT*/);
 	_controlfp(u, _MCW_EM);
 #endif
+	// Create the runtime-dispatched mixer.
+	if (!mMixer)
+	{
+		mMixer.reset(Mixer::createMixer());
+	}
+
 	mResampler = SOLOUD_DEFAULT_RESAMPLER;
 	mInsideAudioThreadMutex = false;
 	mScratchSize = 0;
@@ -273,7 +282,7 @@ void Soloud::postinit_internal(unsigned int aSamplerate, unsigned int aBufferSiz
 	mChannels = aChannels;
 	mSamplerate = aSamplerate;
 	mBufferSize = aBufferSize;
-	mScratchSize = (aBufferSize + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
+	mScratchSize = (aBufferSize + CPU_ALIGNMENT_MASK()) & ~CPU_ALIGNMENT_MASK();
 	if (mScratchSize < SAMPLE_GRANULARITY * 4) // 4096
 		mScratchSize = SAMPLE_GRANULARITY * 4;
 
@@ -513,11 +522,11 @@ unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsig
 		if (channelBufferSize <= scratchSize)
 		{
 			// Keep aligned for optimal intrinsics perf
-			unsigned int alignedBufferSize = (samplesToRead + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
+			unsigned int alignedBufferSize = (samplesToRead + CPU_ALIGNMENT_MASK()) & ~CPU_ALIGNMENT_MASK();
 			// Make sure we don't exceed scratch space
 			if (alignedBufferSize * voice->mChannels > scratchSize)
 			{
-				alignedBufferSize = (scratchSize / voice->mChannels) & ~SIMD_ALIGNMENT_MASK;
+				alignedBufferSize = (scratchSize / voice->mChannels) & ~CPU_ALIGNMENT_MASK();
 				if (alignedBufferSize < samplesToRead)
 					samplesToRead = alignedBufferSize;
 			}
@@ -712,8 +721,8 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 	}
 
 	samplesProduced = safeOutputCount; // Always process this amount
-	resample_channels(srcChannelsOffset, outputBuffer, outputStride, voice->mChannels, safeOutputCount, voice->mPreciseSrcPosition, stepSize, availableInput,
-	                  lookaheadSamples);
+	mMixer->resample_channels(srcChannelsOffset, outputBuffer, outputStride, voice->mChannels, safeOutputCount, voice->mPreciseSrcPosition, stepSize, availableInput,
+	                          lookaheadSamples);
 
 	// Update position tracking with precise accumulation
 	double totalAdvance = samplesProduced * stepSize;
@@ -764,7 +773,7 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 	unsigned int totalPerVoice = voiceScratchSize + tempScratchSize + delayScratchSize;
 
 	// Align memory allocation to improve cache performance
-	totalPerVoice = (totalPerVoice + MEMORY_ALIGNMENT_MASK) & ~MEMORY_ALIGNMENT_MASK;
+	totalPerVoice = (totalPerVoice + CPU_MEMORY_ALIGNMENT_MASK()) & ~CPU_MEMORY_ALIGNMENT_MASK();
 
 	// Calculate maximum number of voices we can process in parallel given memory constraints
 	unsigned int maxVoicesInParallel = (mScratchSize * MAX_CHANNELS) / totalPerVoice;
@@ -900,13 +909,13 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 			if (outputOffset == 0)
 			{
 				// No delay offset: mix directly into output buffer
-				panAndExpand(voice, aBuffer, totalProduced, aBufferSize, voiceScratch, aChannels);
+				mMixer->panAndExpand(voice, aBuffer, totalProduced, aBufferSize, voiceScratch, aChannels);
 			}
 			else
 			{
 				// Handle delay offset using temporary buffer
 				memset(delayScratch, 0, aChannels * aBufferSize * sizeof(float));
-				panAndExpand(voice, delayScratch, totalProduced, aBufferSize, voiceScratch, aChannels);
+				mMixer->panAndExpand(voice, delayScratch, totalProduced, aBufferSize, voiceScratch, aChannels);
 
 				// Mix delayed content into output buffer at correct offset
 				for (unsigned int ch = 0; ch < aChannels; ch++)
@@ -1030,75 +1039,30 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 {
 #ifdef FLOATING_POINT_DEBUG
 	// This needs to be done in the audio thread as well..
-	static thread_local int done = 0;
-	if (!done)
-	{
-		unsigned int u;
-		u = _controlfp(0, 0);
-		u = u & ~(_EM_INVALID | /*_EM_DENORMAL |*/ _EM_ZERODIVIDE | _EM_OVERFLOW /*| _EM_UNDERFLOW  | _EM_INEXACT*/);
-		_controlfp(u, _MCW_EM);
-		done = 1;
-	}
-#endif
-
-#ifdef __arm__
-	// flush to zero (FTZ) for ARM
 	{
 		static thread_local bool once = false;
 		if (!once)
 		{
 			once = true;
-			asm("vmsr fpscr,%0" ::"r"(1 << 24));
+			unsigned int u;
+			u = _controlfp(0, 0);
+			u = u & ~(_EM_INVALID | /*_EM_DENORMAL |*/ _EM_ZERODIVIDE | _EM_OVERFLOW /*| _EM_UNDERFLOW  | _EM_INEXACT*/);
+			_controlfp(u, _MCW_EM);
 		}
 	}
 #endif
 
-#ifdef __aarch64__
-	// FTZ for aarch64
 	{
-		static thread_local bool once = false;
-		if (!once)
-		{
-			once = true;
-			uint64_t fpcr;
-			asm volatile("mrs %0, fpcr" : "=r"(fpcr));
-			fpcr |= (1ULL << 24); // FZ
-			asm volatile("msr fpcr, %0" : : "r"(fpcr));
-		}
-	}
-#endif
-
-#ifdef _MCW_DN
-	{
+		// setFPUOptimizedRegs does some things that causes all math to consider really tiny values as zero, which
+		// helps performance.
 		static thread_local bool once = false;
 		if (!once)
 		{
 			once = true;
 			if (!(mFlags & NO_FPU_REGISTER_CHANGE))
-			{
-				_controlfp(_DN_FLUSH, _MCW_DN);
-			}
+				setFPUOptimizedRegs();
 		}
 	}
-#endif
-
-#ifdef SOLOUD_SSE_INTRINSICS
-	{
-		static thread_local bool once = false;
-		if (!once)
-		{
-			once = true;
-			// Set denorm clear to zero (CTZ) and denorms are zero (DAZ) flags on.
-			// This causes all math to consider really tiny values as zero, which
-			// helps performance. I'd rather use constants from the sse headers,
-			// but for some reason the DAZ value is not defined there(!)
-			if (!(mFlags & NO_FPU_REGISTER_CHANGE))
-			{
-				_mm_setcsr(_mm_getcsr() | 0x8040);
-			}
-		}
-	}
-#endif
 
 	time buffertime = (time)aSamples / mSamplerate;
 	float globalVolume[2];
@@ -1200,7 +1164,7 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 
 	// Note: clipping channels*aStride, not channels*aSamples, so we're possibly clipping some unused data.
 	// The buffers should be large enough for it, we just may do a few bytes of unneccessary work.
-	clip_samples(mOutputScratch.mData, mScratch.mData, aStride, mChannels, globalVolume[0], globalVolume[1], mPostClipScaler, mFlags & CLIP_ROUNDOFF);
+	mMixer->clip_samples(mOutputScratch.mData, mScratch.mData, aStride, mChannels, globalVolume[0], globalVolume[1], mPostClipScaler, mFlags & CLIP_ROUNDOFF);
 
 	if (mFlags & ENABLE_VISUALIZATION)
 	{
@@ -1246,10 +1210,10 @@ void Soloud::mix_internal(unsigned int aSamples, unsigned int aStride)
 
 void Soloud::mix(void *aBuffer, unsigned int aSamples, SAMPLE_FORMAT aFormat)
 {
-	unsigned int stride = (aSamples + SIMD_ALIGNMENT_MASK) & ~SIMD_ALIGNMENT_MASK;
+	unsigned int stride = (aSamples + CPU_ALIGNMENT_MASK()) & ~CPU_ALIGNMENT_MASK();
 	mix_internal(aSamples, stride);
 
-	interlace_samples(aBuffer, mScratch.mData, aSamples, stride, mChannels, aFormat);
+	mMixer->interlace_samples(aBuffer, mScratch.mData, aSamples, stride, mChannels, aFormat);
 }
 
 void Soloud::lockAudioMutex_internal()

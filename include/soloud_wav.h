@@ -38,10 +38,14 @@ class MemoryFile;
 class WavInstance : public AudioSourceInstance
 {
 	Wav *mParent;
-	unsigned int mOffset;
+	unsigned int mOffset{0};
 
 public:
-	WavInstance(Wav *aParent);
+	WavInstance(Wav *aParent)
+	    : AudioSourceInstance(),
+	      mParent(aParent)
+	{
+	}
 	unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize) override;
 	result rewind() override;
 	bool hasEnded() override;
@@ -60,10 +64,14 @@ class Wav : public AudioSource
 	bool mPreferFFmpeg;
 
 public:
-	float *mData;
-	unsigned int mSampleCount;
+	float *mData{nullptr};
+	unsigned int mSampleCount{0};
 
-	Wav(bool preferFFmpeg = false);
+	Wav(bool preferFFmpeg = false)
+	    : AudioSource(),
+	      mPreferFFmpeg(preferFFmpeg)
+	{
+	}
 	~Wav() override;
 
 	Wav(const Wav &) = delete;

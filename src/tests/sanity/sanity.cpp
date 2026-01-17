@@ -325,12 +325,12 @@ void testMisc()
 	CHECK(soloud.getBackendBufferSize() != 0);
 
 	soloud.mix(scratch, 1000);
-	soloud.mix(scratch_i16, 1000, SoLoud::detail::SAMPLE_SIGNED16);
+	soloud.mix(scratch_i16, 1000, SoLoud::mixing::SAMPLE_SIGNED16);
 	CHECK_BUF_ZERO(scratch, 2000);
 	CHECK_BUF_ZERO(scratch_i16, 2000);
 	soloud.play(wav);
 	soloud.mix(scratch, 1000);
-	soloud.mix(scratch_i16, 1000, SoLoud::detail::SAMPLE_SIGNED16);
+	soloud.mix(scratch_i16, 1000, SoLoud::mixing::SAMPLE_SIGNED16);
 	CHECK_BUF_NONZERO(scratch, 2000);
 	CHECK_BUF_NONZERO(scratch_i16, 2000);
 

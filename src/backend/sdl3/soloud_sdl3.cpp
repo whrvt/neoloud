@@ -39,6 +39,8 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 
 #else
 
+#include "soloud_ll_mixing.h"
+
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
@@ -64,7 +66,7 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 
 namespace SoLoud
 {
-using namespace detail; // SAMPLE_FORMAT
+using namespace mixing; // SAMPLE_FORMAT
 
 struct SDL3Data
 {

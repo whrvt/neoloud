@@ -64,8 +64,18 @@ endif()
 
 # collect source files
 file(GLOB_RECURSE SOLOUD_CORE_SOURCES "src/core/*.cpp")
+file(GLOB_RECURSE SOLOUD_INTRIN_SOURCES "src/intrin/*.cpp")
 file(GLOB_RECURSE SOLOUD_AUDIOSOURCE_SOURCES "src/audiosource/*.cpp" "src/audiosource/*.c")
 file(GLOB_RECURSE SOLOUD_FILTER_SOURCES "src/filter/*.cpp")
+
+# SIMD-specific source files that need special compiler flags
+set(SOLOUD_SSE_SOURCES
+    src/intrin/sse/soloud_mixing_sse.cpp
+    src/intrin/sse/soloud_misc_sse.cpp
+)
+set(SOLOUD_AVX_SOURCES
+    src/intrin/avx/soloud_mixing_avx.cpp
+)
 
 # backend sources (always include these)
 set(SOLOUD_BACKEND_SOURCES
@@ -85,6 +95,7 @@ file(GLOB SOLOUD_VENDORED_SOURCES "vendored/*.c" "vendored/*.cpp")
 # combine all sources
 set(SOLOUD_SOURCES
     ${SOLOUD_CORE_SOURCES}
+    ${SOLOUD_INTRIN_SOURCES}
     ${SOLOUD_AUDIOSOURCE_SOURCES}
     ${SOLOUD_FILTER_SOURCES}
     ${SOLOUD_BACKEND_SOURCES}
@@ -102,6 +113,15 @@ else()
     add_library(soloud STATIC ${SOLOUD_SOURCES})
 endif()
 
+# set compiler flags for SIMD-optimized files
+if(MSVC)
+    set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+    set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+else()
+    set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "-msse2")
+    set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "-mavx2")
+endif()
+
 # include directories
 target_include_directories(soloud
     PUBLIC
@@ -109,6 +129,8 @@ target_include_directories(soloud
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/intrin
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/core
         ${CMAKE_CURRENT_SOURCE_DIR}/vendored
 )
 
@@ -242,6 +264,7 @@ if(SOLOUD_TESTS)
                 target_include_directories(${TEST_NAME} PRIVATE
                     ${CMAKE_CURRENT_SOURCE_DIR}/include
                     ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src/intrin
                 )
 
                 # apply same compiler settings as main library

@@ -49,17 +49,7 @@ extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char *s
 #define M_PI 3.14159265359
 #endif
 
-#if !defined(DISABLE_SIMD)
-#if defined(__AVX2__)
-#define SOLOUD_AVX_INTRINSICS
-#endif
-#if ((defined(_MSC_VER) && _MSC_VER >= 1400) && defined(_M_X64)) || \
-    ((defined(__i386) || defined(_M_IX86) || defined(__i386__) || defined(__x86_64__)) && ((defined(_M_IX86_FP) && _M_IX86_FP == 2) || defined(__SSE2__)))
-#define SOLOUD_SSE_INTRINSICS
-#endif
-#endif
-
-#define SOLOUD_VERSION 202512 // TODO: consolidate with CMake versioning
+#define SOLOUD_VERSION 202601 // TODO: consolidate with CMake versioning
 
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
@@ -122,18 +112,6 @@ void setStderrLogFunction(logFunctionType aCustomStderr, void *aUserdata);
 void logStdout(const char *fmt, ...);
 void logStderr(const char *fmt, ...);
 
-// For use by backends to specify which format they'd like from the mixer.
-namespace detail
-{
-enum SAMPLE_FORMAT : unsigned char
-{
-	SAMPLE_FLOAT32,
-	SAMPLE_UNSIGNED8,
-	SAMPLE_SIGNED16,
-	SAMPLE_SIGNED24,
-	SAMPLE_SIGNED32
-};
-} // namespace detail
 }; // namespace SoLoud
 
 #endif
