@@ -63,9 +63,15 @@ namespace SoLoud
 {
 using namespace detail; // SAMPLE_FORMAT
 
+namespace
+{
 struct MiniaudioData
 {
-	MiniaudioData() { std::memset(&this->device, 0, sizeof(ma_device)); }
+	MiniaudioData()
+	    : device()
+	{
+		std::memset(&this->device, 0, sizeof(ma_device));
+	}
 	ma_context context{};
 	ma_device device;
 	ma_log log{};
@@ -94,9 +100,6 @@ struct MiniaudioData
 	bool deviceInitialized{false};
 	bool hasCurrentDeviceInfo{false};
 };
-
-namespace // static
-{
 
 void soloud_miniaudio_log_callback(void *pUserData, ma_uint32 level, const char *pMessage)
 {
