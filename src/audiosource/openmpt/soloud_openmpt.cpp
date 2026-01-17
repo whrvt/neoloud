@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud_openmpt.h"
+#include "soloud_error.h"
 #include "soloud_file.h"
 #include <cmath>
 #include <cstdio>

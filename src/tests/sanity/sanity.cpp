@@ -34,10 +34,10 @@ distribution.
  *
  **********************************************************************************/
 
-#include <cstring>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "soloud.h"
 #include "soloud_bassboostfilter.h"
@@ -68,6 +68,8 @@ int verbose = 1;
 float lastknownscratch[2048];
 FILE *lastknownfile = 0;
 int lastknownwrite = 0;
+
+#define PRINTINFO(...) verbose ? SoLoud::logStdout(__VA_ARGS__) : (void)0;
 
 #define CHECK_RES(x) \
 	tests++; \
@@ -153,7 +155,8 @@ int lastknownwrite = 0;
 		if (diff) \
 		{ \
 			errorcount++; \
-			SoLoud::logStdout("Error on line %d, %s(): output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", __LINE__, __FUNCTION__, diff, (n), maxdiff, ofs); \
+			SoLoud::logStdout( \
+			    "Error on line %d, %s(): output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", __LINE__, __FUNCTION__, diff, (n), maxdiff, ofs); \
 		} \
 	}
 #define CHECK_BUF_GTE(x, y, n) \
@@ -278,16 +281,6 @@ void generateTestWave(SoLoud::Wav &aWav)
 	aWav.loadMem(buf, buflen, true, false);
 }
 
-void printinfo(const char *format, ...)
-{
-	if (!verbose)
-		return;
-	va_list args;
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-}
-
 // Some info tests
 //
 // Soloud.init
@@ -317,9 +310,9 @@ void testMisc()
 	CHECK(wav.getLength() != 0);
 	int ver = soloud.getVersion();
 	CHECK(ver == SOLOUD_VERSION);
-	printinfo("SoLoud version %d\n", ver);
+	PRINTINFO("SoLoud version %d\n", ver);
 	CHECK(soloud.getErrorString(0) != 0);
-	printinfo("Backend %d: %s, %d channels, %d samplerate, %d buffersize\n",
+	PRINTINFO("Backend %d: %s, %d channels, %d samplerate, %d buffersize\n",
 	          soloud.getBackendId(),
 	          soloud.getBackendString(),
 	          soloud.getBackendChannels(),
@@ -1636,12 +1629,12 @@ void testSpeedThings()
 			mx = d;
 
 		SoLoud::logStdout("Mix loop took %3.3f sec, avg %3.3f, med %3.3f +- %3.3f (%3.3f - %3.3f)\n",
-		       (et - st) / 1000.0f,
-		       t / (c * 1000.0f),
-		       (mn + mx) / 2000.0f,
-		       (mx - mn) / 1000.0f,
-		       mn / 1000.0f,
-		       mx / 1000.0f);
+		                  (et - st) / 1000.0f,
+		                  t / (c * 1000.0f),
+		                  (mn + mx) / 2000.0f,
+		                  (mx - mn) / 1000.0f,
+		                  mn / 1000.0f,
+		                  mx / 1000.0f);
 	}
 	long fet = getmsec();
 	SoLoud::logStdout("Total %3.3f sec\n", (fet - fst) / 1000.0f);

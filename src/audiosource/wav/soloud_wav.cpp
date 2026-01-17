@@ -333,7 +333,7 @@ result Wav::loaddrmp3(MemoryFile *aReader)
 
 result Wav::loadflac(MemoryFile *aReader)
 {
-	drflac *decoder = drflac_open_memory(aReader->mDataPtr, aReader->mDataLength, nullptr);
+	drflac *decoder = drflac_open_memory(aReader->getMemPtr(), aReader->length(), nullptr);
 
 	if (!decoder)
 	{

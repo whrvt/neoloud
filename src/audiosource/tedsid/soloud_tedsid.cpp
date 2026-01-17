@@ -24,13 +24,10 @@ freely, subject to the following restrictions:
 
 #include "soloud_tedsid.h"
 #include "sid.h"
+#include "soloud_error.h"
 #include "soloud_file.h"
 #include "ted.h"
 #include "zx7decompress.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 namespace SoLoud
 {
@@ -142,7 +139,7 @@ result TedSid::loadMem(const unsigned char *aMem, unsigned int aLength, bool aCo
 	if (!aMem || aLength == 0)
 		return INVALID_PARAMETER;
 	MemoryFile mf;
-	int res = mf.openMem(aMem, aLength, aCopy, aTakeOwnership);
+	result res = mf.openMem(aMem, aLength, aCopy, aTakeOwnership);
 	if (res != SO_NO_ERROR)
 	{
 		return res;
@@ -156,7 +153,7 @@ result TedSid::load(const char *aFilename)
 	if (!aFilename)
 		return INVALID_PARAMETER;
 	DiskFile df;
-	int res = df.open(aFilename);
+	result res = df.open(aFilename);
 	if (res != SO_NO_ERROR)
 	{
 		return res;
@@ -178,9 +175,9 @@ result TedSid::loadFile(File *aFile)
 		return FILE_LOAD_FAILED;
 
 	aFile->seek(0);
-	if (aFile->read32() != MAKEDWORD('C','H','I','P'))
+	if (aFile->read32() != MAKEDWORD('C', 'H', 'I', 'P'))
 		return FILE_LOAD_FAILED; // CHIP
-	if (aFile->read32() != MAKEDWORD('T','U','N','E'))
+	if (aFile->read32() != MAKEDWORD('T', 'U', 'N', 'E'))
 		return FILE_LOAD_FAILED; // TUNE
 	int dataofs = aFile->read16();
 	int chiptype = aFile->read8();

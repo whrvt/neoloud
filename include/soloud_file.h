@@ -1,6 +1,7 @@
 /*
 SoLoud audio engine
 Copyright (c) 2013-2015 Jari Komppa
+Copyright (c) 2026 William Horvath
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -25,8 +26,8 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_FILE_H
 #define SOLOUD_FILE_H
 
-#include "soloud.h"
-#include <stdio.h>
+#include "soloud_config.h"
+#include <cstdio>
 
 typedef void *Soloud_Filehack;
 
@@ -35,55 +36,91 @@ namespace SoLoud
 class File
 {
 public:
-	virtual ~File() {}
+	File() = default;
+	virtual ~File() = default;
+
+	File(const File &) = default;
+	File &operator=(const File &) = default;
+	File(File &&) = default;
+	File &operator=(File &&) = default;
+
 	unsigned int read8();
 	unsigned int read16();
 	unsigned int read32();
-	virtual int eof() = 0;
+	virtual bool eof() = 0;
 	virtual unsigned int read(unsigned char *aDst, unsigned int aBytes) = 0;
 	virtual unsigned int length() = 0;
 	virtual void seek(int aOffset) = 0;
 	virtual unsigned int pos() = 0;
 	virtual FILE *getFilePtr() { return nullptr; }
 	virtual const unsigned char *getMemPtr() { return nullptr; }
+
+protected:
+	unsigned int mLength{0};
 };
 
 class DiskFile : public File
 {
 public:
-	FILE *mFileHandle;
+	DiskFile() = default;
+	DiskFile(FILE *fp)
+	    : File(),
+	      mFileHandle(fp)
+	{
+		// Sentinel value, for caching length.
+		mLength = (unsigned int)-1;
+	}
+	~DiskFile() override;
 
-	virtual int eof();
-	virtual unsigned int read(unsigned char *aDst, unsigned int aBytes);
-	virtual unsigned int length();
-	virtual void seek(int aOffset);
-	virtual unsigned int pos();
-	virtual ~DiskFile();
-	DiskFile();
-	DiskFile(FILE *fp);
+	DiskFile(const DiskFile &) = delete;
+	DiskFile &operator=(const DiskFile &) = delete;
+	DiskFile(DiskFile &&) = delete;
+	DiskFile &operator=(DiskFile &&) = delete;
+
+	// Overridden methods.
+	bool eof() override;
+	unsigned int read(unsigned char *aDst, unsigned int aBytes) override;
+	unsigned int length() override;
+	void seek(int aOffset) override;
+	unsigned int pos() override;
+	FILE *getFilePtr() override { return mFileHandle; }
+
+	// Methods unique to DiskFile.
 	result open(const char *aFilename);
-	virtual FILE *getFilePtr();
+
+protected:
+	FILE *mFileHandle{nullptr};
 };
 
 class MemoryFile : public File
 {
 public:
-	const unsigned char *mDataPtr;
-	unsigned int mDataLength;
-	unsigned int mOffset;
-	bool mDataOwned;
+	MemoryFile() = default;
+	~MemoryFile() override;
 
-	virtual int eof();
-	virtual unsigned int read(unsigned char *aDst, unsigned int aBytes);
-	virtual unsigned int length();
-	virtual void seek(int aOffset);
-	virtual unsigned int pos();
-	virtual const unsigned char *getMemPtr();
-	virtual ~MemoryFile();
-	MemoryFile();
+	// TODO: implement copy/move constructors and assignment operators. Should be trivial.
+	MemoryFile(const MemoryFile &) = delete;
+	MemoryFile &operator=(const MemoryFile &) = delete;
+	MemoryFile(MemoryFile &&) = delete;
+	MemoryFile &operator=(MemoryFile &&) = delete;
+
+	// Overridden methods.
+	bool eof() override;
+	unsigned int read(unsigned char *aDst, unsigned int aBytes) override;
+	unsigned int length() override { return mLength; }
+	void seek(int aOffset) override;
+	unsigned int pos() override { return mOffset; }
+	const unsigned char *getMemPtr() override { return mDataPtr; }
+
+	// Methods unique to MemoryFile.
 	result openMem(const unsigned char *aData, unsigned int aDataLength, bool aCopy = false, bool aTakeOwnership = true);
 	result openToMem(const char *aFilename);
 	result openFileToMem(File *aFile);
+
+protected:
+	const unsigned char *mDataPtr{nullptr};
+	unsigned int mOffset{0};
+	bool mDataOwned{false};
 };
 }; // namespace SoLoud
 

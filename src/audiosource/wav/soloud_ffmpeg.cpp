@@ -25,13 +25,15 @@ freely, subject to the following restrictions:
 #if defined(WITH_FFMPEG) && __has_include(<libavcodec/avcodec.h>) && (defined(WITH_SDL3) || ((defined(_WIN32) || defined(_WIN64)) || defined(__linux__)))
 
 #include <algorithm>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+
+#include "soloud_file.h"
+#include "soloud_error.h"
 
 #include "soloud_ffmpeg.h"
 #include "soloud_ffmpeg_load.h"
-#include "soloud_file.h"
 
 using namespace SoLoud::FFmpeg::FFmpegLoader::FFmpegFuncs;
 
