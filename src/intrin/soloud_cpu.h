@@ -31,6 +31,9 @@ freely, subject to the following restrictions:
 
 #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
 #define SOLOUD_IS_X86
+#if defined(__x86_64__) || defined(_M_X64)
+#define SOLOUD_IS_X86_64
+#endif
 #endif
 
 namespace SoLoud
@@ -63,7 +66,7 @@ inline constexpr size_t SCALAR_MEMORY_ALIGNMENT_MASK = 3;
 
 // Alignment requirements for buffers.
 // Initialized after calling initCPUFeatures(), which is also done at the start of the Soloud constructor.
-#if defined(DISABLE_SIMD) || !defined(SOLOUD_IS_X86)
+#if defined(SOLOUD_DISABLE_SIMD)
 inline constexpr size_t CPU_ALIGNMENT_BYTES()
 {
 	return sizeof(void *);

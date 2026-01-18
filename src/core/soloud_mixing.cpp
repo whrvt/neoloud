@@ -39,17 +39,22 @@ namespace SoLoud::mixing
 // Factory
 Mixer *Mixer::createMixer()
 {
-#if defined(SOLOUD_IS_X86) && !defined(DISABLE_SIMD)
+#if !defined(SOLOUD_DISABLE_SIMD)
 	const unsigned int CPUType = detectCPUextensions();
+#if defined(SOLOUD_SUPPORT_AVX2)
 	if (CPUType & CPUFEATURE_AVX2)
 	{
 		return new MixerAVX();
 	}
-	else if (CPUType & CPUFEATURE_SSE2)
+	else
+#endif
+#if defined(SOLOUD_SUPPORT_SSE2)
+	    if (CPUType & CPUFEATURE_SSE2)
 	{
 		return new MixerSSE();
 	}
 	else
+#endif
 #endif
 	{
 		// Base implementation.

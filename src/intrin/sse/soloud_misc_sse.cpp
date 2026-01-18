@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 
 #include "soloud_cpu.h"
 
-#ifdef SOLOUD_IS_X86
+#if defined(SOLOUD_SUPPORT_SSE2) || defined(SOLOUD_IS_X86_64)
 
 #ifdef _MSC_VER
 #include <intrin.h>

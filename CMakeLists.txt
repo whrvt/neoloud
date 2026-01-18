@@ -17,6 +17,8 @@ option(SOLOUD_TSAN "Enable ThreadSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SOLOUD_WITH_SDL3 "Try to find and use the SDL3 library as an audio playback backend" ON)
 option(SOLOUD_WITH_LIBMPG123 "Try to find and use the libmpg123 library for mp3 decoding" ON)
 option(SOLOUD_WITH_FFMPEG "Look for FFmpeg headers and try to use it at runtime" ON)
+option(SOLOUD_WITH_SSE2 "Enable SSE2 SIMD optimizations" ON)
+option(SOLOUD_WITH_AVX2 "Enable AVX2 SIMD optimizations" ON)
 
 # check for conflicting sanitizer options
 if(SOLOUD_ASAN AND SOLOUD_TSAN)
@@ -102,6 +104,54 @@ set(SOLOUD_SOURCES
     ${SOLOUD_VENDORED_SOURCES}
 )
 
+
+include(CheckCXXCompilerFlag)
+
+# Collect SIMD definitions to apply later
+set(SOLOUD_SIMD_DEFINITIONS "")
+
+# Check for SSE2 support
+if(SOLOUD_WITH_SSE2)
+    if(MSVC)
+        check_cxx_compiler_flag("/arch:SSE2" COMPILER_SUPPORTS_SSE2)
+    else()
+        check_cxx_compiler_flag("-msse2" COMPILER_SUPPORTS_SSE2)
+    endif()
+    
+    if(COMPILER_SUPPORTS_SSE2)
+        if(MSVC)
+            set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+        else()
+            set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "-msse2")
+        endif()
+        list(APPEND SOLOUD_INTRIN_SOURCES ${SOLOUD_SSE_SOURCES})
+        list(APPEND SOLOUD_SIMD_DEFINITIONS SOLOUD_SUPPORT_SSE2)
+    endif()
+endif()
+
+# Check for AVX2 support
+if(SOLOUD_WITH_AVX2)
+    if(MSVC)
+        check_cxx_compiler_flag("/arch:AVX2" COMPILER_SUPPORTS_AVX2)
+    else()
+        check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_AVX2)
+    endif()
+    
+    if(COMPILER_SUPPORTS_AVX2)
+        if(MSVC)
+            set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+        else()
+            set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "-mavx2")
+        endif()
+        list(APPEND SOLOUD_INTRIN_SOURCES ${SOLOUD_AVX_SOURCES})
+        list(APPEND SOLOUD_SIMD_DEFINITIONS SOLOUD_SUPPORT_AVX2)
+    endif()
+endif()
+
+if(NOT COMPILER_SUPPORTS_SSE2 AND NOT COMPILER_SUPPORTS_AVX2)
+    list(APPEND SOLOUD_SIMD_DEFINITIONS SOLOUD_DISABLE_SIMD)
+endif()
+
 # create the library target
 if(BUILD_SHARED_LIBS)
     add_library(soloud SHARED ${SOLOUD_SOURCES})
@@ -111,17 +161,6 @@ if(BUILD_SHARED_LIBS)
     endif()
 else()
     add_library(soloud STATIC ${SOLOUD_SOURCES})
-endif()
-
-# set compiler flags for SIMD-optimized files
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)|(x86_64)")
-    if(MSVC)
-        set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-        set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:AVX2")
-    else()
-        set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "-msse2")
-        set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "-mavx2")
-    endif()
 endif()
 
 # include directories
@@ -146,6 +185,10 @@ target_compile_definitions(soloud
         $<$<BOOL:${SOLOUD_WITH_FFMPEG}>:WITH_FFMPEG>
         $<$<CONFIG:Debug>:ENABLE_ASSERTS>
 )
+
+if(SOLOUD_SIMD_DEFINITIONS)
+    target_compile_definitions(soloud PRIVATE ${SOLOUD_SIMD_DEFINITIONS})
+endif()
 
 # msvc specific settings
 if(MSVC)

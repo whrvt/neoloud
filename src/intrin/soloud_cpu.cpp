@@ -66,12 +66,14 @@ namespace SoLoud
 namespace
 {
 std::once_flag once_detect;
+#if !defined(SOLOUD_DISABLE_SIMD)
 size_t REAL_CPU_ALIGNMENT_BYTES{SCALAR_ALIGNMENT_BYTES};
 size_t REAL_CPU_ALIGNMENT_MASK{SCALAR_ALIGNMENT_MASK};
 size_t REAL_CPU_MEMORY_ALIGNMENT_MASK{SCALAR_MEMORY_ALIGNMENT_MASK};
-
+#endif
 } // namespace
 
+#if !defined(SOLOUD_DISABLE_SIMD)
 // Don't do any actual work here and rely on initCPUFeatures being called beforehand, for speed.
 size_t CPU_ALIGNMENT_BYTES()
 {
@@ -85,13 +87,14 @@ size_t CPU_MEMORY_ALIGNMENT_MASK()
 {
 	return REAL_CPU_MEMORY_ALIGNMENT_MASK;
 }
+#endif
 
 void initCPUFeatures()
 {
 	static bool once = false;
 	if (!once)
 	{
-#if defined(SOLOUD_IS_X86) && !defined(DISABLE_SIMD)
+#if !defined(SOLOUD_DISABLE_SIMD)
 		const unsigned int CPUType = detectCPUextensions();
 		if (CPUType & CPUFEATURE_AVX2)
 		{
@@ -187,7 +190,7 @@ unsigned int detectCPUextensions()
 	return detectedExtensions;
 }
 
-#ifdef SOLOUD_IS_X86
+#if defined(SOLOUD_SUPPORT_SSE2) || defined(SOLOUD_IS_X86_64)
 // src/intrin/sse/soloud_misc_sse.cpp
 extern void setCTZDAZ();
 #endif
@@ -221,7 +224,7 @@ void setFPUOptimizedRegs()
 	}
 #endif
 
-#ifdef SOLOUD_IS_X86
+#if defined(SOLOUD_SUPPORT_SSE2) || defined(SOLOUD_IS_X86_64)
 	// For SSE (external compilation unit)
 	if (detectCPUextensions() & CPUFEATURE_SSE)
 	{

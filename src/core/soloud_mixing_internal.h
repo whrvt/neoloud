@@ -27,7 +27,7 @@ freely, subject to the following restrictions:
 #define SOLOUD_MIXING_INTERNAL_H
 
 #include "soloud_cpu.h"
-#if defined(SOLOUD_IS_X86) && !defined(DISABLE_SIMD)
+#if !defined(SOLOUD_DISABLE_SIMD)
 #include "soloud_ll_mixing.h"
 #endif
 
@@ -90,7 +90,7 @@ inline constexpr float QUAD_MIX_SCALE = 0.25f;      // 4-channel average mixing
 } // namespace ChannelMixingConstants
 
 // Declare AVX/SSE-optimized mixer implementations here, as well.
-#if defined(SOLOUD_IS_X86) && !defined(DISABLE_SIMD)
+#if defined(SOLOUD_SUPPORT_AVX2)
 class MixerAVX final : public Mixer
 {
 	friend Mixer;
@@ -114,7 +114,9 @@ public:
 	void panAndExpand(AudioSourceInstance *aVoice, float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize, float *aScratch,
 	                  unsigned int aChannels) override;
 };
+#endif
 
+#if defined(SOLOUD_SUPPORT_SSE2)
 class MixerSSE final : public Mixer
 {
 	friend Mixer;

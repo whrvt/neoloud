@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 
 #include "soloud_cpu.h"
 
-#if defined(SOLOUD_IS_X86) && !defined(DISABLE_SIMD)
+#if defined(SOLOUD_SUPPORT_AVX2)
 #include "soloud.h"
 #include "soloud_audiosource.h"
 #include "soloud_ll_mixing.h"
