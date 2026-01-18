@@ -114,12 +114,14 @@ else()
 endif()
 
 # set compiler flags for SIMD-optimized files
-if(MSVC)
-    set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-    set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:AVX2")
-else()
-    set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "-msse2")
-    set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "-mavx2")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)|(x86_64)")
+    if(MSVC)
+        set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+        set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+    else()
+        set_source_files_properties(${SOLOUD_SSE_SOURCES} PROPERTIES COMPILE_FLAGS "-msse2")
+        set_source_files_properties(${SOLOUD_AVX_SOURCES} PROPERTIES COMPILE_FLAGS "-mavx2")
+    endif()
 endif()
 
 # include directories
