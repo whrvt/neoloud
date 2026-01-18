@@ -68,6 +68,8 @@ namespace SoLoud
 {
 using namespace mixing; // SAMPLE_FORMAT
 
+namespace
+{
 struct SDL3Data
 {
 	SDL_AudioStream *audioStream{nullptr};
@@ -75,7 +77,7 @@ struct SDL3Data
 	SDL_AudioDeviceID deviceID{0};
 	SDL_AudioSpec deviceSpec{}; // actual device format
 
-	struct InitialParameters // C++11
+	struct
 	{
 		unsigned int flags{Soloud::CLIP_ROUNDOFF};
 		unsigned int samplerate{Soloud::AUTO};
@@ -114,9 +116,6 @@ struct SDL3Data
 	bool streamInitialized{false};
 	bool deviceInitialized{false};
 };
-
-namespace // static
-{
 
 #if SDL_VERSION_ATLEAST(3, 3, 0)
 void nocopy_complete_callback(void *userdata, const void * /*buf*/, int /*buflen*/)
@@ -701,16 +700,13 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROU
 	aSoloud->mBackendData = data;
 	data->soloudInstance = aSoloud;
 
-	{
-		// save starting parameters (for later implementing device switching)
-		SDL3Data::InitialParameters temp; // C++11 things
-		temp.flags = aFlags;
-		temp.samplerate = aSamplerate;
-		temp.bufferSize = aBuffer;
-		temp.channels = aChannels;
-
-		data->initParams = temp;
-	}
+	// save starting parameters (for later implementing device switching)
+	data->initParams = {
+	    .flags = aFlags,
+	    .samplerate = aSamplerate,
+	    .bufferSize = aBuffer,
+	    .channels = aChannels,
+	};
 
 	// setup logging based on SOLOUD_DEBUG envvar
 	SDL_LogPriority logLevel = parse_log_level_from_env();

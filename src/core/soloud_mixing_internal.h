@@ -91,7 +91,7 @@ inline constexpr float QUAD_MIX_SCALE = 0.25f;      // 4-channel average mixing
 
 // Declare AVX/SSE-optimized mixer implementations here, as well.
 #if defined(SOLOUD_IS_X86) && !defined(DISABLE_SIMD)
-class MixerAVX : public Mixer
+class MixerAVX final : public Mixer
 {
 	friend Mixer;
 	// Created by Mixer::createMixer()

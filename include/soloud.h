@@ -53,10 +53,10 @@ class AlignedFloatBuffer
 {
 public:
 	float *mData{nullptr};            // SIMD-aligned pointer for vectorized operations
-	unsigned char *mBasePtr{nullptr}; // Raw allocated pointer (for delete)
 	unsigned int mFloats{0};          // Size of buffer in floats (without padding)
 
 	AlignedFloatBuffer() = default;
+	AlignedFloatBuffer(unsigned int aFloats) { init(aFloats); }
 	~AlignedFloatBuffer();
 
 	// Not copy/moveable.

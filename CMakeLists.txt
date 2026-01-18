@@ -274,6 +274,7 @@ if(SOLOUD_TESTS)
                         _HAS_EXCEPTIONS=0
                         WINDOWS_VERSION
                     )
+                    target_link_options(${TEST_NAME} PRIVATE /subsystem:console)
                     string(REGEX REPLACE "/EH[^ ]*" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
                     target_compile_options(${TEST_NAME} PRIVATE "/EHs-c-")
                 else()
@@ -281,9 +282,11 @@ if(SOLOUD_TESTS)
                         target_compile_definitions(${TEST_NAME} PRIVATE
                             WINDOWS_VERSION
                         )
+                        target_link_options(${TEST_NAME} PRIVATE -Wl,--subsystem,console)
                     endif()
                     target_compile_options(${TEST_NAME} PRIVATE -fno-exceptions)
                 endif()
+
 
                 # apply sanitizers if enabled
                 if(SOLOUD_ASAN)

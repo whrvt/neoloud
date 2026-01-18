@@ -58,35 +58,65 @@ distribution.
 #include "soloud_waveshaperfilter.h"
 #include "soloud_wavstream.h"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
+
 // This option is useful while developing tests:
 // #define NO_LASTKNOWN_CHECK
 
-int errorcount = 0;
-int tests = 0;
-int verbose = 1;
+static int errorcount = 0;
+static int tests = 0;
+static int verbose = 2;
 
-float lastknownscratch[2048];
-FILE *lastknownfile = 0;
-int lastknownwrite = 0;
+static float lastknownscratch[2048]{};
+static FILE *lastknownfile = 0;
+static int lastknownwrite = 0;
+
+static const unsigned int BACKEND = SoLoud::Soloud::NULLDRIVER;
+
+#if !(defined(_MSC_VER) && !defined(__clang__))
+#if defined(__i386__) || defined(__x86_64__)
+#define COMPILER_BARRIER \
+	do \
+	{ \
+		__asm__ __volatile__("" ::: "memory"); \
+	} while (0)
+#else
+#define COMPILER_BARRIER __atomic_thread_fence(__ATOMIC_ACQUIRE)
+#endif
+#else
+#define COMPILER_BARRIER
+#endif
+
+#ifdef __GNUC__
+#define PFUNC __PRETTY_FUNCTION__
+#else
+#define PFUNC __FUNCTION__
+#endif
 
 #define PRINTINFO(...) verbose ? SoLoud::logStdout(__VA_ARGS__) : (void)0;
 
+#define QUOTE_MACRO(x) #x
+#define STRINGIZE_MACRO(x) QUOTE_MACRO(x)
+
 #define CHECK_RES(x) \
 	tests++; \
+	COMPILER_BARRIER; \
 	if ((x)) \
 	{ \
 		errorcount++; \
-		SoLoud::logStdout("Error on line %d, %s(): %s\n", __LINE__, __FUNCTION__, soloud.getErrorString((x))); \
+		SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: %s\n", PFUNC, soloud.getErrorString((x))); \
 	}
 #define CHECK(x) \
 	tests++; \
+	COMPILER_BARRIER; \
 	if (!(x)) \
 	{ \
 		errorcount++; \
-		SoLoud::logStdout("Error on line %d, %s(): Check \"%s\" fail\n", __LINE__, __FUNCTION__, #x); \
+		SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: Check \"" #x "\" fail\n", PFUNC); \
 	}
 #define CHECK_BUF_NONZERO(x, n) \
 	tests++; \
+	COMPILER_BARRIER; \
 	{ \
 		int i, zero = 1; \
 		for (i = 0; i < (n); i++) \
@@ -95,11 +125,12 @@ int lastknownwrite = 0;
 		if (zero) \
 		{ \
 			errorcount++; \
-			SoLoud::logStdout("Error on line %d, %s(): buffer not nonzero\n", __LINE__, __FUNCTION__); \
+			SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: buffer not nonzero\n", PFUNC, STRINGIZE_MACRO(__LINE__), PFUNC); \
 		} \
 	}
 #define CHECK_BUF_ZERO(x, n) \
 	tests++; \
+	COMPILER_BARRIER; \
 	{ \
 		int i, diff = 0; \
 		for (i = 0; i < (n); i++) \
@@ -108,68 +139,88 @@ int lastknownwrite = 0;
 		if (diff) \
 		{ \
 			errorcount++; \
-			SoLoud::logStdout("Error on line %d, %s(): buffer not zero (%d / %d)\n", __LINE__, __FUNCTION__, diff, (n)); \
+			SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: buffer not zero (%d / %d)\n", PFUNC, diff, (n)); \
 		} \
 	}
 #define CHECK_BUF_DIFF(x, y, n) \
 	tests++; \
+	COMPILER_BARRIER; \
 	{ \
 		int i, same = 1; \
 		for (i = 0; i < (n); i++) \
-			if (fabs((x)[i] - (y)[i]) > 0.00001) \
+			if (std::abs((x)[i] - (y)[i]) > 0.00001) \
 				same = 0; \
 		if (same) \
 		{ \
 			errorcount++; \
-			SoLoud::logStdout("Error on line %d, %s(): buffers are equal\n", __LINE__, __FUNCTION__); \
+			SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: buffers are equal\n", PFUNC, STRINGIZE_MACRO(__LINE__), PFUNC); \
 		} \
 	}
 #define CHECK_BUF_SAME(x, y, n) \
 	tests++; \
+	COMPILER_BARRIER; \
 	{ \
 		int i, diff = 0; \
 		for (i = 0; i < (n); i++) \
-			if (fabs((x)[i] - (y)[i]) > 0.00001) \
+			if (std::abs((x)[i] - (y)[i]) > 0.00001) \
 				diff++; \
 		if (diff) \
 		{ \
 			errorcount++; \
-			SoLoud::logStdout("Error on line %d, %s(): buffers differ (%d / %d)\n", __LINE__, __FUNCTION__, diff, (n)); \
+			SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: buffers differ (%d / %d)\n", PFUNC, diff, (n)); \
 		} \
 	}
 #define CHECK_BUF_SAME_LASTKNOWN(x, n) \
 	tests++; \
+	COMPILER_BARRIER; \
 	{ \
 		int i, diff = 0, ofs = 0; \
 		float maxdiff = 0.0f; \
 		for (i = 0; i < (n); i++) \
 		{ \
-			if (fabs((x)[i] - lastknownscratch[i]) > 0.00001) \
+			if (std::abs((x)[i] - lastknownscratch[i]) > 0.00001) \
 				diff++; \
-			if (fabs((x)[i] - lastknownscratch[i]) > maxdiff) \
+			if (std::abs((x)[i] - lastknownscratch[i]) > maxdiff) \
 			{ \
 				ofs = i; \
-				maxdiff = (float)fabs((x)[i] - lastknownscratch[i]); \
+				maxdiff = (float)std::abs((x)[i] - lastknownscratch[i]); \
 			} \
 		} \
 		if (diff) \
 		{ \
 			errorcount++; \
 			SoLoud::logStdout( \
-			    "Error on line %d, %s(): output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", __LINE__, __FUNCTION__, diff, (n), maxdiff, ofs); \
+			    __FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", PFUNC, diff, (n), maxdiff, ofs); \
 		} \
 	}
 #define CHECK_BUF_GTE(x, y, n) \
 	tests++; \
+	COMPILER_BARRIER; \
 	{ \
 		int i, lt = 0; \
+		float absdiff = 0; \
 		for (i = 0; i < (n); i++) \
-			if (fabs((x)[i]) - fabs((y)[i]) < 0) \
+		{ \
+			absdiff = std::abs((x)[i]) - std::abs((y)[i]); \
+			if (absdiff < 0) \
+			{ \
 				lt = 1; \
-		if (lt) \
+				if (verbose > 1) \
+				{ \
+					SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: " #x "[%d] (%f) not bigger than buffer " #y "[%d] (%f) (abs: %f)\n", \
+					                  PFUNC, \
+					                  i, \
+					                  (x)[i], \
+					                  i, \
+					                  (y)[i], \
+					                  absdiff); \
+				} \
+			} \
+		} \
+		if (verbose <= 1 && lt) \
 		{ \
 			errorcount++; \
-			SoLoud::logStdout("Error on line %d, %s(): buffer %s magnitude not bigger than buffer %s \n", __LINE__, __FUNCTION__, #x, #y); \
+			SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: buffer " #x " magnitude not bigger than buffer " #y "\n", PFUNC); \
 		} \
 	}
 #define CHECKLASTKNOWN(x, n) \
@@ -186,7 +237,7 @@ int lastknownwrite = 0;
 #if defined(_MSC_VER)
 #include <windows.h>
 
-long getmsec()
+static long getmsec()
 {
 	LARGE_INTEGER ts, freq;
 
@@ -200,7 +251,7 @@ long getmsec()
 #else
 #include <time.h>
 
-long getmsec()
+static long getmsec()
 {
 	struct timespec ts;
 
@@ -210,9 +261,9 @@ long getmsec()
 }
 #endif
 
-void writeHeader()
+static void writeHeader()
 {
-	unsigned char buf[46] = {
+	alignas(int) unsigned char buf[46] = {
 	    0x52, 0x49, 0x46,
 	    0x46, // RIFF
 	    0xa4, 0x3e, 0x00,
@@ -238,8 +289,8 @@ void writeHeader()
 	    0x00 // bytes of data
 	         // 46 bytes up to this point
 	};
-	int *flen = (int *)(buf + 4);
-	int *dlen = (int *)(buf + 42);
+	unsigned char *flen = buf + 4;
+	unsigned char *dlen = buf + 42;
 	if (!lastknownfile || !lastknownwrite)
 		return;
 	int len = ftell(lastknownfile);
@@ -254,9 +305,9 @@ void writeHeader()
 	fwrite(buf, 1, 46, lastknownfile);
 }
 
-void generateTestWave(SoLoud::Wav &aWav)
+static void generateTestWave(SoLoud::Wav &aWav)
 {
-	unsigned char buf[16044] = {
+	alignas(int) unsigned char charbuf[16044] = {
 	    0x52, 0x49, 0x46, 0x46, // RIFF
 	    0xa4, 0x3e, 0x00, 0x00, // length of file - 8
 	    0x57, 0x41, 0x56, 0x45, // WAVE
@@ -272,13 +323,16 @@ void generateTestWave(SoLoud::Wav &aWav)
 	    0x80, 0x3e, 0x00, 0x00, // bytes of data
 	                            // 44 bytes up to this point
 	};
-	unsigned int buflen = sizeof(buf);
+	float floatbuf[(sizeof(charbuf) / sizeof(float)) + sizeof(float)];
+	std::memcpy(floatbuf, charbuf, sizeof(charbuf));
+
+	unsigned int buflen = sizeof(charbuf);
 	int i;
-	for (i = 0; i < 16000; i++)
+	for (i = 0; i < (16000 / sizeof(float)); i++)
 	{
-		buf[i + 44] = ((i & 1) ? 1 : -1) * (char)((sin(i * i * 0.000001) * 0x7f) + i);
+		floatbuf[i + (44 / sizeof(float))] = ((i & 1) ? 1 : -1) * ((std::sin(i * i * 0.000001f) * 0x7f) + i);
 	}
-	aWav.loadMem(buf, buflen, true, false);
+	aWav.loadMem(reinterpret_cast<const unsigned char *>(floatbuf), buflen, true, false);
 }
 
 // Some info tests
@@ -297,21 +351,21 @@ void generateTestWave(SoLoud::Wav &aWav)
 // Prg.rand
 // Prg.srand
 // wav.getLength
-void testMisc()
+static void testMisc()
 {
-	float scratch[2048];
-	short scratch_i16[2048];
+	float scratch[2048]{};
+	short scratch_i16[2048]{};
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 	SoLoud::Wav wav;
 	generateTestWave(wav);
 	CHECK(wav.getLength() != 0);
-	int ver = soloud.getVersion();
+	unsigned int ver = soloud.getVersion();
 	CHECK(ver == SOLOUD_VERSION);
 	PRINTINFO("SoLoud version %d\n", ver);
-	CHECK(soloud.getErrorString(0) != 0);
+	CHECK(soloud.getErrorString(0) != nullptr);
 	PRINTINFO("Backend %d: %s, %d channels, %d samplerate, %d buffersize\n",
 	          soloud.getBackendId(),
 	          soloud.getBackendString(),
@@ -319,7 +373,7 @@ void testMisc()
 	          soloud.getBackendSamplerate(),
 	          soloud.getBackendBufferSize());
 	CHECK(soloud.getBackendId() != 0);
-	CHECK(soloud.getBackendString() != 0);
+	CHECK(soloud.getBackendString() != nullptr);
 	CHECK(soloud.getBackendChannels() != 0);
 	CHECK(soloud.getBackendSamplerate() != 0);
 	CHECK(soloud.getBackendBufferSize() != 0);
@@ -336,15 +390,15 @@ void testMisc()
 
 	SoLoud::Misc::Prg prg;
 	prg.srand(0x1337);
-	int a = prg.rand();
+	unsigned int a = prg.rand();
 	prg.srand(0x1337);
-	int b = prg.rand();
+	unsigned int b = prg.rand();
 	CHECK(a == b);
 	a = 0;
-	int prev = prg.rand();
+	unsigned int prev = prg.rand();
 	for (b = 0; b < 100; b++)
 	{
-		int next = prg.rand();
+		unsigned int next = prg.rand();
 		if (prev != next)
 			a = 1;
 		prev = next;
@@ -374,14 +428,14 @@ void testMisc()
 // Soloud.setMaxActiveVoiceCount
 // Soloud.getLooping
 // Soloud.get3dSoundSpeed
-void testGetters()
+static void testGetters()
 {
-	float scratch[2048];
+	float scratch[2048]{};
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Sfxr sfxr;
 	SoLoud::BiquadResonantFilter filter;
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 	res = sfxr.loadPreset(4, 0);
 	CHECK_RES(res);
@@ -391,7 +445,7 @@ void testGetters()
 	CHECK(soloud.getVoiceCount() == 0);
 
 	CHECK(soloud.isValidVoiceHandle((SoLoud::handle)0xbaadf00d) == 0);
-	int h = soloud.play(sfxr);
+	SoLoud::handle h = soloud.play(sfxr);
 	CHECK(soloud.isValidVoiceHandle(h));
 
 	CHECK(soloud.getActiveVoiceCount() == 1);
@@ -401,7 +455,7 @@ void testGetters()
 	v_in = 0.7447f;
 	soloud.setFilterParameter(h, 0, 0, v_in);
 	v_out = soloud.getFilterParameter(h, 0, 0);
-	CHECK(std::fabs(v_in - v_out) < 0.00001);
+	CHECK(std::abs(v_in - v_out) < 0.00001);
 
 	CHECK(soloud.getStreamTime(h) < 0.00001);
 	soloud.mix(scratch, 1000);
@@ -414,27 +468,27 @@ void testGetters()
 	float oldvol = soloud.getOverallVolume(h);
 	soloud.setVolume(h, v_in);
 	v_out = soloud.getVolume(h);
-	CHECK(std::fabs(v_in - v_out) < 0.00001);
-	CHECK(std::fabs(oldvol - v_out) > 0.00001);
+	CHECK(std::abs(v_in - v_out) < 0.00001);
+	CHECK(std::abs(oldvol - v_out) > 0.00001);
 
 	soloud.setPan(h, v_in);
-	CHECK(std::fabs(v_in - soloud.getPan(h)) < 0.00001);
+	CHECK(std::abs(v_in - soloud.getPan(h)) < 0.00001);
 
 	soloud.setSamplerate(h, v_in);
-	CHECK(std::fabs(v_in - soloud.getSamplerate(h)) < 0.00001);
+	CHECK(std::abs(v_in - soloud.getSamplerate(h)) < 0.00001);
 
 	CHECK(soloud.getProtectVoice(h) == 0);
 	soloud.setProtectVoice(h, true);
 	CHECK(soloud.getProtectVoice(h) != 0);
 
 	soloud.setRelativePlaySpeed(h, v_in);
-	CHECK(std::fabs(v_in - soloud.getRelativePlaySpeed(h)) < 0.00001);
+	CHECK(std::abs(v_in - soloud.getRelativePlaySpeed(h)) < 0.00001);
 
 	soloud.setPostClipScaler(v_in);
-	CHECK(std::fabs(v_in - soloud.getPostClipScaler()) < 0.00001);
+	CHECK(std::abs(v_in - soloud.getPostClipScaler()) < 0.00001);
 
 	soloud.setGlobalVolume(v_in);
-	CHECK(std::fabs(v_in - soloud.getGlobalVolume()) < 0.00001);
+	CHECK(std::abs(v_in - soloud.getGlobalVolume()) < 0.00001);
 
 	CHECK(soloud.getLooping(h) == 0);
 	soloud.setLooping(h, true);
@@ -460,20 +514,20 @@ void testGetters()
 // Bus.calcFFT
 // Bus.getWave
 // Bus.getApproximateVolume
-void testVis()
+static void testVis()
 {
-	float scratch[2048];
+	float scratch[2048]{};
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Sfxr sfxr;
 	SoLoud::Bus bus;
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 	res = sfxr.loadPreset(4, 0);
 	CHECK_RES(res);
 
 	int bush = soloud.play(bus);
-	int h = bus.play(sfxr);
+	SoLoud::handle h = bus.play(sfxr);
 	soloud.setVisualizationEnable(true);
 	bus.setVisualizationEnable(true);
 
@@ -549,19 +603,19 @@ void testVis()
 // Soloud.setDelaySamples
 // Bus.setChannels
 // Soloud.setProtectVoice
-void testPlay()
+static void testPlay()
 {
-	float scratch[2048];
-	float ref[2048];
+	float scratch[2048]{};
+	float ref[2048]{};
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Wav wav;
 	SoLoud::Bus bus;
 	generateTestWave(wav);
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 
-	int h = soloud.play(wav);
+	SoLoud::handle h = soloud.play(wav);
 	soloud.mix(ref, 1000);
 	CHECKLASTKNOWN(ref, 2000);
 	CHECK_BUF_NONZERO(ref, 2000);
@@ -713,17 +767,17 @@ public:
 // Soloud.set3dSoundSpeed
 // Wav.setInaudibleBehavior
 // Soloud.setInaudibleBehavior
-void test3d()
+static void test3d()
 {
 	customAttenuatorCollider customAC;
-	float scratch[2048];
-	float ref[2048];
+	float scratch[2048]{};
+	float ref[2048]{};
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Bus bus;
 	SoLoud::Wav wav;
 	generateTestWave(wav);
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 	soloud.set3dListenerParameters(0, 5, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0);
 	soloud.set3dSoundSpeed(343);
@@ -827,7 +881,7 @@ void test3d()
 	soloud.stopAll();
 	soloud.set3dListenerParameters(0, 5, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0);
 
-	int h = soloud.play3d(wav, 10, 20, 30, 1, 1, 1);
+	SoLoud::handle h = soloud.play3d(wav, 10, 20, 30, 1, 1, 1);
 	soloud.set3dSourceAttenuation(h, SoLoud::AudioSource::LINEAR_DISTANCE, 0.5f);
 	soloud.update3dAudio();
 	soloud.mix(scratch, 1000);
@@ -1030,11 +1084,11 @@ void test3d()
 // Soloud.oscillateFilterParameter
 // Soloud.setGlobalFilter
 // WaveShaperFilter.setParams
-void testFilters()
+static void testFilters()
 {
-	float scratch[2048];
-	float ref[2048];
-	float ref2[2048];
+	float scratch[2048]{};
+	float ref[2048]{};
+	float ref2[2048]{};
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Wav wav;
@@ -1049,7 +1103,7 @@ void testFilters()
 	SoLoud::RobotizeFilter rob;
 	SoLoud::WaveShaperFilter wshap;
 
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 
 	soloud.play(wav);
@@ -1071,7 +1125,7 @@ void testFilters()
 	CHECK_BUF_DIFF(ref2, scratch, 2000);
 	soloud.stopAll();
 	lofi.setParams(4000, 5);
-	int h = soloud.play(wav);
+	SoLoud::handle h = soloud.play(wav);
 	soloud.setFilterParameter(h, 0, 0, 0.5f);
 	soloud.mix(scratch, 1000);
 	CHECKLASTKNOWN(scratch, 2000);
@@ -1234,15 +1288,15 @@ void testFilters()
 // Soloud.isVoiceGroupEmpty
 // Soloud.countAudioSource
 // Soloud.getStreamPosition
-void testCore()
+static void testCore()
 {
-	float scratch[2048];
-	float ref[2048];
+	float scratch[2048]{};
+	float ref[2048]{};
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Wav wav;
 	generateTestWave(wav);
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 
 	soloud.setPostClipScaler(1.0f);
@@ -1269,7 +1323,7 @@ void testCore()
 	soloud.stopAll();
 	soloud.setPostClipScaler(1.0f);
 
-	int h = soloud.play(wav);
+	SoLoud::handle h = soloud.play(wav);
 	soloud.setPause(h, true);
 	soloud.mix(scratch, 1000);
 	CHECK_BUF_ZERO(scratch, 2000);
@@ -1458,16 +1512,16 @@ void testCore()
 // Speech.stop
 // Soloud.getLoopPoint
 // Soloud.setLoopPoint
-void testSpeech()
+static void testSpeech()
 {
-	float scratch[2048];
-	float ref[2048];
+	float scratch[2048]{};
+	float ref[2048]{};
 	memset(scratch, 0, sizeof(scratch));
 	memset(ref, 0, sizeof(ref));
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Speech speech;
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 
 	speech.setParams(1330, 10, 0.5f, 1);
@@ -1522,15 +1576,19 @@ void testSpeech()
 	CHECK(soloud.getActiveVoiceCount() == 0);
 	soloud.stopAll();
 
-	speech.setLoopPoint(0.1f);
-	CHECK(speech.getLoopPoint() == 0.1f);
-	speech.setLoopPoint(0.5f);
-	CHECK(speech.getLoopPoint() != 0.1f);
-	int handle = soloud.play(speech);
-	soloud.setLoopPoint(handle, 0.1f);
-	CHECK(soloud.getLoopPoint(handle) == 0.1f);
-	soloud.setLoopPoint(handle, 0.5f);
-	CHECK(soloud.getLoopPoint(handle) != 0.1f);
+	// Crazy x87 FPU things
+	const volatile double zero_one = 0.1;
+	const volatile double zero_five = 0.5;
+
+	speech.setLoopPoint(zero_one);
+	CHECK(speech.getLoopPoint() == zero_one);
+	speech.setLoopPoint(zero_five);
+	CHECK(speech.getLoopPoint() != zero_one);
+	SoLoud::handle handle = soloud.play(speech);
+	soloud.setLoopPoint(handle, zero_one);
+	CHECK(soloud.getLoopPoint(handle) == zero_one);
+	soloud.setLoopPoint(handle, zero_five);
+	CHECK(soloud.getLoopPoint(handle) != zero_one);
 
 	for (i = 0; i < 100; i++)
 		soloud.mix(scratch, 1000);
@@ -1541,7 +1599,7 @@ void testSpeech()
 	soloud.deinit();
 }
 
-void testMixer()
+static void testMixer()
 {
 	SoLoud::Soloud soloud;
 	SoLoud::Wav wav;
@@ -1549,9 +1607,9 @@ void testMixer()
 
 	float val[16] = {0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f};
 	wav.loadRawWave(val, 2, 441, 1, true);
-	float scratch[2048];
+	float scratch[2048]{};
 	wav.setLooping(true);
-	int h = soloud.play(wav);
+	SoLoud::handle h = soloud.play(wav);
 	int i;
 	for (i = 0; i < 10; i++)
 		soloud.mix(scratch + 200 * i, 100);
@@ -1592,13 +1650,13 @@ void testMixer()
 // avg 0.474, med 0.479 +- 0.029 (0.465 - 0.494)
 // avg 0.470, med 0.474 +- 0.033 (0.457 - 0.490)
 
-void testSpeedThings()
+static void testSpeedThings()
 {
-	float scratch[2048];
+	float scratch[2048]{};
 	SoLoud::result res;
 	SoLoud::Soloud soloud;
 	SoLoud::Wav wav;
-	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, SoLoud::Soloud::NULLDRIVER);
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND);
 	CHECK_RES(res);
 	soloud.setMainResampler(SoLoud::Soloud::RESAMPLER_CATMULLROM);
 	int j;
@@ -1669,8 +1727,8 @@ int main(int parc, char **pars)
 	testFilters();
 	testCore();
 	testSpeech();
+	testMixer();
 	testSpeedThings();
-	//	testMixer();
 	SoLoud::logStdout("\n%d tests, %d error(s) ", tests, errorcount);
 	if (!lastknownwrite && errorcount)
 		SoLoud::logStdout("(To rebuild lastknown.wav, simply delete it)\n");
@@ -1684,6 +1742,8 @@ int main(int parc, char **pars)
 #endif
 	return 0;
 }
+
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
 
 /*
 TODO:

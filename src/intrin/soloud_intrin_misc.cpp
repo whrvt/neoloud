@@ -26,56 +26,63 @@ freely, subject to the following restrictions:
 
 #include "soloud.h"
 #include "soloud_cpu.h"
+
 #include <cstring>
+#include <new>
 
 namespace SoLoud
 {
 
+namespace
+{
+
+std::align_val_t alignment{0};
+
+template <typename R>
+R *allocateAligned(size_t sizeBytes)
+{
+	if (alignment == static_cast<std::align_val_t>(0))
+		initCPUFeatures();
+
+	alignment = static_cast<std::align_val_t>(CPU_ALIGNMENT_BYTES());
+	return static_cast<R *>(::operator new(sizeBytes * sizeof(R), alignment));
+}
+
+void freeAligned(void *data)
+{
+	if (!data)
+		return;
+
+	SOLOUD_ASSERT(alignment != static_cast<std::align_val_t>(0));
+
+	::operator delete(data, alignment);
+}
+
+} // namespace
+
 // This is publicly-accessible, declared in include/soloud.h, but uses the correct alignment depending on the CPU features.
-// Does not rely on the global constants being defined, since this is a standalone class.
 result AlignedFloatBuffer::init(unsigned int aFloats)
 {
-	delete[] mBasePtr;
-	mBasePtr = nullptr;
+	if (mData)
+		freeAligned(mData);
 	mData = nullptr;
 	mFloats = aFloats;
 
-	size_t alignmentBytes, alignmentMask;
-#if !defined(DISABLE_SIMD)
-	const unsigned int CPUType = detectCPUextensions();
-	if (CPUType & CPUFEATURE_AVX2)
-	{
-		alignmentBytes = AVX_ALIGNMENT_BYTES;
-		alignmentMask = AVX_ALIGNMENT_MASK;
-	}
-	else if (CPUType & CPUFEATURE_SSE2)
-	{
-		alignmentBytes = SSE_ALIGNMENT_BYTES;
-		alignmentMask = SSE_ALIGNMENT_MASK;
-	}
-	else
-#endif
-	{
-		alignmentBytes = SCALAR_ALIGNMENT_BYTES;
-		alignmentMask = SCALAR_ALIGNMENT_MASK;
-	}
-
-	mBasePtr = new unsigned char[aFloats * sizeof(float) + alignmentBytes];
-	if (mBasePtr == nullptr)
+	if (!(mData = allocateAligned<float>(mFloats)))
 		return OUT_OF_MEMORY;
-	mData = (float *)(((size_t)mBasePtr + alignmentMask) & ~alignmentMask);
 
 	return SO_NO_ERROR;
 }
 
 void AlignedFloatBuffer::clear()
 {
-	memset(mData, 0, sizeof(float) * mFloats);
+	if (mData) // memset(NULL,...) is UB
+		memset(mData, 0, sizeof(float) * mFloats);
 }
 
 AlignedFloatBuffer::~AlignedFloatBuffer()
 {
-	delete[] mBasePtr;
+	freeAligned(mData);
 }
 
 } // namespace SoLoud
