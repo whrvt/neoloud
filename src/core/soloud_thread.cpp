@@ -22,32 +22,14 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#if __cplusplus >= 201703L
+#include "soloud_thread.h"
+
 #include <chrono>
 #include <mutex>
 #include <thread>
-#else
-#if defined(_WIN32) || defined(_WIN64)
-#include <windows.h>
-#if defined(__MINGW32__) || defined(__MINGW64__)
-#include <pthread.h>
-#endif
-#else
-#include <inttypes.h>
-#include <pthread.h>
-#include <time.h>
-#include <unistd.h>
-#endif
-#endif
 
-#include "soloud_thread.h"
-
-namespace SoLoud
+namespace SoLoud::Thread
 {
-namespace Thread
-{
-
-#if __cplusplus >= 201703L
 
 struct ThreadHandleData
 {
@@ -131,198 +113,6 @@ int getTimeMillis()
 	auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 	return static_cast<int>(millis);
 }
-
-#else
-
-#ifdef WINDOWS_VERSION
-struct ThreadHandleData
-{
-	HANDLE thread;
-};
-
-void *createMutex()
-{
-	CRITICAL_SECTION *cs = new CRITICAL_SECTION;
-	InitializeCriticalSectionAndSpinCount(cs, 100);
-	return (void *)cs;
-}
-
-void destroyMutex(void *aHandle)
-{
-	CRITICAL_SECTION *cs = (CRITICAL_SECTION *)aHandle;
-	DeleteCriticalSection(cs);
-	delete cs;
-}
-
-void lockMutex(void *aHandle)
-{
-	CRITICAL_SECTION *cs = (CRITICAL_SECTION *)aHandle;
-	if (cs)
-	{
-		EnterCriticalSection(cs);
-	}
-}
-
-void unlockMutex(void *aHandle)
-{
-	CRITICAL_SECTION *cs = (CRITICAL_SECTION *)aHandle;
-	if (cs)
-	{
-		LeaveCriticalSection(cs);
-	}
-}
-
-struct soloud_thread_data
-{
-	threadFunction mFunc;
-	void *mParam;
-};
-
-static DWORD WINAPI threadfunc(LPVOID d)
-{
-	soloud_thread_data *p = (soloud_thread_data *)d;
-	p->mFunc(p->mParam);
-	delete p;
-	return 0;
-}
-
-ThreadHandle createThread(threadFunction aThreadFunction, void *aParameter)
-{
-	soloud_thread_data *d = new soloud_thread_data;
-	d->mFunc = aThreadFunction;
-	d->mParam = aParameter;
-	HANDLE h = CreateThread(NULL, 0, threadfunc, d, 0, NULL);
-	if (0 == h)
-	{
-		return 0;
-	}
-	ThreadHandleData *threadHandle = new ThreadHandleData;
-	threadHandle->thread = h;
-	return threadHandle;
-}
-
-void sleep(int aMSec)
-{
-	Sleep(aMSec);
-}
-
-void wait(ThreadHandle aThreadHandle)
-{
-	WaitForSingleObject(aThreadHandle->thread, INFINITE);
-}
-
-void release(ThreadHandle aThreadHandle)
-{
-	CloseHandle(aThreadHandle->thread);
-	delete aThreadHandle;
-}
-
-int getTimeMillis()
-{
-	return GetTickCount();
-}
-
-#else // pthreads
-struct ThreadHandleData
-{
-	pthread_t thread;
-};
-
-void *createMutex()
-{
-	pthread_mutex_t *mutex;
-	mutex = new pthread_mutex_t;
-
-	pthread_mutexattr_t attr;
-	pthread_mutexattr_init(&attr);
-
-	pthread_mutex_init(mutex, &attr);
-
-	return (void *)mutex;
-}
-
-void destroyMutex(void *aHandle)
-{
-	pthread_mutex_t *mutex = (pthread_mutex_t *)aHandle;
-
-	if (mutex)
-	{
-		pthread_mutex_destroy(mutex);
-		delete mutex;
-	}
-}
-
-void lockMutex(void *aHandle)
-{
-	pthread_mutex_t *mutex = (pthread_mutex_t *)aHandle;
-	if (mutex)
-	{
-		pthread_mutex_lock(mutex);
-	}
-}
-
-void unlockMutex(void *aHandle)
-{
-	pthread_mutex_t *mutex = (pthread_mutex_t *)aHandle;
-	if (mutex)
-	{
-		pthread_mutex_unlock(mutex);
-	}
-}
-
-struct soloud_thread_data
-{
-	threadFunction mFunc;
-	void *mParam;
-};
-
-static void *threadfunc(void *d)
-{
-	soloud_thread_data *p = (soloud_thread_data *)d;
-	p->mFunc(p->mParam);
-	delete p;
-	return 0;
-}
-
-ThreadHandle createThread(threadFunction aThreadFunction, void *aParameter)
-{
-	soloud_thread_data *d = new soloud_thread_data;
-	d->mFunc = aThreadFunction;
-	d->mParam = aParameter;
-
-	ThreadHandleData *threadHandle = new ThreadHandleData;
-	pthread_create(&threadHandle->thread, NULL, threadfunc, (void *)d);
-	return threadHandle;
-}
-
-void sleep(int aMSec)
-{
-	// usleep(aMSec * 1000);
-	struct timespec req = {0};
-	req.tv_sec = 0;
-	req.tv_nsec = aMSec * 1000000L;
-	nanosleep(&req, (struct timespec *)NULL);
-}
-
-void wait(ThreadHandle aThreadHandle)
-{
-	pthread_join(aThreadHandle->thread, 0);
-}
-
-void release(ThreadHandle aThreadHandle)
-{
-	delete aThreadHandle;
-}
-
-int getTimeMillis()
-{
-	struct timespec spec;
-	clock_gettime(CLOCK_REALTIME, &spec);
-	return spec.tv_sec * 1000 + (int)(spec.tv_nsec / 1.0e6);
-}
-#endif
-
-#endif // __cplusplus >= 201703L
 
 static void poolWorker(void *aParam)
 {
@@ -429,5 +219,5 @@ PoolTask *Pool::getWork()
 		unlockMutex(mWorkMutex);
 	return t;
 }
-} // namespace Thread
-} // namespace SoLoud
+} // namespace SoLoud::Thread
+
