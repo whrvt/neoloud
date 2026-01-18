@@ -32,6 +32,12 @@ distribution.
 #include <cstdio>
 #include <cstring>
 
+#ifdef WINDOWS_VERSION
+#define VC_EXTRALEAN
+#define WIN32_LEAN_AND_MEAN
+#include <stringapiset.h>
+#endif
+
 namespace SoLoud
 {
 unsigned int File::read8()
@@ -111,15 +117,154 @@ DiskFile::~DiskFile()
 		fclose(mFileHandle);
 }
 
+DiskFile::DiskFile(const char *aFilename)
+    : File()
+{
+	mLength = (unsigned int)-1;
+	open(aFilename);
+}
+
+FILE *DiskFile::openWithConversion(const char *const aFilenameSrc, char *&aFilenameOut)
+{
+	SOLOUD_ASSERT(aFilenameSrc);
+	SOLOUD_ASSERT(!aFilenameOut);
+
+	FILE *out = nullptr;
+	const char *aFilename = (const char *)aFilenameSrc;
+	// On Windows, convert to wide char internally to avoid failing on Unicode filenames.
+#ifdef WINDOWS_VERSION
+	std::unique_ptr<wchar_t[]> wideFilename;
+	const int wideFilenameLen = MultiByteToWideChar(CP_UTF8, 0, aFilename, -1, nullptr, 0);
+	if (wideFilenameLen > 0)
+	{
+		wideFilename = std::make_unique_for_overwrite<wchar_t[]>(wideFilenameLen);
+		if (wideFilename && MultiByteToWideChar(CP_UTF8, 0, aFilename, -1, wideFilename.get(), wideFilenameLen) != 0)
+		{
+			out = _wfopen(wideFilename.get(), L"rb");
+		}
+	}
+	if (out)
+	{
+		aFilenameOut = new char[wideFilenameLen * sizeof(wchar_t)];
+		std::memcpy(aFilenameOut, wideFilename.get(), wideFilenameLen * sizeof(wchar_t));
+	}
+	else // Fall back to fopen, if anything failed for whatever reason.
+#endif
+	{
+		out = fopen(aFilename, "rb");
+		if (out)
+		{
+			const size_t len = std::strlen(aFilename);
+			aFilenameOut = new char[len + 1];
+			std::memcpy(aFilenameOut, aFilename, len);
+			aFilenameOut[len] = '\0';
+		}
+	}
+
+	return out;
+}
+
+DiskFile::DiskFile(const File &other)
+    : File(other)
+{
+	mLength = (unsigned int)-1;
+
+	if (!other.getFileName())
+		return;
+
+	char *tempName = nullptr;
+	mFileHandle = openWithConversion(other.getFileName(), tempName);
+	if (!mFileHandle)
+		return;
+
+	mFileName.reset(tempName);
+}
+
+DiskFile::DiskFile(const DiskFile &other)
+    : File(other)
+{
+	mLength = (unsigned int)-1;
+
+	if (!other.mFileName)
+		return;
+
+	char *tempName = nullptr;
+	mFileHandle = openWithConversion(other.mFileName.get(), tempName);
+	if (!mFileHandle)
+		return;
+
+	mFileName.reset(tempName);
+}
+
+DiskFile &DiskFile::operator=(const DiskFile &other)
+{
+	if (this == &other)
+		return *this;
+
+	// Clean up existing resources
+	if (mFileHandle)
+		fclose(mFileHandle);
+	mFileHandle = nullptr;
+	mFileName.reset();
+
+	if (!other.mFileName)
+	{
+		mLength = (unsigned int)-1;
+		return *this;
+	}
+
+	char *tempName = nullptr;
+	mFileHandle = openWithConversion(other.mFileName.get(), tempName);
+	if (!mFileHandle)
+	{
+		mLength = (unsigned int)-1;
+		return *this;
+	}
+
+	mFileName.reset(tempName);
+	mLength = (unsigned int)-1; // Re-cache on next length() call
+	return *this;
+}
+
+DiskFile::DiskFile(DiskFile &&other) noexcept
+    : mFileHandle(other.mFileHandle),
+      mFileName(std::move(other.mFileName))
+{
+	mLength = other.mLength;
+
+	other.mFileHandle = nullptr;
+	other.mLength = (unsigned int)-1;
+}
+
+DiskFile &DiskFile::operator=(DiskFile &&other) noexcept
+{
+	if (this == &other)
+		return *this;
+
+	// Clean up existing resources
+	if (mFileHandle)
+		fclose(mFileHandle);
+
+	mFileHandle = other.mFileHandle;
+	mFileName = std::move(other.mFileName);
+	mLength = other.mLength;
+
+	other.mFileHandle = nullptr;
+	other.mLength = (unsigned int)-1;
+	return *this;
+}
+
 result DiskFile::open(const char *aFilename)
 {
 	if (!aFilename)
 		return INVALID_PARAMETER;
 
-	mFileHandle = fopen(aFilename, "rb");
-
+	char *tempName = nullptr;
+	mFileHandle = openWithConversion(aFilename, tempName);
 	if (!mFileHandle)
 		return FILE_NOT_FOUND;
+
+	mFileName.reset(tempName);
 
 	return SO_NO_ERROR;
 }
@@ -154,6 +299,86 @@ MemoryFile::~MemoryFile()
 {
 	if (mDataOwned)
 		delete[] mDataPtr;
+}
+
+MemoryFile::MemoryFile(const MemoryFile &other)
+    : File(other),
+      mOffset(other.mOffset),
+      mDataOwned(other.mDataOwned)
+{
+	if (other.mDataOwned && other.mDataPtr)
+	{
+		// Deep copy owned data
+		unsigned char *newData = new unsigned char[mLength];
+		std::memcpy(newData, other.mDataPtr, mLength);
+		mDataPtr = newData;
+	}
+	else
+	{
+		// Non-owned: just copy the pointer (original owner manages lifetime)
+		mDataPtr = other.mDataPtr;
+	}
+}
+
+MemoryFile &MemoryFile::operator=(const MemoryFile &other)
+{
+	if (this == &other)
+		return *this;
+
+	// Clean up existing owned data
+	if (mDataOwned)
+		delete[] mDataPtr;
+
+	mLength = other.mLength;
+	mOffset = other.mOffset;
+	mDataOwned = other.mDataOwned;
+
+	if (other.mDataOwned && other.mDataPtr)
+	{
+		unsigned char *newData = new unsigned char[mLength];
+		std::memcpy(newData, other.mDataPtr, mLength);
+		mDataPtr = newData;
+	}
+	else
+	{
+		mDataPtr = other.mDataPtr;
+	}
+
+	return *this;
+}
+
+MemoryFile::MemoryFile(MemoryFile &&other) noexcept
+    : File(other),
+      mDataPtr(other.mDataPtr),
+      mOffset(other.mOffset),
+      mDataOwned(other.mDataOwned)
+{
+	other.mDataPtr = nullptr;
+	other.mLength = 0;
+	other.mOffset = 0;
+	other.mDataOwned = false;
+}
+
+MemoryFile &MemoryFile::operator=(MemoryFile &&other) noexcept
+{
+	if (this == &other)
+		return *this;
+
+	// Clean up existing owned data
+	if (mDataOwned)
+		delete[] mDataPtr;
+
+	mDataPtr = other.mDataPtr;
+	mLength = other.mLength;
+	mOffset = other.mOffset;
+	mDataOwned = other.mDataOwned;
+
+	other.mDataPtr = nullptr;
+	other.mLength = 0;
+	other.mOffset = 0;
+	other.mDataOwned = false;
+
+	return *this;
 }
 
 result MemoryFile::openMem(const unsigned char *aData, unsigned int aDataLength, bool aCopy, bool aTakeOwnership)

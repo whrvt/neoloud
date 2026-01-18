@@ -283,6 +283,7 @@ if(SOLOUD_TESTS)
                             WINDOWS_VERSION
                         )
                         target_link_options(${TEST_NAME} PRIVATE -Wl,--subsystem,console)
+                        target_link_options(${TEST_NAME} PRIVATE -static-libgcc -static-libstdc++)
                     endif()
                     target_compile_options(${TEST_NAME} PRIVATE -fno-exceptions)
                 endif()

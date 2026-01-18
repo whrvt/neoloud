@@ -28,6 +28,7 @@ freely, subject to the following restrictions:
 
 #include "soloud_config.h"
 #include <cstdio>
+#include <memory> // unique_ptr
 
 typedef void *Soloud_Filehack;
 
@@ -41,8 +42,8 @@ public:
 
 	File(const File &) = default;
 	File &operator=(const File &) = default;
-	File(File &&) = default;
-	File &operator=(File &&) = default;
+	File(File &&) noexcept = default;
+	File &operator=(File &&) noexcept = default;
 
 	unsigned int read8();
 	unsigned int read16();
@@ -54,6 +55,7 @@ public:
 	virtual unsigned int pos() = 0;
 	virtual FILE *getFilePtr() { return nullptr; }
 	virtual const unsigned char *getMemPtr() { return nullptr; }
+	[[nodiscard]] virtual const char *getFileName() const { return nullptr; }
 
 protected:
 	unsigned int mLength{0};
@@ -70,12 +72,18 @@ public:
 		// Sentinel value, for caching length.
 		mLength = (unsigned int)-1;
 	}
+
+	// Construct with a filename directly
+	DiskFile(const char *aFilename);
 	~DiskFile() override;
 
-	DiskFile(const DiskFile &) = delete;
-	DiskFile &operator=(const DiskFile &) = delete;
-	DiskFile(DiskFile &&) = delete;
-	DiskFile &operator=(DiskFile &&) = delete;
+	// Valid if getFileName is non-null for File.
+	DiskFile(const File &);
+
+	DiskFile(const DiskFile &);
+	DiskFile &operator=(const DiskFile &);
+	DiskFile(DiskFile &&) noexcept;
+	DiskFile &operator=(DiskFile &&) noexcept;
 
 	// Overridden methods.
 	bool eof() override;
@@ -84,12 +92,15 @@ public:
 	void seek(int aOffset) override;
 	unsigned int pos() override;
 	FILE *getFilePtr() override { return mFileHandle; }
+	[[nodiscard]] const char *getFileName() const override { return mFileName.get(); }
 
 	// Methods unique to DiskFile.
 	result open(const char *aFilename);
 
 protected:
 	FILE *mFileHandle{nullptr};
+	std::unique_ptr<char[]> mFileName{nullptr};
+	static FILE *openWithConversion(const char *const aFilenameSrc, char *&aFilenameOut);
 };
 
 class MemoryFile : public File
@@ -98,11 +109,10 @@ public:
 	MemoryFile() = default;
 	~MemoryFile() override;
 
-	// TODO: implement copy/move constructors and assignment operators. Should be trivial.
-	MemoryFile(const MemoryFile &) = delete;
-	MemoryFile &operator=(const MemoryFile &) = delete;
-	MemoryFile(MemoryFile &&) = delete;
-	MemoryFile &operator=(MemoryFile &&) = delete;
+	MemoryFile(const MemoryFile &);
+	MemoryFile &operator=(const MemoryFile &);
+	MemoryFile(MemoryFile &&) noexcept;
+	MemoryFile &operator=(MemoryFile &&) noexcept;
 
 	// Overridden methods.
 	bool eof() override;
