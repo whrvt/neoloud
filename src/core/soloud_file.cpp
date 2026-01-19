@@ -33,8 +33,7 @@ distribution.
 #include <cstring>
 
 #ifdef WINDOWS_VERSION
-#define VC_EXTRALEAN
-#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <stringapiset.h>
 #endif
 

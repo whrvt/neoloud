@@ -29,23 +29,6 @@ freely, subject to the following restrictions:
 #include <cstdint>
 #include <mutex>
 
-#ifdef _MSC_VER
-
-#if !defined(_68K_) && !defined(_MPPC_) && !defined(_X86_) && !defined(_IA64_) && !defined(_AMD64_) && !defined(_ARM_) && !defined(_ARM64_) && defined(_M_IX86)
-#define _X86_
-#endif
-#if !defined(_68K_) && !defined(_MPPC_) && !defined(_X86_) && !defined(_IA64_) && !defined(_AMD64_) && !defined(_ARM_) && !defined(_ARM64_) && defined(_M_AMD64)
-#define _AMD64_
-#endif
-#if !defined(_68K_) && !defined(_MPPC_) && !defined(_X86_) && !defined(_IA64_) && !defined(_AMD64_) && !defined(_ARM_) && !defined(_ARM64_) && defined(_M_ARM)
-#define _ARM_
-#endif
-#if !defined(_68K_) && !defined(_MPPC_) && !defined(_X86_) && !defined(_IA64_) && !defined(_AMD64_) && !defined(_ARM_) && !defined(_ARM64_) && defined(_M_ARM64)
-#define _ARM64_
-#endif
-
-#endif // _MSC_VER
-
 #if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
 #include <cpuid.h>
 #elif defined(_M_IX86) || defined(_M_X64)
