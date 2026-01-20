@@ -64,13 +64,16 @@ protected:
 class DiskFile : public File
 {
 public:
-	DiskFile() = default;
-	DiskFile(FILE *fp)
-	    : File(),
-	      mFileHandle(fp)
+	DiskFile()
+	    : File()
 	{
 		// Sentinel value, for caching length.
 		mLength = (unsigned int)-1;
+	}
+	DiskFile(FILE *fp)
+	    : DiskFile()
+	{
+		mFileHandle = fp;
 	}
 
 	// Construct with a filename directly
