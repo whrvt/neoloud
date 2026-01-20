@@ -33,8 +33,8 @@ distribution.
 #include <cstring>
 
 #ifdef WINDOWS_VERSION
-#include <windows.h>
 #include <stringapiset.h>
+#include <windows.h>
 #endif
 
 namespace SoLoud
@@ -123,41 +123,36 @@ DiskFile::DiskFile(const char *aFilename)
 	open(aFilename);
 }
 
-FILE *DiskFile::openWithConversion(const char *const aFilenameSrc, char *&aFilenameOut)
+FILE *DiskFile::openWithConversion(const char *const aFilename, char *&aFilenameOut)
 {
-	SOLOUD_ASSERT(aFilenameSrc);
+	SOLOUD_ASSERT(aFilename);
 	SOLOUD_ASSERT(!aFilenameOut);
 
 	FILE *out = nullptr;
-	const char *aFilename = (const char *)aFilenameSrc;
 	// On Windows, convert to wide char internally to avoid failing on Unicode filenames.
 #ifdef WINDOWS_VERSION
-	std::unique_ptr<wchar_t[]> wideFilename;
 	const int wideFilenameLen = MultiByteToWideChar(CP_UTF8, 0, aFilename, -1, nullptr, 0);
 	if (wideFilenameLen > 0)
 	{
-		wideFilename = std::make_unique_for_overwrite<wchar_t[]>(wideFilenameLen);
+		std::unique_ptr<wchar_t[]> wideFilename = std::make_unique_for_overwrite<wchar_t[]>(wideFilenameLen);
 		if (wideFilename && MultiByteToWideChar(CP_UTF8, 0, aFilename, -1, wideFilename.get(), wideFilenameLen) != 0)
 		{
 			out = _wfopen(wideFilename.get(), L"rb");
 		}
 	}
-	if (out)
-	{
-		aFilenameOut = new char[wideFilenameLen * sizeof(wchar_t)];
-		std::memcpy(aFilenameOut, wideFilename.get(), wideFilenameLen * sizeof(wchar_t));
-	}
-	else // Fall back to fopen, if anything failed for whatever reason.
+	if (!out) // Fall back to fopen, if anything failed for whatever reason.
 #endif
 	{
 		out = fopen(aFilename, "rb");
-		if (out)
-		{
-			const size_t len = std::strlen(aFilename);
-			aFilenameOut = new char[len + 1];
-			std::memcpy(aFilenameOut, aFilename, len);
-			aFilenameOut[len] = '\0';
-		}
+	}
+
+	// If we opened the file, then put a new copy of the filename into aFilenameOut
+	if (out)
+	{
+		const size_t len = std::strlen(aFilename);
+		aFilenameOut = new char[len + 1];
+		std::memcpy(aFilenameOut, aFilename, len);
+		aFilenameOut[len] = '\0';
 	}
 
 	return out;

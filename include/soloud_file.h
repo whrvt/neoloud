@@ -100,7 +100,7 @@ public:
 protected:
 	FILE *mFileHandle{nullptr};
 	std::unique_ptr<char[]> mFileName{nullptr};
-	static FILE *openWithConversion(const char *const aFilenameSrc, char *&aFilenameOut);
+	static FILE *openWithConversion(const char *const aFilename, char *&aFilenameOut);
 };
 
 class MemoryFile : public File
