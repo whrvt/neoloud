@@ -17,3 +17,4 @@ BraceWrapping:
   SplitEmptyNamespace: false
 AlignEscapedNewlines: DontAlign
 PackConstructorInitializers: Never
+SortIncludes: Never

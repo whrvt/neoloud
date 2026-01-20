@@ -33,8 +33,8 @@ distribution.
 #include <cstring>
 
 #ifdef WINDOWS_VERSION
-#include <stringapiset.h>
 #include <windows.h>
+#include <stringapiset.h>
 #endif
 
 namespace SoLoud
