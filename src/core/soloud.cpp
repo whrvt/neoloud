@@ -690,7 +690,21 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 	if (availableInput < lookaheadSamples)
 		return 0; // Not enough input data available for interpolation
 
-	unsigned int safeOutputCount = (unsigned int)ceil((availableInput - lookaheadSamples + 1.0 - voice->mPreciseSrcPosition) / stepSize);
+	// Calculate maximum output samples we can safely produce without overrunning input buffer.
+	// Use floor() to ensure we never consume more input than available.
+	double maxSrcAdvance = (double)(availableInput - lookaheadSamples) - voice->mPreciseSrcPosition;
+	unsigned int safeOutputCount = 0;
+	if (maxSrcAdvance > 0)
+	{
+		safeOutputCount = (unsigned int)floor(maxSrcAdvance / stepSize);
+
+		// At end-of-stream, squeeze out remaining samples: if there's valid interpolation
+		// data but floor() gives 0, allow 1 more sample to avoid losing the tail
+		if (safeOutputCount == 0 && voice->hasEnded())
+		{
+			safeOutputCount = 1;
+		}
+	}
 	if (safeOutputCount > samplesToProcess)
 		safeOutputCount = samplesToProcess;
 
@@ -878,12 +892,6 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 				}
 
 				totalProduced += samplesProduced;
-
-				// If we got fewer samples than requested, source is exhausted
-				if (samplesProduced < chunkOutput)
-				{
-					break;
-				}
 			}
 			else if (mustTick && !isPaused)
 			{
@@ -932,13 +940,17 @@ void Soloud::mixBus_internal(float *aBuffer, unsigned int aSamplesToRead, unsign
 		}
 
 		// Check if voice should be automatically stopped
-		// Use small lookahead buffer check to account for chunked processing approach
-		unsigned int remainingSamples = voice->mResampleBufferFill - voice->mResampleBufferPos;
-		unsigned int lookaheadSamples = (aResampler == RESAMPLER_CATMULLROM) ? ResamplingConstants::CATMULLROM_LOOKAHEAD : ResamplingConstants::LINEAR_LOOKAHEAD;
-		bool bufferNearEmpty = remainingSamples <= lookaheadSamples;
+		// Stop conditions:
+		// 1. Source has ended AND buffer nearly empty (normal case)
+		// 2. Source has ended AND we couldn't produce any output (high ratio case where
+		//    remaining samples < stepSize, making further progress impossible)
+		const unsigned int remainingSamples = voice->mResampleBufferFill - voice->mResampleBufferPos;
+		const unsigned int lookaheadSamples =
+		    (aResampler == RESAMPLER_CATMULLROM) ? ResamplingConstants::CATMULLROM_LOOKAHEAD : ResamplingConstants::LINEAR_LOOKAHEAD;
+		const bool bufferNearEmpty = remainingSamples <= lookaheadSamples;
+		const bool stuckNoProgress = (totalProduced == 0) && voice->hasEnded();
 
-		// Stop voice if it has ended and auto-stop is enabled
-		if (!(voice->mFlags & (AudioSourceInstance::LOOPING | AudioSourceInstance::DISABLE_AUTOSTOP)) && voice->hasEnded() && bufferNearEmpty)
+		if (!(voice->mFlags & (AudioSourceInstance::LOOPING | AudioSourceInstance::DISABLE_AUTOSTOP)) && voice->hasEnded() && (bufferNearEmpty || stuckNoProgress))
 		{
 			stopVoice_internal(mActiveVoice[voiceIdx]);
 		}

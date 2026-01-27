@@ -202,16 +202,7 @@ MPG123Decoder *open(File *aFile)
 		// Even if we don't need a full scan, update totalFrames after decoding a few since
 		// the estimate can be more accurate after doing so.
 		if (!needsFullScan && i == 20)
-		{
-			const off_t newLength = mpg123_length(decoder->handle);
-#ifdef _DEBUG
-			if (newLength != decoder->totalFrames)
-			{
-				SoLoud::logStdout("SoLoud::MPG123::open: after reading 20 frames, got length %ld (was %ld)\n", newLength, decoder->totalFrames);
-			}
-#endif
-			decoder->totalFrames = newLength;
-		}
+			decoder->totalFrames = mpg123_length(decoder->handle);
 
 		mpg123_seek(decoder->handle, pos, SEEK_SET);
 	}
