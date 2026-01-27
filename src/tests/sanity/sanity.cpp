@@ -189,8 +189,8 @@ static const unsigned int BACKEND = SoLoud::Soloud::NULLDRIVER;
 		if (diff) \
 		{ \
 			errorcount++; \
-			SoLoud::logStdout( \
-			    __FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", PFUNC, diff, (n), maxdiff, ofs); \
+			SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: output differs from last known (%d / %d) maxdiff %1.5f at ofs %d\n", PFUNC, diff, (n), \
+			                  maxdiff, ofs); \
 		} \
 	}
 #define CHECK_BUF_GTE(x, y, n) \
@@ -207,13 +207,8 @@ static const unsigned int BACKEND = SoLoud::Soloud::NULLDRIVER;
 				lt = 1; \
 				if (verbose > 1) \
 				{ \
-					SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: " #x "[%d] (%f) not bigger than buffer " #y "[%d] (%f) (abs: %f)\n", \
-					                  PFUNC, \
-					                  i, \
-					                  (x)[i], \
-					                  i, \
-					                  (y)[i], \
-					                  absdiff); \
+					SoLoud::logStdout(__FILE__ ":" STRINGIZE_MACRO(__LINE__) ":%s: " #x "[%d] (%f) not bigger than buffer " #y "[%d] (%f) (abs: %f)\n", PFUNC, i, \
+					                  (x)[i], i, (y)[i], absdiff); \
 				} \
 			} \
 		} \
@@ -336,21 +331,6 @@ static void generateTestWave(SoLoud::Wav &aWav)
 }
 
 // Some info tests
-//
-// Soloud.init
-// Soloud.deinit
-// Soloud.getVersion
-// Soloud.getErrorString
-// Soloud.getBackendId
-// Soloud.getBackendString
-// Soloud.getBackendChannels
-// Soloud.getBackendSamplerate
-// Soloud.getBackendBufferSize
-// Soloud.mix
-// Soloud.mixSigned16
-// Prg.rand
-// Prg.srand
-// wav.getLength
 static void testMisc()
 {
 	float scratch[2048]{};
@@ -409,25 +389,6 @@ static void testMisc()
 }
 
 // Test parameter getters
-//
-// Soloud.getFilterParameter
-// Soloud.getStreamTime
-// Soloud.getPause
-// Soloud.getVolume
-// Soloud.getOverallVolume
-// Soloud.getPan
-// Soloud.getSamplerate
-// Soloud.getProtectVoice
-// Soloud.getActiveVoiceCount
-// Soloud.getVoiceCount
-// Soloud.isValidVoiceHandle
-// Soloud.getRelativePlaySpeed
-// Soloud.getPostClipScaler
-// Soloud.getGlobalVolume
-// Soloud.getMaxActiveVoiceCount
-// Soloud.setMaxActiveVoiceCount
-// Soloud.getLooping
-// Soloud.get3dSoundSpeed
 static void testGetters()
 {
 	float scratch[2048]{};
@@ -505,15 +466,6 @@ static void testGetters()
 }
 
 // Visualization API tests
-//
-// Soloud.setVisualizationEnable
-// Soloud.calcFFT
-// Soloud.getWave
-// Soloud.getApproximateVolume
-// Bus.setVisualizationEnable
-// Bus.calcFFT
-// Bus.getWave
-// Bus.getApproximateVolume
 static void testVis()
 {
 	float scratch[2048]{};
@@ -590,19 +542,6 @@ static void testVis()
 }
 
 // Test various play-related calls
-//
-// Soloud.play
-// Soloud.playClocked
-// Soloud.playBackground
-// Soloud.seek
-// Soloud.stop
-// Soloud.stopAll
-// Soloud.stopAudioSource
-// Bus.play
-// Bus.playClocked
-// Soloud.setDelaySamples
-// Bus.setChannels
-// Soloud.setProtectVoice
 static void testPlay()
 {
 	float scratch[2048]{};
@@ -738,35 +677,6 @@ public:
 };
 
 // Test various 3d functions
-//
-// Soloud.play3d
-// Soloud.play3dClocked
-// Bus.play3d
-// Bus.play3dClocked
-// Soloud.set3dListenerParameters
-// Soloud.set3dListenerPosition
-// Soloud.set3dListenerAt
-// Soloud.set3dListenerUp
-// Soloud.set3dListenerVelocity
-// Soloud.set3dSourceParameters
-// Soloud.set3dSourcePosition
-// Soloud.set3dSourceVelocity
-// Soloud.set3dSourceMinMaxDistance
-// Soloud.set3dSourceAttenuation
-// Soloud.set3dSourceDopplerFactor
-// Wav.set3dMinMaxDistance
-// Wav.set3dAttenuation
-// Wav.set3dDopplerFactor
-// Wav.set3dListenerRelative
-// Wav.set3dDistanceDelay
-// Wav.set3dCollider
-// Wav.set3dAttenuator
-// Soloud.update3dAudio
-// Soloud.setSpeakerPosition
-// Soloud.getSpeakerPosition
-// Soloud.set3dSoundSpeed
-// Wav.setInaudibleBehavior
-// Soloud.setInaudibleBehavior
 static void test3d()
 {
 	customAttenuatorCollider customAC;
@@ -1072,18 +982,6 @@ static void test3d()
 }
 
 // Test various filter options
-//
-// BiquadResonantFilter.setParams
-// LofiFilter.setParams
-// EchoFilter.setParams
-// BassboostFilter.setParams
-// FlangerFilter.setParams
-// DCRemovalFilter.setParams
-// Soloud.setFilterParameter
-// Soloud.fadeFilterParameter
-// Soloud.oscillateFilterParameter
-// Soloud.setGlobalFilter
-// WaveShaperFilter.setParams
 static void testFilters()
 {
 	float scratch[2048]{};
@@ -1258,36 +1156,6 @@ static void testFilters()
 }
 
 // Test various core functionality
-//
-// Soloud.setGlobalVolume
-// Soloud.setPostClipScaler
-// Soloud.setPause
-// Soloud.setPauseAll
-// Soloud.setRelativePlaySpeed
-// Soloud.setSamplerate
-// Soloud.setPan
-// Soloud.setPanAbsolute
-// Soloud.setVolume
-// Wav.setVolume
-// Soloud.fadeVolume
-// Soloud.fadePan
-// Soloud.fadeRelativePlaySpeed
-// Soloud.fadeGlobalVolume
-// Soloud.schedulePause
-// Soloud.scheduleStop
-// Soloud.oscillateVolume
-// Soloud.oscillatePan
-// Soloud.oscillateRelativePlaySpeed
-// Soloud.oscillateGlobalVolume
-// Soloud.setLooping
-// Soloud.getLoopCount
-// Soloud.createVoiceGroup
-// Soloud.destroyVoiceGroup
-// Soloud.addVoiceToGroup
-// Soloud.isVoiceGroup
-// Soloud.isVoiceGroupEmpty
-// Soloud.countAudioSource
-// Soloud.getStreamPosition
 static void testCore()
 {
 	float scratch[2048]{};
@@ -1699,6 +1567,176 @@ static void testSpeedThings()
 	soloud.deinit();
 }
 
+// generate a longer test wave with known precise sample count for timing tests
+static void generateTimingTestWave(SoLoud::Wav &aWav, unsigned int sampleCount, unsigned int sampleRate)
+{
+	// WAV header: 44 bytes for standard PCM
+	unsigned int dataSize = sampleCount * 2; // 16-bit = 2 bytes per sample
+	unsigned int fileSize = 44 + dataSize;
+
+	auto *buf = new unsigned char[fileSize];
+
+	// RIFF header
+	buf[0] = 'R';
+	buf[1] = 'I';
+	buf[2] = 'F';
+	buf[3] = 'F';
+	unsigned int chunkSize = fileSize - 8;
+	memcpy(buf + 4, &chunkSize, 4);
+	buf[8] = 'W';
+	buf[9] = 'A';
+	buf[10] = 'V';
+	buf[11] = 'E';
+
+	// fmt subchunk
+	buf[12] = 'f';
+	buf[13] = 'm';
+	buf[14] = 't';
+	buf[15] = ' ';
+	unsigned int fmtSize = 16;
+	memcpy(buf + 16, &fmtSize, 4);
+	unsigned short audioFormat = 1; // PCM
+	memcpy(buf + 20, &audioFormat, 2);
+	unsigned short numChannels = 1; // mono
+	memcpy(buf + 22, &numChannels, 2);
+	memcpy(buf + 24, &sampleRate, 4);
+	unsigned int byteRate = sampleRate * 2; // sampleRate * numChannels * bytesPerSample
+	memcpy(buf + 28, &byteRate, 4);
+	unsigned short blockAlign = 2; // numChannels * bytesPerSample
+	memcpy(buf + 32, &blockAlign, 2);
+	unsigned short bitsPerSample = 16;
+	memcpy(buf + 34, &bitsPerSample, 2);
+
+	// data subchunk
+	buf[36] = 'd';
+	buf[37] = 'a';
+	buf[38] = 't';
+	buf[39] = 'a';
+	memcpy(buf + 40, &dataSize, 4);
+
+	// Generate samples: simple sine wave
+	auto *samples = reinterpret_cast<short *>(buf + 44);
+	for (unsigned int i = 0; i < sampleCount; i++)
+	{
+		float t = (float)i / (float)sampleRate;
+		float sample = std::sin(2.0f * (float)M_PI * 440.0f * t);
+		samples[i] = (short)(sample * 16000.0f);
+	}
+
+	aWav.loadMem(buf, fileSize, true, false);
+	delete[] buf;
+}
+
+// Test that relative play speed produces the expected playback duration.
+// If the sound has duration T at 1x speed, it should have duration T/speed at speed X.
+// Uses a long audio file (10s) to minimize chunk quantization error.
+static void testRelativePlaySpeedTiming()
+{
+	float scratch[2048]{};
+	SoLoud::result res;
+	SoLoud::Soloud soloud;
+
+	const unsigned int backendSampleRate = 44100;
+	res = soloud.init(SoLoud::Soloud::CLIP_ROUNDOFF, BACKEND, backendSampleRate, 2048, 2);
+	CHECK_RES(res);
+
+	soloud.setMainResampler(SoLoud::Soloud::RESAMPLER_CATMULLROM);
+
+	struct SpeedTest
+	{
+		float speed;
+		const char *name;
+	};
+
+	SpeedTest speedTests[] = {
+	    {.speed = 1.0f,  .name = "1.0x (normal)"},
+	    {.speed = 2.0f,  .name = "2.0x (double)"},
+	    {.speed = 0.5f,  .name = "0.5x (half)"  },
+	    {.speed = 1.5f,  .name = "1.5x"         },
+	    {.speed = 0.75f, .name = "0.75x"        },
+	    {.speed = 3.0f,  .name = "3.0x (triple)"},
+	};
+
+	// Test with different source sample rates to exercise resampling
+	unsigned int sourceSampleRates[] = {44100, 48000, 22050, 96000};
+
+	const unsigned int mixChunkSize = 512;
+	// Absolute tolerance: 1 chunk worth of time (~11.6ms at 44100Hz)
+	// This is the inherent quantization of chunked processing
+	const float absoluteToleranceSec = (float)mixChunkSize / (float)backendSampleRate;
+
+	for (unsigned int sourceSampleRate : sourceSampleRates)
+	{
+		SoLoud::Wav wav;
+
+		const unsigned int sourceDurationSec = 20;
+		const unsigned int sourceSamples = sourceSampleRate * sourceDurationSec;
+		generateTimingTestWave(wav, sourceSamples, sourceSampleRate);
+
+		float wavLength = wav.getLength();
+		CHECK(std::abs(wavLength - (float)sourceDurationSec) < 0.01f);
+		PRINTINFO("\nSource: %u Hz, %u samples (%.1fs)\n", sourceSampleRate, sourceSamples, wavLength);
+
+		for (const auto &test : speedTests)
+		{
+			SoLoud::handle h = soloud.play(wav);
+			soloud.setRelativePlaySpeed(h, test.speed);
+
+			// Count full chunks while voice is active.
+			// For the final chunk, count non-zero samples (sine wave is non-zero except at zero crossings)
+			unsigned int totalSamplesMixed = 0;
+			const unsigned int maxIterations = 10000000;
+
+			for (unsigned int iter = 0; iter < maxIterations; iter++)
+			{
+				if (!soloud.isValidVoiceHandle(h))
+					break;
+
+				memset(scratch, 0, sizeof(scratch));
+				soloud.mix(scratch, mixChunkSize);
+
+				if (!soloud.isValidVoiceHandle(h))
+				{
+					// Voice stopped during this mix - find the last non-zero sample
+					unsigned int lastNonZero = 0;
+					for (unsigned int i = 0; i < mixChunkSize; i++)
+					{
+						if (scratch[i] != 0.0f || scratch[i + mixChunkSize] != 0.0f)
+							lastNonZero = i + 1;
+					}
+					totalSamplesMixed += lastNonZero;
+				}
+				else
+				{
+					totalSamplesMixed += mixChunkSize;
+				}
+			}
+
+			float expectedDuration = wavLength / test.speed;
+			float actualDuration = (float)totalSamplesMixed / (float)backendSampleRate;
+			float deviationSec = std::abs(actualDuration - expectedDuration);
+
+			PRINTINFO("  Speed %s: expected %.4fs, actual %.4fs (deviation: %.1fms)\n",
+			          test.name, expectedDuration, actualDuration, deviationSec * 1000.0f);
+
+			tests++;
+			if (deviationSec > absoluteToleranceSec)
+			{
+				errorcount++;
+				SoLoud::logStdout(__FILE__
+				                  ":" STRINGIZE_MACRO(__LINE__) ":%s: Playback timing for %uHz @ %s exceeded tolerance: "
+				                  "expected %.4fs, got %.4fs (%.1fms > %.1fms tolerance)\n",
+				                  PFUNC, sourceSampleRate, test.name, expectedDuration, actualDuration,
+				                  deviationSec * 1000.0f, absoluteToleranceSec * 1000.0f);
+			}
+
+			soloud.stopAll();
+		}
+	}
+
+	soloud.deinit();
+}
+
 int main(int parc, char **pars)
 {
 #ifndef NO_LASTKNOWN_CHECK
@@ -1722,6 +1760,7 @@ int main(int parc, char **pars)
 	testMisc();
 	testGetters();
 	testVis();
+	testRelativePlaySpeedTiming();
 	testPlay();
 	test3d();
 	testFilters();
@@ -1744,203 +1783,3 @@ int main(int parc, char **pars)
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
-
-/*
-TODO:
-----
-SoLoud::Monotone
-SoLoud::Openmpt
-SoLoud::Queue
-SoLoud::WavStream
-SoLoud::Vizsn
-SoLoud::Vic
-SoLoud::TedSid
-Wav.load
-Wav.loadMem
-Wav.loadFile
-Wav.getLength
-Wav.loadRawWave8
-Wav.loadRawWave16
-Wav.loadRawWave
-WavStream.load
-WavStream.loadMem
-WavStream.loadToMem
-WavStream.loadFile
-WavStream.loadFileToMem
-WavStream.getLength
-Sfxr.resetParams
-Sfxr.loadParams
-Sfxr.loadParamsMem
-Sfxr.loadParamsFile
-Sfxr.loadPreset
-Openmpt.load
-Openmpt.loadMem
-Openmpt.loadFile
-Monotone.setParams
-Monotone.load
-Monotone.loadMem
-Monotone.loadFile
-TedSid.load
-TedSid.loadToMem
-TedSid.loadMem
-TedSid.loadFileToMem
-TedSid.loadFile
-Soloud.getInfo
-Queue.play
-Queue.getQueueCount
-Queue.isCurrentlyPlaying
-Queue.setParamsFromAudioSource
-Queue.setParams
-Vic.setModel
-Vic.getModel
-Vic.setRegister
-Vic.getRegister
-Vizsn.setText
-
-Not tested - abstract class
----------------------------
-AudioAttenuator.attenuate
-
-Not tested - the functionality is the same for all audio sources, tested for some source:
------------------------------------------------------------------------------------------
-Queue.setVolume
-Vic.setVolume
-Vizsn.setVolume
-Wav.setLooping
-WavStream.setLooping
-Sfxr.setLooping
-Openmpt.setLooping
-Monotone.setLooping
-TedSid.setLooping
-Queue.setLooping
-Queue.setInaudibleBehavior
-Vic.setLooping
-Vizsn.setLooping
-Bus.setLoopPoint
-Bus.getLoopPoint
-Monotone.setLoopPoint
-Monotone.getLoopPoint
-Openmpt.setLoopPoint
-Openmpt.getLoopPoint
-Queue.setLoopPoint
-Queue.getLoopPoint
-Sfxr.setLoopPoint
-Sfxr.getLoopPoint
-TedSid.setLoopPoint
-TedSid.getLoopPoint
-Vic.setLoopPoint
-Vic.getLoopPoint
-Vizsn.setLoopPoint
-Vizsn.getLoopPoint
-Wav.setLoopPoint
-Wav.getLoopPoint
-WavStream.setLoopPoint
-WavStream.getLoopPoint
-Wav.stop
-WavStream.stop
-Sfxr.stop
-Openmpt.stop
-Monotone.stop
-TedSid.stop
-Bus.setLooping
-Bus.stop
-TedSid.setVolume
-Monotone.setVolume
-Openmpt.setVolume
-Sfxr.setVolume
-WavStream.setVolume
-Speech.setVolume
-Bus.setVolume
-Bus.setFilter
-Bus.set3dMinMaxDistance
-Bus.set3dAttenuation
-Bus.set3dDopplerFactor
-Bus.set3dListenerRelative
-Bus.set3dDistanceDelay
-Bus.set3dCollider
-Bus.set3dAttenuator
-Bus.setInaudibleBehavior
-Speech.set3dMinMaxDistance
-Speech.set3dAttenuation
-Speech.set3dDopplerFactor
-Speech.set3dListenerRelative
-Speech.set3dDistanceDelay
-Speech.set3dCollider
-Speech.set3dAttenuator
-Speech.setInaudibleBehavior
-Speech.setFilter
-WavStream.set3dMinMaxDistance
-WavStream.set3dAttenuation
-WavStream.set3dDopplerFactor
-WavStream.set3dListenerRelative
-WavStream.set3dDistanceDelay
-WavStream.set3dCollider
-WavStream.set3dAttenuator
-WavStream.setInaudibleBehavior
-WavStream.setFilter
-Sfxr.set3dMinMaxDistance
-Sfxr.set3dAttenuation
-Sfxr.set3dDopplerFactor
-Sfxr.set3dListenerRelative
-Sfxr.set3dDistanceDelay
-Sfxr.set3dCollider
-Sfxr.set3dAttenuator
-Sfxr.setInaudibleBehavior
-Sfxr.setFilter
-Openmpt.set3dMinMaxDistance
-Openmpt.set3dAttenuation
-Openmpt.set3dDopplerFactor
-Openmpt.set3dListenerRelative
-Openmpt.set3dDistanceDelay
-Openmpt.set3dCollider
-Openmpt.set3dAttenuator
-Openmpt.setInaudibleBehavior
-Openmpt.setFilter
-Monotone.set3dMinMaxDistance
-Monotone.set3dAttenuation
-Monotone.set3dDopplerFactor
-Monotone.set3dListenerRelative
-Monotone.set3dDistanceDelay
-Monotone.set3dCollider
-Monotone.set3dAttenuator
-Monotone.setInaudibleBehavior
-Monotone.setFilter
-TedSid.set3dMinMaxDistance
-TedSid.set3dAttenuation
-TedSid.set3dDopplerFactor
-TedSid.set3dListenerRelative
-TedSid.set3dDistanceDelay
-TedSid.set3dCollider
-TedSid.set3dAttenuator
-TedSid.setInaudibleBehavior
-TedSid.setFilter
-Vizsn.set3dMinMaxDistance
-Vizsn.set3dAttenuation
-Vizsn.set3dDopplerFactor
-Vizsn.set3dListenerRelative
-Vizsn.set3dDistanceDelay
-Vizsn.set3dCollider
-Vizsn.set3dAttenuator
-Vizsn.setInaudibleBehavior
-Vizsn.setFilter
-Vic.set3dMinMaxDistance
-Vic.set3dAttenuation
-Vic.set3dDopplerFactor
-Vic.set3dListenerRelative
-Vic.set3dDistanceDelay
-Vic.set3dCollider
-Vic.set3dAttenuator
-Vic.setInaudibleBehavior
-Vic.setFilter
-Queue.set3dMinMaxDistance
-Queue.set3dAttenuation
-Queue.set3dDopplerFactor
-Queue.set3dListenerRelative
-Queue.set3dDistanceDelay
-Queue.set3dCollider
-Queue.set3dAttenuator
-Queue.setFilter
-Vizsn.stop
-Queue.stop
-Vic.stop
-*/
