@@ -48,7 +48,8 @@ namespace SoLoud
 
 namespace
 {
-std::once_flag once_detect;
+// Currently unused outside of X86 platforms.
+[[maybe_unused]] std::once_flag once_detect;
 #if !defined(SOLOUD_DISABLE_SIMD)
 size_t REAL_CPU_ALIGNMENT_BYTES{SCALAR_ALIGNMENT_BYTES};
 size_t REAL_CPU_ALIGNMENT_MASK{SCALAR_ALIGNMENT_MASK};

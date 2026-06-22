@@ -42,9 +42,11 @@ template <typename R>
 R *allocateAligned(size_t sizeBytes)
 {
 	if (alignment == static_cast<std::align_val_t>(0))
+	{
 		initCPUFeatures();
+		alignment = static_cast<std::align_val_t>(CPU_ALIGNMENT_BYTES());
+	}
 
-	alignment = static_cast<std::align_val_t>(CPU_ALIGNMENT_BYTES());
 	return static_cast<R *>(::operator new(sizeBytes * sizeof(R), alignment));
 }
 

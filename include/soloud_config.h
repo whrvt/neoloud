@@ -49,7 +49,7 @@ extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char *s
 #define M_PI 3.14159265359
 #endif
 
-#define SOLOUD_VERSION 202602 // TODO: consolidate with CMake versioning
+#define SOLOUD_VERSION 202606 // TODO: consolidate with CMake versioning
 
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
