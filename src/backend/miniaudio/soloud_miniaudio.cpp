@@ -309,6 +309,23 @@ SL_MA_BACKEND_TYPE parse_backend_from_env()
 	return SL_MA_BACKEND_UNDEFINED;
 }
 
+// 0 if not set
+unsigned int parse_num_periods_from_env()
+{
+	const char *env = getenv("SOLOUD_MINIAUDIO_PERIODS");
+	if (!env || !*env || *env == '0')
+	{
+		return 0; // use default
+	}
+
+	const unsigned long res = strtoul(env, nullptr, 10);
+	if (res <= 64 /* sanity */)
+	{
+		return static_cast<unsigned int>(res);
+	}
+	return 0;
+}
+
 void soloud_miniaudio_notification_callback(const ma_device_notification *pNotification)
 {
 	auto *data = static_cast<MiniaudioData *>(pNotification->pDevice->pUserData);
@@ -510,6 +527,11 @@ ma_device_config create_device_config(MiniaudioData *data, ma_share_mode shareMo
 #if defined(_WIN32) || defined(_WIN64) || defined(_MSC_VER) || defined(__linux__)
 		config.periodSizeInMilliseconds = 1; // negotiate the lowest possible period size
 #endif
+	}
+
+	if (unsigned int numPeriods = parse_num_periods_from_env(); numPeriods > 0)
+	{
+		config.periods = numPeriods;
 	}
 
 	// backend-specific settings
