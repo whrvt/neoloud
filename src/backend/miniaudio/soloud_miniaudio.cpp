@@ -63,7 +63,8 @@ distribution.
 #define SL_MA_GET_BACKEND_FROM_CONFIG(backend) backend.pVTable
 #define SL_MA_MAX_BACKENDS MA_MAX_STOCK_DEVICE_BACKENDS
 #define SL_MA_MAKE_CONTEXT_INIT(backend) ma_device_backend_config_init(backend, nullptr)
-#define SL_MA_MAKE_NULL_CONTEXT ma_device_backend_config{}
+#define SL_MA_MAKE_NULL_CONTEXT \
+	ma_device_backend_config {}
 #define SL_MA_BACKEND_UNDEFINED nullptr
 #else
 #include "miniaudio.h"
@@ -75,8 +76,8 @@ distribution.
 #define SL_MA_GET_BACKEND_FROM_CONFIG(backend) backend
 #define SL_MA_MAX_BACKENDS MA_BACKEND_COUNT
 #define SL_MA_MAKE_CONTEXT_INIT(backend) (backend)
-#define SL_MA_MAKE_NULL_CONTEXT (SL_MA_BACKEND_TYPE)-1
-#define SL_MA_BACKEND_UNDEFINED (SL_MA_BACKEND_TYPE)-1
+#define SL_MA_MAKE_NULL_CONTEXT (SL_MA_BACKEND_TYPE)(ma_backend_null + 1)
+#define SL_MA_BACKEND_UNDEFINED (SL_MA_BACKEND_TYPE)(ma_backend_null + 1)
 #endif
 
 namespace
@@ -696,8 +697,8 @@ result miniaudio_enumerate_devices(Soloud *aSoloud)
 
 	// move info to soloud device list
 	aSoloud->mDeviceList = new DeviceInfo[devices.size()];
-	std::move(devices.begin(), devices.end(), aSoloud->mDeviceList);
 	aSoloud->mDeviceCount = static_cast<unsigned int>(devices.size());
+	std::move(devices.begin(), devices.end(), aSoloud->mDeviceList);
 
 	return SO_NO_ERROR;
 }

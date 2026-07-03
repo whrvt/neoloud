@@ -192,6 +192,15 @@ if(SOLOUD_SIMD_DEFINITIONS)
     target_compile_definitions(soloud PRIVATE ${SOLOUD_SIMD_DEFINITIONS})
 endif()
 
+# TODO: get rid of ffmpeg loader + mixing objects requiring exit-time destruction
+# check_cxx_compiler_flag("-Wexit-time-destructors -Wglobal-constructors -Wpessimizing-move -Wrange-loop-construct" HAVE_EXTRA_WARNINGS)
+
+# if(HAVE_EXTRA_WARNINGS)
+#     target_compile_options(soloud PRIVATE
+#         $<$<COMPILE_LANGUAGE:CXX>:-Wexit-time-destructors -Wglobal-constructors -Wpessimizing-move -Wrange-loop-construct>
+#     )
+# endif()
+
 # msvc specific settings
 if(MSVC)
     target_compile_definitions(soloud PRIVATE
