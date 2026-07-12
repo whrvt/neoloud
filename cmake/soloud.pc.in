@@ -6,7 +6,7 @@ includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 Name: SoLoud
 Description: @PROJECT_DESCRIPTION@
 Version: @PROJECT_VERSION@
-URL: https://github.com/whrvt/neoloud
+URL: https://github.com/neomodnet/neoloud
 
 Requires: @SOLOUD_PC_REQUIRES@
 Requires.private: @SOLOUD_PC_REQUIRES_PRIVATE@
