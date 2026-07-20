@@ -545,8 +545,8 @@ ma_device_config create_device_config(MiniaudioData *data, ma_share_mode shareMo
 	return config;
 }
 
-// helper function to attempt device initialization with a specific backend and timeout
-ma_result try_backend_with_timeout(MiniaudioData *data, SL_MA_CONTEXT_INIT_TYPE backend, ma_share_mode shareMode)
+// helper function to attempt device initialization with a specific backend
+ma_result try_backend(MiniaudioData *data, SL_MA_CONTEXT_INIT_TYPE backend, ma_share_mode shareMode)
 {
 	// create context with specific backend
 	ma_context_config contextConfig = ma_context_config_init();
@@ -942,7 +942,7 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 			if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
 				SoLoud::logStdout("[MiniAudio INFO] Trying backend: %s in %s\n", SL_MA_GET_BACKEND_NAME(backend), modeString);
 
-			result = try_backend_with_timeout(data, backend, initShareMode);
+			result = try_backend(data, backend, initShareMode);
 
 			if (result == MA_SUCCESS)
 			{

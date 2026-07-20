@@ -53,8 +53,8 @@ if(SOLOUD_WITH_SDL3 AND NOT SDL3_FOUND)
 endif()
 
 # check for libmpg123
-if(SOLOUD_WITH_LIBMPG123 AND PkgConfig_FOUND)
-    pkg_check_modules(MPG123 QUIET IMPORTED_TARGET libmpg123>=1.30.0)
+if(SOLOUD_WITH_LIBMPG123)
+    find_package(MPG123 1.30.0 CONFIG QUIET)
     if(MPG123_FOUND)
         message(STATUS "Found libmpg123 ${MPG123_VERSION}")
     endif()
@@ -249,13 +249,7 @@ if(SOLOUD_WITH_SDL3)
 endif()
 
 if(SOLOUD_WITH_LIBMPG123)
-if(MSVC)
-    # pkgconf --msvc-syntax output isn't parsed into the imported target, wire up manually
-    target_include_directories(soloud PRIVATE ${MPG123_INCLUDEDIR})
-    target_link_libraries(soloud PRIVATE ${MPG123_LIBRARIES})
-else()
-    target_link_libraries(soloud PRIVATE PkgConfig::MPG123)
-endif()
+    target_link_libraries(soloud PRIVATE MPG123::libmpg123)
 endif()
 
 # platform specific libraries (don't actually link to them, just add the includes)
