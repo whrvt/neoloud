@@ -50,9 +50,9 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 #include <array>
 #include <atomic>
 #include <cstddef>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <mutex>
 #include <string>
 #include <vector>

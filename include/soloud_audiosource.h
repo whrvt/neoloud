@@ -25,11 +25,13 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_AUDIOSOURCE_H
 #define SOLOUD_AUDIOSOURCE_H
 
+#include <string.h>
 #include <array>
 
 #include "soloud_audiosource3d.h"
 #include "soloud_fader.h"
 #include "soloud_filter.h"
+#include "soloud_containers.h"
 
 namespace SoLoud
 {
@@ -137,12 +139,17 @@ public:
 	time mLoopPoint;
 
 	// 512 SAMPLE_GRANULARITY * 3 chunks = 1536 samples buffer
-	static constexpr const unsigned int RESAMPLE_BUFFER_SIZE = SAMPLE_GRANULARITY * 3;
+	static constexpr const size_t RESAMPLE_BUFFER_SIZE{(size_t)SAMPLE_GRANULARITY * 3};
+	// if this fires, update InlineFloatArray::INLINE_FLOATS to match, so <=INLINE_CHANNELS sources keep avoiding heap allocation
+	static_assert(InlineFloatArray::INLINE_FLOATS == InlineFloatArray::INLINE_CHANNELS * RESAMPLE_BUFFER_SIZE);
 
-	float **mResampleBuffer;          // Dynamically allocated per-channel buffers
+	InlineFloatArray mResampleBuffer; // Per-channel resample buffers
 	unsigned int mResampleBufferFill; // How many samples currently in buffer
 	unsigned int mResampleBufferPos;  // Current read position in buffer
 	double mPreciseSrcPosition;       // Exact fractional position in source stream
+
+	// Access a given channel of the resample buffer (mostly internal use).
+	[[nodiscard]] float *getResampleBuffer(unsigned int ch);
 
 	// Get N samples from the stream to the buffer. Report samples written.
 	virtual unsigned int getAudio(float *aBuffer, unsigned int aSamplesToRead, unsigned int aBufferSize) = 0;

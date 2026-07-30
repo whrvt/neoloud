@@ -28,8 +28,8 @@ freely, subject to the following restrictions:
 
 #include "soloud_mpg123.h"
 
-#include <cstdlib>
-#include <cstring>
+#include <stdlib.h>
+#include <string.h>
 #include <memory> // for unique_ptr
 
 #include <mpg123.h>

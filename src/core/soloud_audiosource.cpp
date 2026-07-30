@@ -25,7 +25,8 @@ freely, subject to the following restrictions:
 #include "soloud_audiosource.h"
 #include "soloud.h"
 
-#include <cstring>
+#include <climits>
+#include <string.h>
 
 namespace SoLoud
 {
@@ -33,20 +34,20 @@ namespace SoLoud
 AudioSourceInstance3dData::AudioSourceInstance3dData()
     : m3dPosition(),
       m3dVelocity(),
-      mChannelVolume()
+      m3dMinDistance(0.0f),
+      m3dMaxDistance(1000000.0f),
+      m3dAttenuationRolloff(1),
+      m3dAttenuationModel(0),
+      m3dDopplerFactor(1.0),
+      mCollider(nullptr),
+      mAttenuator(nullptr),
+      mColliderData(0),
+      mDopplerValue(0),
+      m3dVolume(0),
+      mChannelVolume(),
+      mFlags(0),
+      mHandle(0)
 {
-	m3dAttenuationModel = 0;
-	m3dAttenuationRolloff = 1;
-	m3dDopplerFactor = 1.0;
-	m3dMaxDistance = 1000000.0f;
-	m3dMinDistance = 0.0f;
-	m3dVolume = 0;
-	mCollider = nullptr;
-	mColliderData = 0;
-	mAttenuator = nullptr;
-	mDopplerValue = 0;
-	mFlags = 0;
-	mHandle = 0;
 }
 
 void AudioSourceInstance3dData::init(AudioSource &aSource)
@@ -63,58 +64,41 @@ void AudioSourceInstance3dData::init(AudioSource &aSource)
 	mDopplerValue = 1.0f;
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
 AudioSourceInstance::AudioSourceInstance()
-    : mCurrentChannelVolume(),
+    : mPlayIndex(0),
+      mLoopCount(0),
+      mFlags(0),
+      mPan(0),
+      mSetVolume(1.0f),
+      mOverallVolume(0),
+      mBaseSamplerate(44100.0f),
+      mSamplerate(44100.0f),
+      mChannels(1),
+      mSetRelativePlaySpeed(1.0f),
+      mOverallRelativePlaySpeed(1),
+      mStreamTime(0.0f),
+      mStreamPosition(0.0f),
+      mActiveFader(0),
+      mCurrentChannelVolume(),
+      mAudioSourceID(0),
+      mBusHandle(UINT_MAX),
       mFilter(),
-      mResampleBuffer(nullptr)
+      mDelaySamples(0),
+      mLoopPoint(0),
+      mResampleBufferFill(0),
+      mResampleBufferPos(0),
+      mPreciseSrcPosition(0.0)
 {
-	mPlayIndex = 0;
-	mFlags = 0;
-	mPan = 0;
 	// Default all volumes to 1.0 so sound behind N mix busses isn't super quiet.
-	int i;
-	for (i = 0; i < MAX_CHANNELS; i++)
-		mChannelVolume[i] = 1.0f;
-	mSetVolume = 1.0f;
-	mBaseSamplerate = 44100.0f;
-	mSamplerate = 44100.0f;
-	mSetRelativePlaySpeed = 1.0f;
-	mStreamTime = 0.0f;
-	mStreamPosition = 0.0f;
-	mAudioSourceID = 0;
-	mActiveFader = 0;
-	mChannels = 1;
-	mBusHandle = ~0u;
-	mLoopCount = 0;
-	mLoopPoint = 0;
-
-	mDelaySamples = 0;
-	mOverallVolume = 0;
-	mOverallRelativePlaySpeed = 1;
-
-	mResampleBufferFill = 0;
-	mResampleBufferPos = 0;
-	mPreciseSrcPosition = 0.0;
+	mChannelVolume.fill(1.f);
 }
 
 AudioSourceInstance::~AudioSourceInstance()
 {
-	int i;
-	for (i = 0; i < FILTERS_PER_STREAM; i++)
+	for (int i = 0; i < FILTERS_PER_STREAM; i++)
 	{
 		delete mFilter[i];
-	}
-
-	// Deallocate resample buffer if allocated
-	if (mResampleBuffer != nullptr)
-	{
-		unsigned int ch;
-		for (ch = 0; ch < mChannels; ch++)
-		{
-			delete[] mResampleBuffer[ch];
-		}
-		delete[] mResampleBuffer;
-		mResampleBuffer = nullptr;
 	}
 }
 
@@ -132,16 +116,8 @@ void AudioSourceInstance::init(AudioSource &aSource, int aPlayIndex)
 	mResampleBufferPos = 0;
 	mPreciseSrcPosition = 0.0;
 
-	// Allocate resample buffer if not already allocated
-	if (mResampleBuffer == nullptr)
-	{
-		mResampleBuffer = new float *[mChannels];
-		unsigned int ch;
-		for (ch = 0; ch < mChannels; ch++)
-		{
-			mResampleBuffer[ch] = new float[RESAMPLE_BUFFER_SIZE];
-		}
-	}
+	// Grow the resample buffer to cover this source's channel count (only heap-allocates for >INLINE_CHANNELS channels)
+	mResampleBuffer.ensureCapacity(mChannels * RESAMPLE_BUFFER_SIZE);
 
 	// fully zero out the resample buffer
 	clearResampleBuffer();
@@ -204,23 +180,23 @@ result AudioSourceInstance::seek(double aSeconds, float *mScratch, unsigned int 
 }
 
 AudioSource::AudioSource()
-    : mFilter()
+    : mFlags(0),
+      mBaseSamplerate(44100),
+      mVolume(1),
+      mChannels(1),
+      mAudioSourceID(0),
+      m3dMinDistance(1),
+      m3dMaxDistance(1000000.0f),
+      m3dAttenuationRolloff(1.0f),
+      m3dAttenuationModel(NO_ATTENUATION),
+      m3dDopplerFactor(1.0f),
+      mFilter(),
+      mSoloud(nullptr),
+      mCollider(nullptr),
+      mAttenuator(nullptr),
+      mColliderData(0),
+      mLoopPoint(0)
 {
-	mFlags = 0;
-	mBaseSamplerate = 44100;
-	mAudioSourceID = 0;
-	mSoloud = nullptr;
-	mChannels = 1;
-	m3dMinDistance = 1;
-	m3dMaxDistance = 1000000.0f;
-	m3dAttenuationRolloff = 1.0f;
-	m3dAttenuationModel = NO_ATTENUATION;
-	m3dDopplerFactor = 1.0f;
-	mCollider = nullptr;
-	mAttenuator = nullptr;
-	mColliderData = 0;
-	mVolume = 1;
-	mLoopPoint = 0;
 }
 
 AudioSource::~AudioSource()
@@ -364,28 +340,26 @@ float AudioSourceInstance::getInfo(unsigned int /*aInfoKey*/)
 	return 0;
 }
 
+float *AudioSourceInstance::getResampleBuffer(unsigned int ch)
+{
+	SOLOUD_ASSERT(ch < mChannels && (ch + 1) * RESAMPLE_BUFFER_SIZE <= mResampleBuffer.capacity());
+	return mResampleBuffer.get() + ch * RESAMPLE_BUFFER_SIZE;
+}
+
 void AudioSourceInstance::clearResampleBuffer(unsigned long amount)
 {
-	if (mResampleBuffer == nullptr)
-		return;
-
 	if (amount > 0 && amount < (RESAMPLE_BUFFER_SIZE * sizeof(float)))
 	{
 		// Clear only the specified amount of resample buffer data
-		unsigned int ch;
-		for (ch = 0; ch < mChannels; ch++)
+		for (unsigned int ch = 0; ch < mChannels; ch++)
 		{
-			memset(mResampleBuffer[ch], 0, amount);
+			memset(getResampleBuffer(ch), 0, amount);
 		}
 	}
 	else
 	{
 		// Clear all resample buffer data from all channels
-		unsigned int ch;
-		for (ch = 0; ch < mChannels; ch++)
-		{
-			memset(mResampleBuffer[ch], 0, RESAMPLE_BUFFER_SIZE * sizeof(float));
-		}
+		memset(mResampleBuffer.get(), 0, mChannels * RESAMPLE_BUFFER_SIZE * sizeof(float));
 	}
 }
 

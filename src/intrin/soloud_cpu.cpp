@@ -26,7 +26,7 @@ freely, subject to the following restrictions:
 #include "soloud_cpu.h"
 
 #include <cfloat>
-#include <cstdint>
+#include <stdint.h>
 #include <mutex>
 
 #if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
@@ -75,10 +75,9 @@ size_t CPU_MEMORY_ALIGNMENT_MASK()
 
 void initCPUFeatures()
 {
-	static bool once = false;
-	if (!once)
-	{
 #if !defined(SOLOUD_DISABLE_SIMD)
+	// magic static, so concurrent first calls from multiple threads are safe
+	[[maybe_unused]] static const bool once{[] {
 		const unsigned int CPUType = detectCPUextensions();
 		if (CPUType & CPUFEATURE_AVX2)
 		{
@@ -92,9 +91,9 @@ void initCPUFeatures()
 			REAL_CPU_ALIGNMENT_MASK = SSE_ALIGNMENT_MASK;
 			REAL_CPU_MEMORY_ALIGNMENT_MASK = SSE_MEMORY_ALIGNMENT_MASK;
 		}
+		return true;
+	}()};
 #endif
-		once = true;
-	}
 
 	// They are already initialized to scalar values by default.
 }

@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #include "soloud_audiosource.h"
 #include "soloud_audiosource3d.h"
 #include "soloud_internal.h"
-#include <math.h>
+#include <cmath>
 
 // 3d audio operations
 

@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_MPG123_H
 #define SOLOUD_MPG123_H
 
-#include <cstdio> // for off_t, size_t, ssize_t
+#include <stdio.h> // for off_t, size_t, ssize_t
 #ifdef _MSC_VER
 #include <sys/types.h>
 #endif

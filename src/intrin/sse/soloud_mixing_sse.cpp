@@ -38,7 +38,7 @@ freely, subject to the following restrictions:
 #include <xmmintrin.h>
 
 #include <climits> // _MAX
-#include <cstring>
+#include <string.h>
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays, cppcoreguidelines-pro-type-member-init, hicpp-member-init)
 

@@ -1,7 +1,7 @@
 #include "klatt.h"
 #include "darray.h"
 #include "resonator.h"
-#include <math.h>
+#include <cmath>
 #include <stdlib.h>
 
 #ifndef PI
@@ -168,7 +168,9 @@ enum ELEMENTS
 
 #define PHONEME_COUNT 53
 #define AMP_ADJ 14
-#define StressDur(e, s) (s, ((e->mDU + e->mUD) / 2))
+// TODO(WH): what was this macro supposed to do?
+// #define StressDur(e, s) (s, ((e->mDU + e->mUD) / 2))
+#define StressDur(e) (((e)->mDU + (e)->mUD) / 2)
 
 class PhonemeToElements
 {
@@ -824,7 +826,7 @@ int klatt::phone_to_elm(char *aPhoneme, int aCount, darray *aElement)
 				if (!(p->mFeat & ELM_FEATURE_VWL))
 					stress = 0;
 
-				int stressdur = StressDur(p, stress);
+				int stressdur = StressDur(p);
 
 				t += stressdur;
 

@@ -27,9 +27,9 @@ distribution.
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
 
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "soloud.h"
 #include "soloud_wav.h"

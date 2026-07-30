@@ -5,7 +5,7 @@
 //  - no joystick or paddle support
 //  - probably many more
 
-#include <math.h>
+#include <cmath>
 #ifndef __vita__
 #include <memory.h>
 #endif

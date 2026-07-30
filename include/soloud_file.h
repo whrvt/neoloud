@@ -27,7 +27,7 @@ freely, subject to the following restrictions:
 #define SOLOUD_FILE_H
 
 #include "soloud_config.h"
-#include <cstdio>
+#include <stdio.h>
 #include <memory> // unique_ptr
 
 typedef void *Soloud_Filehack;
@@ -103,7 +103,6 @@ public:
 protected:
 	FILE *mFileHandle{nullptr};
 	std::unique_ptr<char[]> mFileName{nullptr};
-	static FILE *openWithConversion(const char *const aFilename, char *&aFilenameOut);
 };
 
 class MemoryFile : public File

@@ -29,8 +29,8 @@ distribution.
 #include "soloud_file.h"
 #include "soloud_error.h"
 
-#include <cstdio>
-#include <cstring>
+#include <stdio.h>
+#include <string.h>
 
 #ifdef WINDOWS_VERSION
 #include <windows.h>
@@ -123,7 +123,7 @@ DiskFile::DiskFile(const char *aFilename)
 	open(aFilename);
 }
 
-FILE *DiskFile::openWithConversion(const char *const aFilename, char *&aFilenameOut)
+static FILE *openWithConversion(const char *const aFilename, char *&aFilenameOut)
 {
 	SOLOUD_ASSERT(aFilename);
 	SOLOUD_ASSERT(!aFilenameOut);

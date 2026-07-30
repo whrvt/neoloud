@@ -23,9 +23,9 @@ freely, subject to the following restrictions:
 */
 
 #include <cstddef>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <vector>
 
 #include "dr_flac.h"

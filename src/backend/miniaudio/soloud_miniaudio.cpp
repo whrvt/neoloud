@@ -96,9 +96,9 @@ inline ma_result sl_ma_get_enabled_backends(SL_MA_CONTEXT_INIT_TYPE *pBackends, 
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <mutex>
 #include <vector>
 

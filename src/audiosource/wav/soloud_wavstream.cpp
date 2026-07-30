@@ -24,10 +24,10 @@ freely, subject to the following restrictions:
 
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "dr_flac.h"
 #include "dr_mp3.h"

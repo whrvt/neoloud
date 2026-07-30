@@ -1,5 +1,5 @@
 #include "resonator.h"
-#include <math.h>
+#include <cmath>
 
 #ifndef PI
 #define PI 3.1415926535897932384626433832795f

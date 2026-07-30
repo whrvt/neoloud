@@ -23,7 +23,7 @@ freely, subject to the following restrictions:
 */
 
 #include "soloud_noise.h"
-#include <math.h>
+#include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

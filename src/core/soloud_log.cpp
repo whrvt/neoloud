@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #include "soloud_config.h"
 
 #include <cstdarg>
-#include <cstdio>
+#include <stdio.h>
 #include <vector>
 
 namespace SoLoud

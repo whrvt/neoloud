@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 #include "soloud_error.h"
 
 #include <cmath>
-#include <cstring>
+#include <string.h>
 
 namespace SoLoud
 {

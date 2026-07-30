@@ -26,8 +26,8 @@ freely, subject to the following restrictions:
 #include "soloud_error.h"
 #include "soloud_file.h"
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
 
 extern "C"
 {

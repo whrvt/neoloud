@@ -27,7 +27,7 @@ freely, subject to the following restrictions:
 #define SOLOUD_CPUDETECT_H
 
 #include <cstddef>
-#include <cstdint>
+#include <stdint.h>
 
 #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
 #define SOLOUD_IS_X86

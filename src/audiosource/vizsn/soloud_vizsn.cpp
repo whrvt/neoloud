@@ -13,9 +13,9 @@ released under same license.
 #include "soloud_vizsn.h"
 
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /*
 

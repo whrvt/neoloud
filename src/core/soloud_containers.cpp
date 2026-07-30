@@ -1,6 +1,5 @@
-
 /*
-SoLoud audio engine - miscellaneous SIMD-related things
+SoLoud audio engine - helper containers
 Copyright (c) 2013-2020 Jari Komppa
 Copyright (c) 2025-2026 William Horvath
 
@@ -24,10 +23,12 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-#include "soloud.h"
+#include "soloud_config.h"
 #include "soloud_cpu.h"
+#include "soloud_containers.h"
+#include "soloud_error.h"
 
-#include <cstring>
+#include <string.h>
 #include <new>
 
 namespace SoLoud
@@ -36,43 +37,39 @@ namespace SoLoud
 namespace
 {
 
-std::align_val_t alignment{0};
-
-template <typename R>
-R *allocateAligned(size_t sizeBytes)
+std::align_val_t getAlignment()
 {
-	if (alignment == static_cast<std::align_val_t>(0))
-	{
+	// magic static, so concurrent first-time allocations from multiple threads are safe
+	static const std::align_val_t alignment{[] {
 		initCPUFeatures();
-		alignment = static_cast<std::align_val_t>(CPU_ALIGNMENT_BYTES());
-	}
-
-	return static_cast<R *>(::operator new(sizeBytes * sizeof(R), alignment));
+		return static_cast<std::align_val_t>(CPU_ALIGNMENT_BYTES());
+	}()};
+	return alignment;
 }
 
-void freeAligned(void *data)
+template <typename R>
+R *allocateAligned(size_t aCount)
 {
-	if (!data)
+	// with -fno-exceptions, allocation failure terminates instead of throwing, so this never returns null
+	return static_cast<R *>(::operator new(aCount * sizeof(R), getAlignment()));
+}
+
+void freeAligned(void *aData)
+{
+	if (!aData)
 		return;
 
-	SOLOUD_ASSERT(alignment != static_cast<std::align_val_t>(0));
-
-	::operator delete(data, alignment);
+	::operator delete(aData, getAlignment());
 }
 
 } // namespace
 
-// This is publicly-accessible, declared in include/soloud.h, but uses the correct alignment depending on the CPU features.
+// This is publicly-accessible, declared in include/soloud_containers.h, but uses the correct alignment depending on the CPU features.
 result AlignedFloatBuffer::init(unsigned int aFloats)
 {
-	if (mData)
-		freeAligned(mData);
-	mData = nullptr;
+	freeAligned(mData);
 	mFloats = aFloats;
-
-	if (!(mData = allocateAligned<float>(mFloats)))
-		return OUT_OF_MEMORY;
-
+	mData = allocateAligned<float>(mFloats);
 	return SO_NO_ERROR;
 }
 
@@ -85,6 +82,22 @@ void AlignedFloatBuffer::clear()
 AlignedFloatBuffer::~AlignedFloatBuffer()
 {
 	freeAligned(mData);
+}
+
+InlineFloatArray::~InlineFloatArray()
+{
+	freeAligned(mHeap);
+}
+
+void InlineFloatArray::ensureCapacity(size_t aFloats)
+{
+	if (aFloats <= mCapacity)
+		return;
+
+	float *bigger = allocateAligned<float>(aFloats);
+	freeAligned(mHeap);
+	mHeap = bigger;
+	mCapacity = aFloats;
 }
 
 } // namespace SoLoud

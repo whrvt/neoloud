@@ -26,9 +26,9 @@ freely, subject to the following restrictions:
 #define SOLOUD_H
 
 #include <array>
-#include <cmath>   // sin
-#include <cstdlib> // rand
-#include <memory>  // unique_ptr
+#include <cmath>    // sin
+#include <stdlib.h> // rand
+#include <memory>   // unique_ptr
 
 #include "soloud_config.h"
 
@@ -37,6 +37,7 @@ freely, subject to the following restrictions:
 #include "soloud_fader.h"
 #include "soloud_filter.h"
 #include "soloud_ll_mixing.h"
+#include "soloud_containers.h"
 
 namespace SoLoud
 {
@@ -47,30 +48,6 @@ class BusInstance;
 class Queue;
 class QueueInstance;
 class AudioSourceInstance3dData;
-
-// Class that handles aligned allocations to support vectorized operations
-class AlignedFloatBuffer
-{
-public:
-	float *mData{nullptr};   // SIMD-aligned pointer for vectorized operations
-	unsigned int mFloats{0}; // Size of buffer in floats (without padding)
-
-	AlignedFloatBuffer() = default;
-	AlignedFloatBuffer(unsigned int aFloats) { init(aFloats); }
-	~AlignedFloatBuffer();
-
-	// Not copy/moveable.
-	AlignedFloatBuffer(const AlignedFloatBuffer &) = delete;
-	AlignedFloatBuffer &operator=(const AlignedFloatBuffer &) = delete;
-	AlignedFloatBuffer(AlignedFloatBuffer &&) = delete;
-	AlignedFloatBuffer &operator=(AlignedFloatBuffer &&) = delete;
-
-	// Allocate and align buffer for specified number of floats
-	result init(unsigned int aFloats);
-
-	// Clear all data to zero
-	void clear();
-};
 
 // Generic device information structure for cross-backend compatibility
 struct DeviceInfo

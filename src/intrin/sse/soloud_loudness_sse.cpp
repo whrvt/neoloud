@@ -35,7 +35,7 @@ freely, subject to the following restrictions:
 #include <emmintrin.h>
 #include <xmmintrin.h>
 
-#include <cstring>
+#include <string.h>
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
 

@@ -30,9 +30,9 @@ freely, subject to the following restrictions:
 #include "soloud_thread.h"
 
 #include <cmath> // sin
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // #define FLOATING_POINT_DEBUG
 
@@ -482,7 +482,7 @@ unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsig
 	{
 		for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 		{
-			memmove(voice->mResampleBuffer[ch], voice->mResampleBuffer[ch] + voice->mResampleBufferPos, availableSamples * sizeof(float));
+			memmove(voice->getResampleBuffer(ch), voice->getResampleBuffer(ch) + voice->mResampleBufferPos, availableSamples * sizeof(float));
 		}
 		voice->mResampleBufferFill = availableSamples;
 		voice->mResampleBufferPos = 0;
@@ -626,19 +626,16 @@ unsigned int Soloud::ensureSourceData_internal(AudioSourceInstance *voice, unsig
 			}
 
 			// Copy from channel-interleaved scratch buffer to channel-separated resample buffers
-			if (voice->mResampleBuffer != nullptr)
+			for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 			{
-				for (unsigned int ch = 0; ch < voice->mChannels; ch++)
-				{
-					float *srcChannel = channelBuffer + ch * alignedBufferSize;
-					float *dstChannel = voice->mResampleBuffer[ch] + voice->mResampleBufferFill;
-					memcpy(dstChannel, srcChannel, samplesRead * sizeof(float));
+				float *srcChannel = channelBuffer + ch * alignedBufferSize;
+				float *dstChannel = voice->getResampleBuffer(ch) + voice->mResampleBufferFill;
+				memcpy(dstChannel, srcChannel, samplesRead * sizeof(float));
 
-					// Clear remaining space if we read fewer samples than requested
-					if (samplesRead < samplesToRead)
-					{
-						memset(dstChannel + samplesRead, 0, (samplesToRead - samplesRead) * sizeof(float));
-					}
+				// Clear remaining space if we read fewer samples than requested
+				if (samplesRead < samplesToRead)
+				{
+					memset(dstChannel + samplesRead, 0, (samplesToRead - samplesRead) * sizeof(float));
 				}
 			}
 		}
@@ -660,7 +657,7 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 {
 	using namespace ResamplingConstants;
 
-	if (outputSamples == 0 || !voice || voice->mResampleBuffer == nullptr)
+	if (outputSamples == 0 || !voice)
 		return 0;
 
 	// Calculate step size: how much we advance in source per output sample
@@ -741,7 +738,7 @@ unsigned int Soloud::resampleVoicePrecise_internal(AudioSourceInstance *voice,
 	float *srcChannelsOffset[MAX_CHANNELS];
 	for (unsigned int ch = 0; ch < voice->mChannels; ch++)
 	{
-		srcChannelsOffset[ch] = voice->mResampleBuffer[ch] + voice->mResampleBufferPos;
+		srcChannelsOffset[ch] = voice->getResampleBuffer(ch) + voice->mResampleBufferPos;
 	}
 
 	samplesProduced = safeOutputCount; // Always process this amount

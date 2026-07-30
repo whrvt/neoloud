@@ -27,9 +27,9 @@ freely, subject to the following restrictions:
 #include "soloud_misc.h"
 
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 namespace SoLoud
 {
