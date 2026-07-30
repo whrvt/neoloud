@@ -113,7 +113,7 @@ struct MiniaudioData
 	MiniaudioData()
 	    : device()
 	{
-		std::memset(&this->device, 0, sizeof(ma_device));
+		memset(&this->device, 0, sizeof(ma_device));
 	}
 	ma_context context{};
 	ma_device device;

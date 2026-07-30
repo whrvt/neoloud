@@ -149,9 +149,9 @@ static FILE *openWithConversion(const char *const aFilename, char *&aFilenameOut
 	// If we opened the file, then put a new copy of the filename into aFilenameOut
 	if (out)
 	{
-		const size_t len = std::strlen(aFilename);
+		const size_t len = strlen(aFilename);
 		aFilenameOut = new char[len + 1];
-		std::memcpy(aFilenameOut, aFilename, len);
+		memcpy(aFilenameOut, aFilename, len);
 		aFilenameOut[len] = '\0';
 	}
 
@@ -304,7 +304,7 @@ MemoryFile::MemoryFile(const MemoryFile &other)
 	{
 		// Deep copy owned data
 		unsigned char *newData = new unsigned char[mLength];
-		std::memcpy(newData, other.mDataPtr, mLength);
+		memcpy(newData, other.mDataPtr, mLength);
 		mDataPtr = newData;
 	}
 	else
@@ -330,7 +330,7 @@ MemoryFile &MemoryFile::operator=(const MemoryFile &other)
 	if (other.mDataOwned && other.mDataPtr)
 	{
 		unsigned char *newData = new unsigned char[mLength];
-		std::memcpy(newData, other.mDataPtr, mLength);
+		memcpy(newData, other.mDataPtr, mLength);
 		mDataPtr = newData;
 	}
 	else

@@ -407,7 +407,7 @@ void update_current_device_info(SDL3Data *data)
 	size_t nameLen = strlen(deviceName);
 	if (nameLen >= sizeof(data->currentDeviceInfo.name))
 		nameLen = sizeof(data->currentDeviceInfo.name) - 1;
-	std::memcpy(data->currentDeviceInfo.name.data(), deviceName, nameLen);
+	memcpy(data->currentDeviceInfo.name.data(), deviceName, nameLen);
 	data->currentDeviceInfo.name[nameLen] = '\0';
 
 	// set identifier
@@ -415,7 +415,7 @@ void update_current_device_info(SDL3Data *data)
 	size_t identifierLen = identifier.length();
 	if (identifierLen >= sizeof(data->currentDeviceInfo.identifier))
 		identifierLen = sizeof(data->currentDeviceInfo.identifier) - 1;
-	std::memcpy(data->currentDeviceInfo.identifier.data(), identifier.c_str(), identifierLen);
+	memcpy(data->currentDeviceInfo.identifier.data(), identifier.c_str(), identifierLen);
 	data->currentDeviceInfo.identifier[identifierLen] = '\0';
 
 	data->currentDeviceInfo.nativeDeviceInfo = nullptr;
@@ -541,8 +541,8 @@ result sdl3_enumerate_devices(Soloud *aSoloud)
 
 	// add default device first
 	aSoloud->mDeviceList[0] = {};
-	std::strncpy(aSoloud->mDeviceList[0].name.data(), "Default Playback Device", sizeof(aSoloud->mDeviceList[0].name) - 1);
-	std::strncpy(aSoloud->mDeviceList[0].identifier.data(), "sdl3_default_playback", sizeof(aSoloud->mDeviceList[0].identifier) - 1);
+	strncpy(aSoloud->mDeviceList[0].name.data(), "Default Playback Device", sizeof(aSoloud->mDeviceList[0].name) - 1);
+	strncpy(aSoloud->mDeviceList[0].identifier.data(), "sdl3_default_playback", sizeof(aSoloud->mDeviceList[0].identifier) - 1);
 	aSoloud->mDeviceList[0].isDefault = true;
 	aSoloud->mDeviceList[0].isExclusive = false;
 	aSoloud->mDeviceList[0].nativeDeviceInfo = nullptr;
@@ -560,7 +560,7 @@ result sdl3_enumerate_devices(Soloud *aSoloud)
 		size_t nameLen = strlen(deviceName);
 		if (nameLen >= sizeof(aSoloud->mDeviceList[i + 1].name))
 			nameLen = sizeof(aSoloud->mDeviceList[i + 1].name) - 1;
-		std::memcpy(aSoloud->mDeviceList[i + 1].name.data(), deviceName, nameLen);
+		memcpy(aSoloud->mDeviceList[i + 1].name.data(), deviceName, nameLen);
 		aSoloud->mDeviceList[i + 1].name[nameLen] = '\0';
 
 		// set identifier
@@ -568,7 +568,7 @@ result sdl3_enumerate_devices(Soloud *aSoloud)
 		size_t identifierLen = identifier.length();
 		if (identifierLen >= sizeof(aSoloud->mDeviceList[i + 1].identifier))
 			identifierLen = sizeof(aSoloud->mDeviceList[i + 1].identifier) - 1;
-		std::memcpy(aSoloud->mDeviceList[i + 1].identifier.data(), identifier.c_str(), identifierLen);
+		memcpy(aSoloud->mDeviceList[i + 1].identifier.data(), identifier.c_str(), identifierLen);
 		aSoloud->mDeviceList[i + 1].identifier[identifierLen] = '\0';
 
 		aSoloud->mDeviceList[i + 1].isDefault = false;

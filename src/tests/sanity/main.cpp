@@ -125,7 +125,7 @@ void generateTestWave(SoLoud::Wav &aWav)
 	                            // 44 bytes up to this point
 	};
 	float floatbuf[(sizeof(charbuf) / sizeof(float)) + sizeof(float)];
-	std::memcpy(floatbuf, charbuf, sizeof(charbuf));
+	memcpy(floatbuf, charbuf, sizeof(charbuf));
 
 	unsigned int buflen = sizeof(charbuf);
 	int i;
