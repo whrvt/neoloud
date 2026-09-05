@@ -29,6 +29,7 @@ distribution.
 #define MINIAUDIO_IMPLEMENTATION
 
 #ifdef __linux__
+// TODO: this is higher than windows default? why not 1 always?
 #define MA_DEFAULT_PERIOD_SIZE_IN_MILLISECONDS_LOW_LATENCY 5 // smaller period size results in less crackling when auto-negotiated? idk why
 #endif
 
@@ -68,6 +69,14 @@ distribution.
 #define SL_MA_BACKEND_UNDEFINED nullptr
 #else
 #include "miniaudio.h"
+
+// ASIO support
+#ifdef SOLOUD_MINIAUDIO_ASIO
+#include <asiosys.h>
+#include <asio.h>
+#include "miniaudio_asio.h"
+#endif
+
 #define SL_MA_VERSION 11
 #define SL_MA_BACKEND(x) ma_backend_##x
 #define SL_MA_BACKEND_TYPE ma_backend
@@ -116,11 +125,17 @@ struct MiniaudioData
 		memset(&this->device, 0, sizeof(ma_device));
 	}
 	ma_context context{};
+	ma_context contextAsio{};
 	ma_device device;
 	ma_log log{};
 	ma_device_info currentDeviceInfo{};
 
 	std::mutex deviceMutex; // protects device operations during shutdown
+
+	// since we switch between "normal" and "asio" backends based on device,
+	// we'll use these to avoid adding if checks everywhere
+	ma_context *activeContext{nullptr};
+	SL_MA_BACKEND_TYPE activeBackend{SL_MA_BACKEND(null)};
 
 	// parent instance
 	Soloud *soloudInstance{nullptr};
@@ -140,6 +155,7 @@ struct MiniaudioData
 	std::atomic<bool> soloudInitialized{false}; // postinit_internal must be called before we use soloud->mix in the callback
 	bool logInitialized{false};
 	bool contextInitialized{false};
+	bool contextInitializedAsio{false};
 	bool deviceInitialized{false};
 	bool hasCurrentDeviceInfo{false};
 };
@@ -198,6 +214,9 @@ ma_share_mode parse_share_mode_from_identifier(const char *identifier)
 	size_t len = strlen(identifier);
 	if (len >= 2)
 	{
+		// check for "_a" suffix (ASIO)
+		if (identifier[len - 2] == '_' && identifier[len - 1] == 'a')
+			return ma_share_mode_exclusive;
 		// check for "_e" suffix (exclusive mode)
 		if (identifier[len - 2] == '_' && identifier[len - 1] == 'e')
 			return ma_share_mode_exclusive;
@@ -451,6 +470,12 @@ void soloud_miniaudio_deinit(Soloud *aSoloud)
 				ma_context_uninit(&data->context);
 				data->contextInitialized = false;
 			}
+
+			if (data->contextInitializedAsio)
+			{
+				ma_context_uninit(&data->contextAsio);
+				data->contextInitializedAsio = false;
+			}
 		}
 
 		if (data->logInitialized)
@@ -603,8 +628,7 @@ ma_result init_device_with_id(MiniaudioData *data, ma_share_mode shareMode, cons
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
 		SoLoud::logStdout("[MiniAudio INFO] Initializing device with specific ID in %s mode...\n", shareMode == ma_share_mode_exclusive ? "exclusive" : "shared");
 
-	ma_result deviceResult = ma_device_init(&data->context, &config, &data->device);
-
+	ma_result deviceResult = ma_device_init(data->activeContext, &config, &data->device);
 	if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
 	{
 		if (deviceResult == MA_SUCCESS)
@@ -643,9 +667,19 @@ void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo
 			pGenericInfo->name[nameLen + suffixLen] = '\0';
 		}
 	}
+	else if (backend == SL_MA_BACKEND(custom))
+	{
+		const char *modeSuffix = " (ASIO)";
+		size_t suffixLen = strlen(modeSuffix);
+		if (nameLen + suffixLen < sizeof(pGenericInfo->name))
+		{
+			memcpy(pGenericInfo->name.data() + nameLen, modeSuffix, suffixLen);
+			pGenericInfo->name[nameLen + suffixLen] = '\0';
+		}
+	}
 
 	// create string representation of device ID with share mode encoded
-	const char *modeTag = (shareMode == ma_share_mode_exclusive) ? "_e" : "_s";
+	const char *modeTag = (backend == SL_MA_BACKEND(custom)) ? "_a" : (shareMode == ma_share_mode_exclusive) ? "_e" : "_s";
 	snprintf(pGenericInfo->identifier.data(), pGenericInfo->identifier.size(), "ma_%d_%d_%d_%s%s", (int)pMaInfo->id.wasapi[0], (int)pMaInfo->id.wasapi[1],
 	         (int)pMaInfo->id.wasapi[2], &pMaInfo->name[0], modeTag);
 
@@ -668,14 +702,24 @@ result miniaudio_enumerate_devices(Soloud *aSoloud)
 
 	ma_device_info *maDevices = nullptr;
 	ma_uint32 maDeviceCount = 0;
+	ma_device_info *asioDevices = nullptr;
+	ma_uint32 asioDeviceCount = 0;
 
 	ma_result result = ma_context_get_devices(&data->context, &maDevices, &maDeviceCount, nullptr, nullptr);
 	if (result != MA_SUCCESS)
 		return UNKNOWN_ERROR;
 
+	if (data->contextInitializedAsio)
+	{
+		ma_result result = ma_context_get_devices(&data->contextAsio, &asioDevices, &asioDeviceCount, nullptr, nullptr);
+		if (result != MA_SUCCESS)
+			return UNKNOWN_ERROR;
+	}
+
 	// build device list
 	std::vector<DeviceInfo> devices;
-	devices.reserve(maDeviceCount * (1ULL + (data->currentBackend == SL_MA_BACKEND(wasapi)))); // reserve for worst case (shared + exclusive)
+	devices.reserve(maDeviceCount * (1ULL + (data->currentBackend == SL_MA_BACKEND(wasapi))) // shared + exclusive
+	                + asioDeviceCount);
 	bool defaultSupportsExclusive = false;
 
 	for (ma_uint32 i = 0; i < maDeviceCount; i++)
@@ -716,6 +760,12 @@ result miniaudio_enumerate_devices(Soloud *aSoloud)
 			devices.push_back(exclusiveDevice);
 		}
 	}
+	for (ma_uint32 i = 0; i < asioDeviceCount; i++)
+	{
+		DeviceInfo asioDevice;
+		convert_device_info(&asioDevices[i], &asioDevice, ma_share_mode_exclusive, SL_MA_BACKEND(custom));
+		devices.push_back(asioDevice);
+	}
 
 	// move info to soloud device list
 	aSoloud->mDeviceList = new DeviceInfo[devices.size()];
@@ -754,6 +804,8 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 
 	ma_device_id *targetDeviceId = nullptr;
 	ma_share_mode targetShareMode = ma_share_mode_shared;
+	data->activeContext = &data->context;
+	data->activeBackend = data->currentBackend;
 
 	// handle default device case
 	if (!deviceIdentifier || strlen(deviceIdentifier) == 0)
@@ -766,6 +818,14 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		// parse share mode from identifier
 		targetShareMode = parse_share_mode_from_identifier(deviceIdentifier);
 
+		ma_uint32 deviceIdentifierLen = strlen(deviceIdentifier);
+		bool usingAsio = deviceIdentifier[deviceIdentifierLen - 2] == '_' && deviceIdentifier[deviceIdentifierLen - 1] == 'a';
+		if (usingAsio && data->contextInitializedAsio)
+		{
+			data->activeContext = &data->contextAsio;
+			data->activeBackend = SL_MA_BACKEND(custom);
+		}
+
 		// get base identifier for device matching
 		std::array<char, 256> baseIdentifier{};
 		get_base_identifier(deviceIdentifier, baseIdentifier.data(), baseIdentifier.size());
@@ -773,7 +833,7 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		// enumerate devices to find matching identifier
 		ma_device_info *maDevices = nullptr;
 		ma_uint32 maDeviceCount = 0;
-		ma_result enumResult = ma_context_get_devices(&data->context, &maDevices, &maDeviceCount, nullptr, nullptr);
+		ma_result enumResult = ma_context_get_devices(data->activeContext, &maDevices, &maDeviceCount, nullptr, nullptr);
 		if (enumResult != MA_SUCCESS)
 			return UNKNOWN_ERROR;
 
@@ -781,7 +841,7 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		for (ma_uint32 i = 0; i < maDeviceCount; i++)
 		{
 			DeviceInfo tempInfo{};
-			convert_device_info(&maDevices[i], &tempInfo, ma_share_mode_shared, data->currentBackend);
+			convert_device_info(&maDevices[i], &tempInfo, ma_share_mode_shared, data->activeBackend);
 
 			// get base identifier from temp info for comparison
 			std::array<char, 256> tempBaseIdentifier{};
@@ -976,13 +1036,13 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 
 	if (!initialized)
 	{
+		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
+			SoLoud::logStdout("[MiniAudio ERROR] All backends failed to initialize\n");
+
 		if (data->logInitialized)
 			ma_log_uninit(&data->log);
 		delete data;
 		aSoloud->mBackendData = nullptr;
-
-		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
-			SoLoud::logStdout("[MiniAudio ERROR] All backends failed to initialize\n");
 
 		return UNKNOWN_ERROR; // this will cause soloud to try other backends like SDL3
 	}
@@ -991,6 +1051,31 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 	ma_result deviceInfoResult = ma_context_get_device_info(&data->context, ma_device_type_playback, data->device.playback.pID, &data->currentDeviceInfo);
 	if (deviceInfoResult == MA_SUCCESS)
 		data->hasCurrentDeviceInfo = true;
+
+#ifdef SOLOUD_MINIAUDIO_ASIO
+	// try to initialize ASIO context for additional device enumeration
+	{
+		ma_context_config contextConfig = ma_context_config_init();
+		contextConfig.threadPriority = ma_thread_priority_highest;
+		if (data->logInitialized)
+			contextConfig.pLog = &data->log;
+		contextConfig.custom.onContextInit = ma_context_init__asio;
+
+		ma_backend backends[] = {ma_backend_custom};
+		ma_result result = ma_context_init(backends, 1, &contextConfig, &data->contextAsio);
+		if (result == MA_SUCCESS)
+		{
+			data->contextInitializedAsio = true;
+			if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+				SoLoud::logStdout("[MiniAudio INFO] ASIO context initialized successfully\n");
+		}
+		else
+		{
+			if (data->maxLogLevel >= MA_LOG_LEVEL_INFO)
+				SoLoud::logStdout("[MiniAudio INFO] ASIO context initialization failed (no ASIO drivers?)\n");
+		}
+	}
+#endif
 
 	// use the actual device configuration that was negotiated
 	unsigned int actualSampleRate = data->device.sampleRate;

@@ -25,6 +25,14 @@ freely, subject to the following restrictions:
 #include "soloud.h"
 #include "soloud_audiosource.h"
 
+#ifdef SOLOUD_MINIAUDIO_ASIO
+#include <windows.h>
+#include "asiosys.h"
+#include "asio.h"
+#include "iasiodrv.h"
+#include "asiodrivers.h"
+#endif
+
 // Getters - return information about SoLoud state
 
 namespace SoLoud
@@ -421,6 +429,50 @@ result Soloud::getCurrentDevice(DeviceInfo *pDeviceInfo)
 		return NOT_IMPLEMENTED;
 
 	return mGetCurrentDeviceFunc(this, pDeviceInfo);
+}
+
+result Soloud::openControlPanel()
+{
+#ifdef SOLOUD_MINIAUDIO_ASIO
+	ASIOControlPanel();
+	return SO_NO_ERROR;
+#else
+	return NOT_IMPLEMENTED;
+#endif
+}
+
+result Soloud::getDeviceLatency(long *inputLatency, long *outputLatency)
+{
+#ifdef SOLOUD_MINIAUDIO_ASIO
+	if (ASIOGetLatencies(inputLatency, outputLatency) == ASE_NotPresent)
+	{
+		// no ASIO driver loaded
+		return NOT_IMPLEMENTED;
+	}
+	else
+	{
+		return SO_NO_ERROR;
+	}
+#else
+	return NOT_IMPLEMENTED;
+#endif
+}
+
+result Soloud::getBufferSizes(long *minSize, long *maxSize, long *defaultSize, long *granularity)
+{
+#ifdef SOLOUD_MINIAUDIO_ASIO
+	if (ASIOGetBufferSize(minSize, maxSize, defaultSize, granularity) != ASE_OK)
+	{
+		// no ASIO driver loaded
+		return NOT_IMPLEMENTED;
+	}
+	else
+	{
+		return SO_NO_ERROR;
+	}
+#else
+	return NOT_IMPLEMENTED;
+#endif
 }
 
 // Get speaker position in 3d space
