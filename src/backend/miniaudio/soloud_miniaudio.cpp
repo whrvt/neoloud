@@ -67,6 +67,7 @@ distribution.
 #define SL_MA_MAKE_NULL_CONTEXT \
 	ma_device_backend_config {}
 #define SL_MA_BACKEND_UNDEFINED nullptr
+#define SL_MA_BACKEND_ASIO SL_MA_BACKEND_UNDEFINED
 #else
 #include "miniaudio.h"
 
@@ -87,6 +88,7 @@ distribution.
 #define SL_MA_MAKE_CONTEXT_INIT(backend) (backend)
 #define SL_MA_MAKE_NULL_CONTEXT (SL_MA_BACKEND_TYPE)(ma_backend_null + 1)
 #define SL_MA_BACKEND_UNDEFINED (SL_MA_BACKEND_TYPE)(ma_backend_null + 1)
+#define SL_MA_BACKEND_ASIO SL_MA_BACKEND(custom)
 #endif
 
 namespace
@@ -667,7 +669,7 @@ void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo
 			pGenericInfo->name[nameLen + suffixLen] = '\0';
 		}
 	}
-	else if (backend == SL_MA_BACKEND(custom))
+	else if (backend == SL_MA_BACKEND_ASIO)
 	{
 		const char *modeSuffix = " (ASIO)";
 		size_t suffixLen = strlen(modeSuffix);
@@ -679,7 +681,7 @@ void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo
 	}
 
 	// create string representation of device ID with share mode encoded
-	const char *modeTag = (backend == SL_MA_BACKEND(custom)) ? "_a" : (shareMode == ma_share_mode_exclusive) ? "_e" : "_s";
+	const char *modeTag = (backend == SL_MA_BACKEND_ASIO) ? "_a" : (shareMode == ma_share_mode_exclusive) ? "_e" : "_s";
 	snprintf(pGenericInfo->identifier.data(), pGenericInfo->identifier.size(), "ma_%d_%d_%d_%s%s", (int)pMaInfo->id.wasapi[0], (int)pMaInfo->id.wasapi[1],
 	         (int)pMaInfo->id.wasapi[2], &pMaInfo->name[0], modeTag);
 
@@ -763,7 +765,7 @@ result miniaudio_enumerate_devices(Soloud *aSoloud)
 	for (ma_uint32 i = 0; i < asioDeviceCount; i++)
 	{
 		DeviceInfo asioDevice;
-		convert_device_info(&asioDevices[i], &asioDevice, ma_share_mode_exclusive, SL_MA_BACKEND(custom));
+		convert_device_info(&asioDevices[i], &asioDevice, ma_share_mode_exclusive, SL_MA_BACKEND_ASIO);
 		devices.push_back(asioDevice);
 	}
 
@@ -823,7 +825,7 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 		if (usingAsio && data->contextInitializedAsio)
 		{
 			data->activeContext = &data->contextAsio;
-			data->activeBackend = SL_MA_BACKEND(custom);
+			data->activeBackend = SL_MA_BACKEND_ASIO;
 		}
 
 		// get base identifier for device matching
@@ -1061,7 +1063,7 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 			contextConfig.pLog = &data->log;
 		contextConfig.custom.onContextInit = ma_context_init__asio;
 
-		ma_backend backends[] = {ma_backend_custom};
+		ma_backend backends[] = {SL_MA_BACKEND_ASIO};
 		ma_result result = ma_context_init(backends, 1, &contextConfig, &data->contextAsio);
 		if (result == MA_SUCCESS)
 		{
