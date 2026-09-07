@@ -119,7 +119,7 @@ if(SOLOUD_WITH_ASIO)
     # ASIO SDK uses narrow char* strings with Win32 APIs (CharLowerBuff, RegOpenKey, etc.)
     # without the A/W suffix, so we must undefine UNICODE for these files.
     set_source_files_properties(${SOLOUD_ASIO_SOURCES}
-        PROPERTIES COMPILE_OPTIONS "/UUNICODE;/U_UNICODE"
+        PROPERTIES COMPILE_OPTIONS "-UUNICODE;-U_UNICODE"
     )
 endif()
 
