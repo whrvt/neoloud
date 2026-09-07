@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.24)
 
 project(SoLoud
     VERSION 1.3.2
@@ -19,6 +19,7 @@ option(SOLOUD_WITH_LIBMPG123 "Try to find and use the libmpg123 library for mp3 
 option(SOLOUD_WITH_FFMPEG "Look for FFmpeg headers and try to use it at runtime" ON)
 option(SOLOUD_WITH_SSE2 "Enable SSE2 SIMD optimizations" ON)
 option(SOLOUD_WITH_AVX2 "Enable AVX2 SIMD optimizations" ON)
+option(SOLOUD_WITH_ASIO "Build with ASIO backend support" OFF)
 
 # check for conflicting sanitizer options
 if(SOLOUD_ASAN AND SOLOUD_TSAN)
@@ -99,6 +100,29 @@ set(SOLOUD_BACKEND_SOURCES
 # vendored sources
 file(GLOB SOLOUD_VENDORED_SOURCES "vendored/*.c" "vendored/*.cpp")
 
+# ASIO SDK sources
+set(SOLOUD_ASIO_SOURCES "")
+if(SOLOUD_WITH_ASIO)
+    include(FetchContent)
+    FetchContent_Declare(
+        ASIO_SDK
+        URL "https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_2025-10-15.zip"
+    )
+    FetchContent_MakeAvailable(ASIO_SDK)
+
+    set(SOLOUD_ASIO_SOURCES
+        ${asio_sdk_SOURCE_DIR}/common/asio.cpp
+        ${asio_sdk_SOURCE_DIR}/host/asiodrivers.cpp
+        ${asio_sdk_SOURCE_DIR}/host/pc/asiolist.cpp
+    )
+
+    # ASIO SDK uses narrow char* strings with Win32 APIs (CharLowerBuff, RegOpenKey, etc.)
+    # without the A/W suffix, so we must undefine UNICODE for these files.
+    set_source_files_properties(${SOLOUD_ASIO_SOURCES}
+        PROPERTIES COMPILE_OPTIONS "-UUNICODE;-U_UNICODE"
+    )
+endif()
+
 # combine all sources
 set(SOLOUD_SOURCES
     ${SOLOUD_CORE_SOURCES}
@@ -107,6 +131,7 @@ set(SOLOUD_SOURCES
     ${SOLOUD_FILTER_SOURCES}
     ${SOLOUD_BACKEND_SOURCES}
     ${SOLOUD_VENDORED_SOURCES}
+    ${SOLOUD_ASIO_SOURCES}
 )
 
 
@@ -183,6 +208,9 @@ target_include_directories(soloud
         ${CMAKE_CURRENT_SOURCE_DIR}/src/intrin
         ${CMAKE_CURRENT_SOURCE_DIR}/src/core
         ${CMAKE_CURRENT_SOURCE_DIR}/vendored
+        $<$<BOOL:${SOLOUD_WITH_ASIO}>:${asio_sdk_SOURCE_DIR}/common>
+        $<$<BOOL:${SOLOUD_WITH_ASIO}>:${asio_sdk_SOURCE_DIR}/host>
+        $<$<BOOL:${SOLOUD_WITH_ASIO}>:${asio_sdk_SOURCE_DIR}/host/pc>
 )
 
 # compile definitions
@@ -193,6 +221,7 @@ target_compile_definitions(soloud
         $<$<BOOL:${SOLOUD_WITH_SDL3}>:WITH_SDL3>
         $<$<BOOL:${SOLOUD_WITH_LIBMPG123}>:WITH_LIBMPG123>
         $<$<BOOL:${SOLOUD_WITH_FFMPEG}>:WITH_FFMPEG>
+        $<$<BOOL:${SOLOUD_WITH_ASIO}>:SOLOUD_MINIAUDIO_ASIO>
         $<$<CONFIG:Debug>:ENABLE_ASSERTS>
 )
 

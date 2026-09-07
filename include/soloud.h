@@ -223,6 +223,15 @@ public:
 	*/
 	result setDevice(const char *deviceIdentifier);
 
+	// Opens current audio device's control panel (ASIO only)
+	result openControlPanel();
+
+	// Gets latency of current audio device (ASIO only)
+	result getDeviceLatency(long *inputLatency, long *outputLatency);
+
+	// Gets buffer size limits of current audio device (ASIO only)
+	result getBufferSizes(long *minSize, long *maxSize, long *defaultSize, long *granularity);
+
 	// Set speaker position in 3d space
 	result setSpeakerPosition(unsigned int aChannel, float aX, float aY, float aZ);
 	// Get speaker position in 3d space
