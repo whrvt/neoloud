@@ -63,6 +63,10 @@ struct DeviceInfo
 typedef result (*enumerateDevicesFunc)(Soloud *aSoloud);
 typedef result (*getCurrentDeviceFunc)(Soloud *aSoloud, DeviceInfo *pDeviceInfo);
 typedef result (*setDeviceFunc)(Soloud *aSoloud, const char *deviceIdentifier);
+typedef result (*getDeviceLatencyFunc)(Soloud *aSoloud, unsigned int *pLatencyFrames);
+typedef result (*getBufferSizeLimitsFunc)(Soloud *aSoloud, unsigned int *pMinSize, unsigned int *pMaxSize, unsigned int *pPreferredSize, int *pGranularity);
+typedef result (*openControlPanelFunc)(Soloud *aSoloud);
+typedef bool (*isDeviceLostFunc)(Soloud *aSoloud);
 
 // Soloud core class.
 class Soloud
@@ -78,6 +82,7 @@ public:
 		AUTO = 0,
 		MINIAUDIO,
 		SDL3,
+		ASIO, // windows only, never picked by AUTO; use enumerateDevices(..., ASIO) to list drivers before init
 		NOSOUND,
 		NULLDRIVER,
 		BACKEND_MAX,
@@ -114,8 +119,10 @@ public:
 	};
 
 	// Initialize SoLoud. Must be called before SoLoud can be used.
+	// aDeviceIdentifier optionally selects the playback device (see enumerateDevices()), NULL means the backend's default device.
+	// Backends that can't open a specific device directly switch to it after initializing; initialization fails if that doesn't succeed.
 	result init(unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aBackend = Soloud::AUTO, unsigned int aSamplerate = Soloud::AUTO,
-	            unsigned int aBufferSize = Soloud::AUTO, unsigned int aChannels = 2);
+	            unsigned int aBufferSize = Soloud::AUTO, unsigned int aChannels = 2, const char *aDeviceIdentifier = nullptr);
 
 	result pause();
 	result resume();
@@ -153,10 +160,18 @@ public:
 	pDeviceCount (out)
 	    Number of devices returned in ppDevices array.
 
+	aBackend (in)
+	    Backend whose devices to list (BACKENDS enum). AUTO lists the current backend's devices.
+	    Any other backend can be listed while a different one is active, or before init():
+	    MiniAudio goes through a temporary context for that, SDL3 initializes its audio
+	    subsystem (and leaves it initialized, its device ids are only valid while it is), ASIO
+	    reads the installed drivers from the registry. Identifiers obtained this way are valid
+	    for init()'s aDeviceIdentifier with that backend.
+
 	Return Value
 	------------
 	SO_NO_ERROR if successful; error code otherwise.
-	NOT_IMPLEMENTED if current backend doesn't support device enumeration.
+	NOT_IMPLEMENTED if the backend doesn't support device enumeration.
 
 	Thread Safety
 	-------------
@@ -172,7 +187,7 @@ public:
 	appear twice in the enumeration: once for shared mode and once for exclusive mode.
 	Check the isExclusive field to distinguish between them.
 	*/
-	result enumerateDevices(DeviceInfo **ppDevices, unsigned int *pDeviceCount);
+	result enumerateDevices(DeviceInfo **ppDevices, unsigned int *pDeviceCount, unsigned int aBackend = Soloud::AUTO);
 
 	/*
 	Gets information about the currently active playback device.
@@ -222,6 +237,70 @@ public:
 	In such cases, this function will return an error code.
 	*/
 	result setDevice(const char *deviceIdentifier);
+
+	/*
+	Gets the output latency of the current playback device.
+
+	Parameters
+	----------
+	pLatencyFrames (out)
+	    Latency in sample frames at the backend sample rate, as reported by the device driver.
+
+	Return Value
+	------------
+	SO_NO_ERROR if successful; error code otherwise.
+	NOT_IMPLEMENTED if the current backend can't report latency.
+	*/
+	result getDeviceLatency(unsigned int *pLatencyFrames);
+
+	/*
+	Gets the range of buffer sizes the current playback device accepts (for init()'s aBufferSize).
+
+	Parameters
+	----------
+	pMinSize, pMaxSize, pPreferredSize (out)
+	    Limits and the driver's preferred size, in sample frames.
+
+	pGranularity (out)
+	    Step between valid sizes: a positive value means multiples of it counted from the
+	    minimum, -1 means powers of two counted from the minimum, 0 means there is no fixed
+	    step (typically because the minimum and maximum are the same).
+
+	Return Value
+	------------
+	SO_NO_ERROR if successful; error code otherwise.
+	NOT_IMPLEMENTED if the current backend doesn't expose buffer size limits.
+	*/
+	result getBufferSizeLimits(unsigned int *pMinSize, unsigned int *pMaxSize, unsigned int *pPreferredSize, int *pGranularity);
+
+	/*
+	Opens the settings panel of the current playback device's driver, if it has one (e.g. ASIO drivers).
+
+	Return Value
+	------------
+	SO_NO_ERROR if successful; error code otherwise.
+	NOT_IMPLEMENTED if the current backend or device has no control panel.
+
+	Remarks
+	-------
+	Settings changed in the panel can require the device to be reopened, see isDeviceLost().
+	*/
+	result openDeviceControlPanel();
+
+	/*
+	Checks whether the current playback device has stopped working.
+
+	Return Value
+	------------
+	true if the backend can't play audio on its device until it is reopened: the device was
+	disconnected, or its driver requested a reset (e.g. after buffer size changes in its control
+	panel). Recover by calling setDevice() again, or by re-initializing.
+
+	Thread Safety
+	-------------
+	Safe.
+	*/
+	bool isDeviceLost();
 
 	// Set speaker position in 3d space
 	result setSpeakerPosition(unsigned int aChannel, float aX, float aY, float aZ);
@@ -591,6 +670,10 @@ public:
 	enumerateDevicesFunc mEnumerateDevicesFunc;
 	getCurrentDeviceFunc mGetCurrentDeviceFunc;
 	setDeviceFunc mSetDeviceFunc;
+	getDeviceLatencyFunc mGetDeviceLatencyFunc;
+	getBufferSizeLimitsFunc mGetBufferSizeLimitsFunc;
+	openControlPanelFunc mOpenControlPanelFunc;
+	isDeviceLostFunc mIsDeviceLostFunc;
 
 	// Internal device list storage
 	DeviceInfo *mDeviceList;

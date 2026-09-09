@@ -24,6 +24,7 @@ freely, subject to the following restrictions:
 
 #include "soloud.h"
 #include "soloud_audiosource.h"
+#include "soloud_internal.h"
 
 // Getters - return information about SoLoud state
 
@@ -386,7 +387,7 @@ unsigned int Soloud::getBackendBufferSize()
 	return mBufferSize;
 }
 
-result Soloud::enumerateDevices(DeviceInfo **ppDevices, unsigned int *pDeviceCount)
+result Soloud::enumerateDevices(DeviceInfo **ppDevices, unsigned int *pDeviceCount, unsigned int aBackend)
 {
 	if (!ppDevices || !pDeviceCount)
 		return INVALID_PARAMETER;
@@ -394,7 +395,22 @@ result Soloud::enumerateDevices(DeviceInfo **ppDevices, unsigned int *pDeviceCou
 	*ppDevices = nullptr;
 	*pDeviceCount = 0;
 
-	if (!mEnumerateDevicesFunc)
+	// backends that aren't active enumerate through a temporary context of their own
+	enumerateDevicesFunc enumerate = nullptr;
+	if (aBackend == Soloud::AUTO || aBackend == mBackendID)
+		enumerate = mEnumerateDevicesFunc;
+	else if (aBackend == Soloud::MINIAUDIO)
+		enumerate = miniaudio_enumerate_devices;
+#if defined(WITH_SDL3)
+	else if (aBackend == Soloud::SDL3)
+		enumerate = sdl3_enumerate_devices;
+#endif
+#if defined(WITH_ASIO)
+	else if (aBackend == Soloud::ASIO)
+		enumerate = asio_enumerate_devices;
+#endif
+
+	if (!enumerate)
 		return NOT_IMPLEMENTED;
 
 	// free previous device list
@@ -403,7 +419,7 @@ result Soloud::enumerateDevices(DeviceInfo **ppDevices, unsigned int *pDeviceCou
 	mDeviceCount = 0;
 
 	// enumerate devices (backend will populate mDeviceList and mDeviceCount)
-	result enumResult = mEnumerateDevicesFunc(this);
+	result enumResult = enumerate(this);
 	if (enumResult != SO_NO_ERROR)
 		return enumResult;
 
@@ -421,6 +437,36 @@ result Soloud::getCurrentDevice(DeviceInfo *pDeviceInfo)
 		return NOT_IMPLEMENTED;
 
 	return mGetCurrentDeviceFunc(this, pDeviceInfo);
+}
+
+result Soloud::getDeviceLatency(unsigned int *pLatencyFrames)
+{
+	if (!pLatencyFrames)
+		return INVALID_PARAMETER;
+
+	if (!mGetDeviceLatencyFunc)
+		return NOT_IMPLEMENTED;
+
+	return mGetDeviceLatencyFunc(this, pLatencyFrames);
+}
+
+result Soloud::getBufferSizeLimits(unsigned int *pMinSize, unsigned int *pMaxSize, unsigned int *pPreferredSize, int *pGranularity)
+{
+	if (!pMinSize || !pMaxSize || !pPreferredSize || !pGranularity)
+		return INVALID_PARAMETER;
+
+	if (!mGetBufferSizeLimitsFunc)
+		return NOT_IMPLEMENTED;
+
+	return mGetBufferSizeLimitsFunc(this, pMinSize, pMaxSize, pPreferredSize, pGranularity);
+}
+
+bool Soloud::isDeviceLost()
+{
+	if (!mIsDeviceLostFunc)
+		return false;
+
+	return mIsDeviceLostFunc(this);
 }
 
 // Get speaker position in 3d space

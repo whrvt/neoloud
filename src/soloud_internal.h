@@ -44,6 +44,15 @@ result nosound_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_
 // null driver back-end initialization call
 result null_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = 44100, unsigned int aBuffer = 2048,
                  unsigned int aChannels = 2);
+
+// ASIO back-end initialization call (windows only)
+result asio_init(SoLoud::Soloud *aSoloud, unsigned int aFlags = Soloud::CLIP_ROUNDOFF, unsigned int aSamplerate = Soloud::AUTO,
+                 unsigned int aBufferSize = Soloud::AUTO, unsigned int aChannels = 2, const char *aDeviceIdentifier = nullptr);
+
+// device enumeration entry points; these also work while the backend isn't the active one (or before init)
+result miniaudio_enumerate_devices(SoLoud::Soloud *aSoloud);
+result sdl3_enumerate_devices(SoLoud::Soloud *aSoloud);
+result asio_enumerate_devices(SoLoud::Soloud *aSoloud);
 }; // namespace SoLoud
 
 #define FOR_ALL_VOICES_PRE \
