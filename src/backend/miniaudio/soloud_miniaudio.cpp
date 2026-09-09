@@ -66,6 +66,7 @@ distribution.
 #define SL_MA_MAKE_NULL_CONTEXT \
 	ma_device_backend_config {}
 #define SL_MA_BACKEND_UNDEFINED nullptr
+#define SL_MA_CONTEXT_BACKEND(context) (context).pVTable
 #else
 #include "miniaudio.h"
 #define SL_MA_VERSION 11
@@ -78,6 +79,7 @@ distribution.
 #define SL_MA_MAKE_CONTEXT_INIT(backend) (backend)
 #define SL_MA_MAKE_NULL_CONTEXT (SL_MA_BACKEND_TYPE)(ma_backend_null + 1)
 #define SL_MA_BACKEND_UNDEFINED (SL_MA_BACKEND_TYPE)(ma_backend_null + 1)
+#define SL_MA_CONTEXT_BACKEND(context) (context).backend
 #endif
 
 namespace
@@ -654,34 +656,25 @@ void convert_device_info(const ma_device_info *pMaInfo, DeviceInfo *pGenericInfo
 	pGenericInfo->nativeDeviceInfo = nullptr;
 }
 
-// enumerate available playback devices
-result miniaudio_enumerate_devices(Soloud *aSoloud)
+// enumerate the playback devices of an initialized context into the soloud device list
+result enumerate_context_devices(ma_context *pContext, SL_MA_BACKEND_TYPE backend, Soloud *aSoloud)
 {
-	if (!aSoloud)
-		return INVALID_PARAMETER;
-
-	auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
-	if (!data || !data->contextInitialized)
-		return INVALID_PARAMETER;
-
-	std::lock_guard<std::mutex> lock(data->deviceMutex);
-
 	ma_device_info *maDevices = nullptr;
 	ma_uint32 maDeviceCount = 0;
 
-	ma_result result = ma_context_get_devices(&data->context, &maDevices, &maDeviceCount, nullptr, nullptr);
+	ma_result result = ma_context_get_devices(pContext, &maDevices, &maDeviceCount, nullptr, nullptr);
 	if (result != MA_SUCCESS)
 		return UNKNOWN_ERROR;
 
 	// build device list
 	std::vector<DeviceInfo> devices;
-	devices.reserve(maDeviceCount * (1ULL + (data->currentBackend == SL_MA_BACKEND(wasapi)))); // reserve for worst case (shared + exclusive)
+	devices.reserve(maDeviceCount * (1ULL + (backend == SL_MA_BACKEND(wasapi)))); // reserve for worst case (shared + exclusive)
 	bool defaultSupportsExclusive = false;
 
 	for (ma_uint32 i = 0; i < maDeviceCount; i++)
 	{
 		ma_device_info detailedInfo;
-		ma_result infoResult = ma_context_get_device_info(&data->context, ma_device_type_playback, &maDevices[i].id, &detailedInfo);
+		ma_result infoResult = ma_context_get_device_info(pContext, ma_device_type_playback, &maDevices[i].id, &detailedInfo);
 
 		bool hasDetailedInfo = (infoResult == MA_SUCCESS);
 		bool supportsExclusive = false;
@@ -694,7 +687,7 @@ result miniaudio_enumerate_devices(Soloud *aSoloud)
 			if (maDevices[i].isDefault)
 				defaultSupportsExclusive = supportsExclusive;
 		}
-		else if (infoResult == MA_BUSY && data->currentBackend == SL_MA_BACKEND(wasapi))
+		else if (infoResult == MA_BUSY && backend == SL_MA_BACKEND(wasapi))
 		{
 			// device is busy (likely in use), assume same capabilities as default device
 			supportsExclusive = defaultSupportsExclusive;
@@ -705,14 +698,14 @@ result miniaudio_enumerate_devices(Soloud *aSoloud)
 
 		// always add shared mode entry
 		DeviceInfo sharedDevice;
-		convert_device_info(pInfoToUse, &sharedDevice, ma_share_mode_shared, data->currentBackend);
+		convert_device_info(pInfoToUse, &sharedDevice, ma_share_mode_shared, backend);
 		devices.push_back(sharedDevice);
 
 		// add exclusive mode entry if supported
 		if (supportsExclusive)
 		{
 			DeviceInfo exclusiveDevice;
-			convert_device_info(pInfoToUse, &exclusiveDevice, ma_share_mode_exclusive, data->currentBackend);
+			convert_device_info(pInfoToUse, &exclusiveDevice, ma_share_mode_exclusive, backend);
 			devices.push_back(exclusiveDevice);
 		}
 	}
@@ -868,6 +861,43 @@ result miniaudio_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 
 } // namespace
 
+result miniaudio_enumerate_devices(Soloud *aSoloud)
+{
+	if (!aSoloud)
+		return INVALID_PARAMETER;
+
+	if (aSoloud->mBackendID == Soloud::MINIAUDIO)
+	{
+		auto *data = static_cast<MiniaudioData *>(aSoloud->mBackendData);
+		if (!data || !data->contextInitialized)
+			return INVALID_PARAMETER;
+
+		std::lock_guard<std::mutex> lock(data->deviceMutex);
+		return enumerate_context_devices(&data->context, data->currentBackend, aSoloud);
+	}
+
+	// not the active backend, so go through a temporary context with the same backend preference as init (environment choice first)
+	size_t enabledBackendCount = 0;
+	std::array<SL_MA_CONTEXT_INIT_TYPE, SL_MA_MAX_BACKENDS> enabledBackends{};
+	if (sl_ma_get_enabled_backends(enabledBackends.data(), SL_MA_MAX_BACKENDS, &enabledBackendCount) != MA_SUCCESS || enabledBackendCount == 0)
+		return UNKNOWN_ERROR;
+
+	ma_context context{};
+	ma_context_config contextConfig = ma_context_config_init();
+	bool contextInitialized = false;
+	if (SL_MA_BACKEND_TYPE userBackend = parse_backend_from_env(); userBackend != SL_MA_BACKEND_UNDEFINED)
+	{
+		std::array<SL_MA_CONTEXT_INIT_TYPE, 1> userBackends{SL_MA_MAKE_CONTEXT_INIT(userBackend)};
+		contextInitialized = (ma_context_init(userBackends.data(), 1, &contextConfig, &context) == MA_SUCCESS);
+	}
+	if (!contextInitialized && ma_context_init(enabledBackends.data(), enabledBackendCount, &contextConfig, &context) != MA_SUCCESS)
+		return UNKNOWN_ERROR;
+
+	result res = enumerate_context_devices(&context, SL_MA_CONTEXT_BACKEND(context), aSoloud);
+	ma_context_uninit(&context);
+	return res;
+}
+
 result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSamplerate, unsigned int aBuffer, unsigned int aChannels)
 {
 	auto *data = new MiniaudioData();
@@ -976,13 +1006,13 @@ result miniaudio_init(Soloud *aSoloud, unsigned int aFlags, unsigned int aSample
 
 	if (!initialized)
 	{
+		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
+			SoLoud::logStdout("[MiniAudio ERROR] All backends failed to initialize\n");
+
 		if (data->logInitialized)
 			ma_log_uninit(&data->log);
 		delete data;
 		aSoloud->mBackendData = nullptr;
-
-		if (data->maxLogLevel >= MA_LOG_LEVEL_ERROR)
-			SoLoud::logStdout("[MiniAudio ERROR] All backends failed to initialize\n");
 
 		return UNKNOWN_ERROR; // this will cause soloud to try other backends like SDL3
 	}

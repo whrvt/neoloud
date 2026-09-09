@@ -19,10 +19,15 @@ option(SOLOUD_WITH_LIBMPG123 "Try to find and use the libmpg123 library for mp3 
 option(SOLOUD_WITH_FFMPEG "Look for FFmpeg headers and try to use it at runtime" ON)
 option(SOLOUD_WITH_SSE2 "Enable SSE2 SIMD optimizations" ON)
 option(SOLOUD_WITH_AVX2 "Enable AVX2 SIMD optimizations" ON)
+option(SOLOUD_WITH_ASIO "Build the ASIO backend (Windows only, needs the Steinberg ASIO SDK headers)" OFF)
 
 # check for conflicting sanitizer options
 if(SOLOUD_ASAN AND SOLOUD_TSAN)
     message(FATAL_ERROR "SOLOUD_ASAN and SOLOUD_TSAN cannot be enabled simultaneously")
+endif()
+
+if(SOLOUD_WITH_ASIO AND NOT WIN32)
+    message(FATAL_ERROR "SOLOUD_WITH_ASIO is only supported on Windows")
 endif()
 
 # set default build type if none specified
@@ -94,10 +99,26 @@ set(SOLOUD_BACKEND_SOURCES
     src/backend/nosound/soloud_nosound.cpp
     src/backend/null/soloud_null.cpp
     src/backend/sdl3/soloud_sdl3.cpp # compiles to nothing if SDL3 is unavailable
+    src/backend/asio/soloud_asio.cpp # compiles to nothing if SOLOUD_WITH_ASIO is off
 )
 
 # vendored sources
 file(GLOB SOLOUD_VENDORED_SOURCES "vendored/*.c" "vendored/*.cpp")
+
+# asio sdk (headers only: the driver is a plain com object, so none of the sdk's sources are needed)
+if(SOLOUD_WITH_ASIO)
+    if(POLICY CMP0135)
+        cmake_policy(SET CMP0135 NEW)
+    endif()
+    include(FetchContent)
+    FetchContent_Declare(
+        asio_sdk
+        URL "https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_2025-10-15.zip"
+        URL_HASH SHA256=d5ebf0c20dd2c5f43771fd0c1418f4b361bf52434ee670097cfa6b3a335e2eca
+    )
+    # set FETCHCONTENT_SOURCE_DIR_ASIO_SDK to an unpacked sdk to build without network access
+    FetchContent_MakeAvailable(asio_sdk)
+endif()
 
 # combine all sources
 set(SOLOUD_SOURCES
@@ -193,6 +214,7 @@ target_compile_definitions(soloud
         $<$<BOOL:${SOLOUD_WITH_SDL3}>:WITH_SDL3>
         $<$<BOOL:${SOLOUD_WITH_LIBMPG123}>:WITH_LIBMPG123>
         $<$<BOOL:${SOLOUD_WITH_FFMPEG}>:WITH_FFMPEG>
+        $<$<BOOL:${SOLOUD_WITH_ASIO}>:WITH_ASIO>
         $<$<CONFIG:Debug>:ENABLE_ASSERTS>
 )
 
@@ -262,7 +284,11 @@ endif()
 
 # platform specific libraries (don't actually link to them, just add the includes)
 if(WIN32)
-    # i don't think we need anything specifically?
+    if(SOLOUD_WITH_ASIO)
+        target_include_directories(soloud PRIVATE ${asio_sdk_SOURCE_DIR}/common)
+        # registry enumeration, com instantiation of the driver, desktop window handle for the driver's control panel
+        target_link_libraries(soloud PRIVATE advapi32 ole32 user32)
+    endif()
 elseif(APPLE)
     # macos core audio for miniaudio
     find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox)

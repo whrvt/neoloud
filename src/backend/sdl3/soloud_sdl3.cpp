@@ -35,6 +35,11 @@ result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags, unsigned int aSam
 {
 	return NOT_IMPLEMENTED;
 }
+
+result sdl3_enumerate_devices(SoLoud::Soloud * /*aSoloud*/)
+{
+	return NOT_IMPLEMENTED;
+}
 } // namespace SoLoud
 
 #else
@@ -511,17 +516,8 @@ result setup_device_and_stream(SDL3Data *data, SDL_AudioDeviceID targetDeviceID,
 }
 
 // device management functions
-result sdl3_enumerate_devices(Soloud *aSoloud)
+result fill_device_list(Soloud *aSoloud)
 {
-	if (!aSoloud)
-		return INVALID_PARAMETER;
-
-	auto *data = static_cast<SDL3Data *>(aSoloud->mBackendData);
-	if (!data)
-		return INVALID_PARAMETER;
-
-	std::lock_guard<std::mutex> lock(data->deviceMutex);
-
 	int physicalDeviceCount = 0;
 	SDL_AudioDeviceID *physicalDevices = SDL_GetAudioPlaybackDevices(&physicalDeviceCount);
 	if (!physicalDevices)
@@ -698,6 +694,32 @@ result sdl3_set_device(Soloud *aSoloud, const char *deviceIdentifier)
 }
 
 } // namespace
+
+result sdl3_enumerate_devices(Soloud *aSoloud)
+{
+	if (!aSoloud)
+		return INVALID_PARAMETER;
+
+	if (aSoloud->mBackendID == Soloud::SDL3)
+	{
+		auto *data = static_cast<SDL3Data *>(aSoloud->mBackendData);
+		if (!data)
+			return INVALID_PARAMETER;
+
+		std::lock_guard<std::mutex> lock(data->deviceMutex);
+		return fill_device_list(aSoloud);
+	}
+
+	// not the active backend, so the audio subsystem has to be brought up for the query; it's deliberately left initialized afterwards,
+	// since sdl device ids (and with them our identifiers) only stay valid while it is
+	if (!SDL_WasInit(SDL_INIT_AUDIO) && !SDL_InitSubSystem(SDL_INIT_AUDIO))
+	{
+		SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to initialize SDL audio subsystem for device enumeration: %s", SDL_GetError());
+		return UNKNOWN_ERROR;
+	}
+
+	return fill_device_list(aSoloud);
+}
 
 result sdl3_init(SoLoud::Soloud *aSoloud, unsigned int aFlags /*Soloud::CLIP_ROUNDOFF*/, unsigned int aSamplerate /*Soloud::AUTO (0)*/,
                  unsigned int aBuffer /*Soloud::AUTO (0)*/, unsigned int aChannels /*2*/)

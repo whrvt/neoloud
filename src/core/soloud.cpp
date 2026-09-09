@@ -84,6 +84,10 @@ Soloud::Soloud()
 	mEnumerateDevicesFunc = nullptr;
 	mGetCurrentDeviceFunc = nullptr;
 	mSetDeviceFunc = nullptr;
+	mGetDeviceLatencyFunc = nullptr;
+	mGetBufferSizeLimitsFunc = nullptr;
+	mOpenControlPanelFunc = nullptr;
+	mIsDeviceLostFunc = nullptr;
 	mDeviceList = nullptr;
 	mDeviceCount = 0;
 	mChannels = 2;
@@ -164,18 +168,25 @@ void Soloud::deinit()
 	if (mBackendCleanupFunc)
 		mBackendCleanupFunc(this);
 	mBackendCleanupFunc = nullptr;
+	mBackendID = 0;
+	mBackendString = nullptr;
 	if (mAudioThreadMutex)
 		Thread::destroyMutex(mAudioThreadMutex);
 	mAudioThreadMutex = nullptr;
 	mEnumerateDevicesFunc = nullptr;
 	mGetCurrentDeviceFunc = nullptr;
 	mSetDeviceFunc = nullptr;
+	mGetDeviceLatencyFunc = nullptr;
+	mGetBufferSizeLimitsFunc = nullptr;
+	mOpenControlPanelFunc = nullptr;
+	mIsDeviceLostFunc = nullptr;
 	delete[] mDeviceList;
 	mDeviceList = nullptr;
 	mDeviceCount = 0;
 }
 
-result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aChannels)
+result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aChannels,
+                    const char *aDeviceIdentifier)
 {
 	if (aBackend >= BACKEND_MAX || aChannels == 3 || aChannels == 5 || aChannels == 7 || aChannels > MAX_CHANNELS)
 		return INVALID_PARAMETER;
@@ -224,6 +235,18 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 	}
 #endif
 
+#if defined(WITH_ASIO)
+	if (!inited && aBackend == Soloud::ASIO)
+	{
+		failed = asio_init(this, aFlags, samplerate, buffersize, aChannels, aDeviceIdentifier);
+		if (failed == 0)
+		{
+			inited = 1;
+			mBackendID = Soloud::ASIO;
+		}
+	}
+#endif
+
 	if (failed != 0 && aBackend != Soloud::AUTO)
 		return failed;
 
@@ -267,6 +290,17 @@ result Soloud::init(unsigned int aFlags, unsigned int aBackend, unsigned int aSa
 		return NOT_IMPLEMENTED;
 	if (!inited)
 		return UNKNOWN_ERROR;
+
+	if (aDeviceIdentifier)
+	{
+		// backends that couldn't open the requested device directly switch to it now (a no-op for the ones that did)
+		result deviceResult = setDevice(aDeviceIdentifier);
+		if (deviceResult != SO_NO_ERROR && deviceResult != NOT_IMPLEMENTED)
+		{
+			deinit();
+			return deviceResult;
+		}
+	}
 	return 0;
 }
 
@@ -282,6 +316,14 @@ result Soloud::resume()
 {
 	if (mBackendResumeFunc)
 		return mBackendResumeFunc(this);
+
+	return NOT_IMPLEMENTED;
+}
+
+result Soloud::openDeviceControlPanel()
+{
+	if (mOpenControlPanelFunc)
+		return mOpenControlPanelFunc(this);
 
 	return NOT_IMPLEMENTED;
 }
